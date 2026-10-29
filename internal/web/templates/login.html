@@ -1,0 +1,23 @@
+{{define "content"}}
+<section class="login">
+  <img src="/static/favicon.svg" alt="" width="56" height="56">
+  <h1>Hilo CRM</h1>
+  <p class="muted">El CRM headless para que tus agentes de IA sigan cada oportunidad.</p>
+  {{with .Data}}
+  <div class="providers">
+    {{if .Google}}<a class="btn provider" href="/auth/google?return_to={{.ReturnTo}}">Continuar con Google</a>{{end}}
+    {{if .Microsoft}}<a class="btn provider" href="/auth/microsoft?return_to={{.ReturnTo}}">Continuar con Microsoft</a>{{end}}
+    {{if not (or .Google .Microsoft .Dev)}}<p class="flash err">No hay proveedores de inicio de sesión configurados. Definí GOOGLE_CLIENT_ID o MICROSOFT_CLIENT_ID.</p>{{end}}
+  </div>
+  {{if .Dev}}
+  <form method="post" action="/auth/dev" class="dev">
+    <p class="warn">Modo desarrollo: login sin contraseña (solo localhost).</p>
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <input type="hidden" name="return_to" value="{{.ReturnTo}}">
+    <input type="email" name="email" placeholder="email@empresa.com" required autocomplete="email">
+    <button class="btn">Entrar (dev)</button>
+  </form>
+  {{end}}
+  {{end}}
+</section>
+{{end}}

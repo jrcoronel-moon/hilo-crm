@@ -1,0 +1,139 @@
+package web
+
+import (
+	"errors"
+	"net/http"
+	"strings"
+
+	"github.com/jrcoronel-moon/hilo-crm/internal/identity"
+	"github.com/jrcoronel-moon/hilo-crm/internal/secure"
+)
+
+type loginData struct {
+	Google, Microsoft, Dev bool
+	ReturnTo               string
+	CSRF                   string
+}
+
+// The dev login form is protected against login CSRF with a double-submit
+// token: a random value in a SameSite=Strict cookie that must match the form.
+func (h *Handler) preLoginCookie() string {
+	if h.cfg.SecureCookies() {
+		return "__Host-hilo_prelogin"
+	}
+	return "hilo_prelogin"
+}
+
+func (h *Handler) loginPage(w http.ResponseWriter, r *http.Request) {
+	msg := ""
+	switch r.URL.Query().Get("error") {
+	case "":
+	case "not_allowed":
+		msg = identity.ErrNotAllowed.Error()
+	case "unverified":
+		msg = "Tu proveedor no verificó este email. Si usás Microsoft con una cuenta de trabajo, tu organización tiene que verificar el dominio."
+	case "disabled":
+		msg = identity.ErrDisabled.Error()
+	default:
+		msg = "No pudimos completar el inicio de sesión. Probá de nuevo."
+	}
+	d := loginData{Google: h.cfg.GoogleEnabled(), Microsoft: h.cfg.MicrosoftEnabled(), Dev: h.cfg.DevLogin,
+		ReturnTo: safeReturn(r.URL.Query().Get("return_to"))}
+	if d.Dev {
+		d.CSRF = secure.Token("", 24)
+		http.SetCookie(w, &http.Cookie{Name: h.preLoginCookie(), Value: d.CSRF, Path: "/", MaxAge: 600, HttpOnly: true, //nolint:gosec // G124: Secure follows the base URL scheme
+			Secure: h.cfg.SecureCookies(), SameSite: http.SameSiteStrictMode})
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	h.render(w, http.StatusOK, "login", page{Title: "Entrar", Error: msg, Data: d})
+}
+
+func (h *Handler) authStart(w http.ResponseWriter, r *http.Request) {
+	p, ok := h.provider(r.PathValue("provider"))
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	if !h.loginLimit.Allow(h.ips.Of(r)) {
+		http.Error(w, "too many attempts", http.StatusTooManyRequests)
+		return
+	}
+	u, err := h.startURL(w, p, r.URL.Query().Get("return_to"))
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	http.Redirect(w, r, u, http.StatusFound) //nolint:gosec // G710: u is the provider's fixed authorization endpoint plus our parameters
+}
+
+func (h *Handler) authCallback(w http.ResponseWriter, r *http.Request) {
+	p, ok := h.provider(r.PathValue("provider"))
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	h.setCookie(w, h.loginCookieName(), "", -1)
+	if r.URL.Query().Get("error") != "" {
+		http.Redirect(w, r, "/login?error=provider", http.StatusSeeOther)
+		return
+	}
+	ext, returnTo, err := h.finish(r.Context(), r, p)
+	if err != nil {
+		h.log.Warn("login callback rejected", "provider", p.name, "err", err, "ip", h.ips.Of(r))
+		http.Redirect(w, r, "/login?error=failed", http.StatusSeeOther)
+		return
+	}
+	h.signIn(w, r, ext, returnTo)
+}
+
+// devLogin is a password-less login for local development only (config
+// refuses DEV_LOGIN_ENABLED unless the base URL is localhost).
+func (h *Handler) devLogin(w http.ResponseWriter, r *http.Request) {
+	if !h.cfg.DevLogin {
+		http.NotFound(w, r)
+		return
+	}
+	c, err := r.Cookie(h.preLoginCookie())
+	if (r.Header.Get("Origin") != "" && r.Header.Get("Origin") != h.cfg.BaseURL) || err != nil || !secure.Equal(c.Value, r.PostFormValue("csrf")) {
+		http.Error(w, "invalid or expired form, reload the page and try again", http.StatusForbidden)
+		return
+	}
+	h.setCookie(w, h.preLoginCookie(), "", -1)
+	email := strings.ToLower(strings.TrimSpace(r.PostFormValue("email")))
+	h.signIn(w, r, identity.ExternalIdentity{Provider: "dev", Subject: email, Email: email, EmailVerified: true, Name: email},
+		r.PostFormValue("return_to"))
+}
+
+func (h *Handler) signIn(w http.ResponseWriter, r *http.Request, ext identity.ExternalIdentity, returnTo string) {
+	u, err := h.id.Login(r.Context(), ext)
+	if err != nil {
+		code := "failed"
+		switch {
+		case errors.Is(err, identity.ErrNotAllowed):
+			code = "not_allowed"
+		case errors.Is(err, identity.ErrEmailUnverified):
+			code = "unverified"
+		case errors.Is(err, identity.ErrDisabled):
+			code = "disabled"
+		default:
+			h.log.Error("login", "err", err)
+		}
+		h.log.Info("login refused", "provider", ext.Provider, "reason", code, "ip", h.ips.Of(r))
+		http.Redirect(w, r, "/login?error="+code, http.StatusSeeOther)
+		return
+	}
+	token, err := h.id.CreateSession(r.Context(), u.ID)
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	h.setCookie(w, h.cookieName(), token, int(identity.SessionTTL.Seconds()))
+	h.log.Info("login", "user_id", u.ID, "provider", ext.Provider)
+	http.Redirect(w, r, safeReturn(returnTo), http.StatusSeeOther)
+}
+
+func (h *Handler) logout(w http.ResponseWriter, r *http.Request, v view) {
+	_ = h.id.Logout(r.Context(), v.Sess)
+	h.setCookie(w, h.cookieName(), "", -1)
+	http.Redirect(w, r, "/login", http.StatusSeeOther)
+}

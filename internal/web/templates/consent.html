@@ -1,0 +1,29 @@
+{{define "content"}}
+{{$d := .Data}}
+<section class="narrow card consent">
+  <h1>Conectar un agente</h1>
+  <p class="lead"><strong>{{if $d.Pending.ClientName}}{{$d.Pending.ClientName}}{{else}}Una aplicación sin nombre{{end}}</strong> quiere acceder a tu CRM.</p>
+  {{if not $d.Pending.Verified}}
+  <p class="warn">El nombre lo declara la propia aplicación y no está verificado. Fijate a dónde se envía la autorización:</p>
+  {{end}}
+  <dl class="facts">
+    <dt>Destino</dt><dd><code>{{$d.Pending.RedirectHost}}</code></dd>
+    <dt>Permisos pedidos</dt><dd><code>{{$d.Pending.Scope}}</code></dd>
+  </dl>
+  <form method="post" action="/oauth/authorize">
+    <input type="hidden" name="csrf" value="{{$d.CSRF}}">
+    <input type="hidden" name="req" value="{{$d.Blob}}">
+    <label>Workspace
+      <select name="workspace">{{range .View.Workspaces}}<option value="{{.ID}}" {{if eq .ID $.View.Current.ID}}selected{{end}}>{{.Name}} ({{roleLabel .Role}})</option>{{end}}</select>
+    </label>
+    {{if not $d.Pending.ReadOnly}}
+    <label class="check"><input type="checkbox" name="read_only" value="1"> Solo lectura (el agente no podrá crear ni modificar nada)</label>
+    {{end}}
+    <p class="muted small">El agente actuará con tus permisos en ese workspace. Podés revocar el acceso en Ajustes → Agentes conectados.</p>
+    <div class="actions">
+      <button class="btn primary" name="decision" value="approve">Autorizar</button>
+      <button class="btn" name="decision" value="deny">Cancelar</button>
+    </div>
+  </form>
+</section>
+{{end}}

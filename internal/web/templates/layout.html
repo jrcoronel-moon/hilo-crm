@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>{{.Title}} · Hilo CRM</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/app.css">
+<script src="/static/app.js" defer></script>
+</head>
+<body>
+{{with .View}}
+<header class="top">
+  <a class="brand" href="/board"><img src="/static/favicon.svg" alt="" width="22" height="22"> Hilo</a>
+  {{if .Current}}
+  <nav>
+    <a href="/board" {{if eq $.Nav "board"}}aria-current="page"{{end}}>Funnel</a>
+    <a href="/dashboard" {{if eq $.Nav "dashboard"}}aria-current="page"{{end}}>Dashboard</a>
+    <a href="/settings" {{if eq $.Nav "settings"}}aria-current="page"{{end}}>Ajustes</a>
+    {{if .Sess.IsSuperadmin}}<a href="/admin" {{if eq $.Nav "admin"}}aria-current="page"{{end}}>Superadmin</a>{{end}}
+  </nav>
+  {{end}}
+  <div class="who">
+    {{if gt (len .Workspaces) 1}}
+    <form method="post" action="/workspaces/switch" class="inline">
+      <input type="hidden" name="csrf" value="{{.Sess.CSRFToken}}">
+      <select name="workspace" data-autosubmit aria-label="Workspace">
+        {{range .Workspaces}}<option value="{{.ID}}" {{if and $.View.Current (eq .ID $.View.Current.ID)}}selected{{end}}>{{.Name}}</option>{{end}}
+      </select>
+      <noscript><button>Cambiar</button></noscript>
+    </form>
+    {{else if .Current}}<span class="ws">{{.Current.Name}}</span>{{end}}
+    <span class="email">{{.Sess.Email}}</span>
+    <form method="post" action="/logout" class="inline">
+      <input type="hidden" name="csrf" value="{{.Sess.CSRFToken}}">
+      <button class="link">Salir</button>
+    </form>
+  </div>
+</header>
+{{end}}
+<main>
+{{if .Flash}}<p class="flash ok" role="status">{{.Flash}}</p>{{end}}
+{{if .Error}}<p class="flash err" role="alert">{{.Error}}</p>{{end}}
+{{block "content" .}}{{end}}
+</main>
+</body>
+</html>

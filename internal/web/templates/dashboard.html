@@ -1,0 +1,54 @@
+{{define "content"}}
+{{$d := .Data}}{{$m := $d.Metrics}}
+<div class="toolbar">
+  <h1>Dashboard · {{$m.PipelineName}}</h1>
+  <form method="get" action="/dashboard" class="inline">
+    {{if gt (len $d.Pipelines) 1}}
+    <select name="pipeline" data-autosubmit aria-label="Pipeline">
+      {{range $d.Pipelines}}<option value="{{.ID}}" {{if eq .ID $m.PipelineID}}selected{{end}}>{{.Name}}</option>{{end}}
+    </select>
+    {{end}}
+    <select name="days" data-autosubmit aria-label="Período">
+      <option value="30" {{if eq $d.Days 30}}selected{{end}}>Últimos 30 días</option>
+      <option value="90" {{if eq $d.Days 90}}selected{{end}}>Últimos 90 días</option>
+      <option value="180" {{if eq $d.Days 180}}selected{{end}}>Últimos 180 días</option>
+      <option value="365" {{if eq $d.Days 365}}selected{{end}}>Último año</option>
+    </select>
+    <noscript><button>Ver</button></noscript>
+  </form>
+</div>
+<div class="kpis">
+  <div class="kpi"><span>Abiertas</span><strong>{{$m.OpenCount}}</strong><small>{{moneyMap $m.OpenAmount}}</small></div>
+  <div class="kpi"><span>Ponderado</span><strong>{{moneyMap $m.Weighted}}</strong><small>según probabilidad</small></div>
+  <div class="kpi"><span>Ganadas</span><strong>{{$m.WonCount}}</strong><small>{{moneyMap $m.WonAmount}}</small></div>
+  <div class="kpi"><span>Win rate</span><strong>{{pct $m.WinRate}}</strong><small>{{$m.WonCount}} ganadas / {{$m.LostCount}} perdidas</small></div>
+  <div class="kpi"><span>Ciclo medio</span><strong>{{$m.AvgCycleDays}} d</strong><small>de creación a ganada</small></div>
+  <div class="kpi {{if gt $m.StaleCount 0}}alert{{end}}"><span>Estancadas</span><strong>{{$m.StaleCount}}</strong><small>sin actividad 14 d</small></div>
+</div>
+<div class="panels">
+  <section class="card">
+    <h2>Funnel abierto por etapa</h2>
+    <table class="bars">
+      {{range $m.Stages}}{{if not (isClosing .Category)}}
+      <tr><th>{{.Name}}</th><td><svg class="bar" aria-hidden="true"><rect height="100%" width="{{bar .Count $d.MaxStage}}"/></svg></td><td class="num">{{.Count}}</td><td class="num muted">{{moneyMap .Amount}}</td><td class="num muted">{{.AvgDays}} d</td></tr>
+      {{end}}{{end}}
+    </table>
+    <p class="muted small">Cantidad · monto · días promedio en la etapa</p>
+  </section>
+  <section class="card">
+    <h2>Nuevas oportunidades por canal</h2>
+    <table class="bars">
+      {{range $m.LeadsByChan}}<tr><th>{{.Channel}}</th><td><svg class="bar alt" aria-hidden="true"><rect height="100%" width="{{bar .Count $d.MaxChan}}"/></svg></td><td class="num">{{.Count}}</td></tr>
+      {{else}}<tr><td class="muted">Sin datos en el período</td></tr>{{end}}
+    </table>
+  </section>
+  <section class="card wide">
+    <h2>Interacciones por semana</h2>
+    <table class="bars">
+      {{range $d.Weeks}}<tr><th>{{.Week}}</th><td><svg class="bar" aria-hidden="true"><rect height="100%" width="{{bar .Total $d.MaxWeek}}"/></svg></td><td class="num">{{.Total}}</td><td class="num muted">↓{{.Inbound}} ↑{{.Outbound}} ·{{.Internal}}</td></tr>
+      {{else}}<tr><td class="muted">Sin interacciones en el período</td></tr>{{end}}
+    </table>
+    <p class="muted small">↓ entrantes · ↑ salientes · notas internas</p>
+  </section>
+</div>
+{{end}}

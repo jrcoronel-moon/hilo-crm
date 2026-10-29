@@ -1,0 +1,290 @@
+// Package web is the human-facing side of Hilo: sign-in (Google, Microsoft),
+// the OAuth consent screen, the pipeline board, a light dashboard, workspace
+// settings and the superadmin page, plus the public lead-form endpoint.
+//
+// Pages are server-rendered with html/template (context-aware escaping) and
+// served under a strict CSP with no inline script. Every state-changing
+// request needs a session, a matching per-session CSRF token and, when the
+// browser sends one, a same-origin Origin header.
+package web
+
+import (
+	"context"
+	"embed"
+	"errors"
+	"html/template"
+	"io/fs"
+	"log/slog"
+	"net/http"
+	"net/url"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+
+	"github.com/jrcoronel-moon/hilo-crm/internal/config"
+	"github.com/jrcoronel-moon/hilo-crm/internal/crm"
+	"github.com/jrcoronel-moon/hilo-crm/internal/httpx"
+	"github.com/jrcoronel-moon/hilo-crm/internal/identity"
+	"github.com/jrcoronel-moon/hilo-crm/internal/oauth"
+	"github.com/jrcoronel-moon/hilo-crm/internal/secure"
+)
+
+//go:embed templates/*.html
+var templateFS embed.FS
+
+//go:embed static
+var staticFS embed.FS
+
+// Handler serves the web UI.
+type Handler struct {
+	cfg   *config.Config
+	crm   *crm.Service
+	id    *identity.Service
+	oauth *oauth.Server
+	log   *slog.Logger
+	ips   *httpx.ClientIP
+	tpl   map[string]*template.Template
+
+	loginLimit *httpx.RateLimiter
+	formLimit  *httpx.RateLimiter
+	http       *http.Client // to the identity providers
+}
+
+// New builds the handler and parses the templates.
+func New(cfg *config.Config, crmSvc *crm.Service, idSvc *identity.Service, oa *oauth.Server, log *slog.Logger) (*Handler, error) {
+	h := &Handler{
+		cfg: cfg, crm: crmSvc, id: idSvc, oauth: oa, log: log, ips: httpx.NewClientIP(cfg.TrustedProxies),
+		loginLimit: httpx.NewRateLimiter(30, 30), formLimit: httpx.NewRateLimiter(10, 10),
+		http: &http.Client{Timeout: 15 * time.Second},
+	}
+	return h, h.parseTemplates()
+}
+
+func (h *Handler) parseTemplates() error {
+	pages, err := fs.Glob(templateFS, "templates/*.html")
+	if err != nil {
+		return err
+	}
+	h.tpl = map[string]*template.Template{}
+	for _, p := range pages {
+		name := strings.TrimSuffix(strings.TrimPrefix(p, "templates/"), ".html")
+		if name == "layout" {
+			continue
+		}
+		t, err := template.New("layout.html").Funcs(funcs).ParseFS(templateFS, "templates/layout.html", p)
+		if err != nil {
+			return err
+		}
+		h.tpl[name] = t
+	}
+	return nil
+}
+
+// Routes mounts the web endpoints.
+func (h *Handler) Routes(mux *http.ServeMux) {
+	static, _ := fs.Sub(staticFS, "static")
+	mux.Handle("GET /static/", http.StripPrefix("/static/", cacheStatic(http.FileServerFS(static))))
+	mux.HandleFunc("GET /{$}", h.home)
+	mux.HandleFunc("GET /login", h.loginPage)
+	mux.HandleFunc("GET /auth/{provider}", h.authStart)
+	mux.HandleFunc("GET /auth/{provider}/callback", h.authCallback)
+	mux.HandleFunc("POST /auth/dev", h.devLogin)
+	mux.HandleFunc("POST /logout", h.session(h.logout))
+	mux.HandleFunc("GET /oauth/authorize", h.authorize)
+	mux.HandleFunc("POST /oauth/authorize", h.session(h.consent))
+	mux.HandleFunc("GET /workspaces/new", h.session(h.newWorkspacePage))
+	mux.HandleFunc("POST /workspaces", h.session(h.createWorkspace))
+	mux.HandleFunc("POST /workspaces/switch", h.session(h.switchWorkspace))
+	mux.HandleFunc("GET /board", h.member(h.board))
+	mux.HandleFunc("GET /dashboard", h.member(h.dashboard))
+	mux.HandleFunc("GET /settings", h.member(h.settings))
+	mux.HandleFunc("POST /settings/{action}", h.member(h.settingsAction))
+	mux.HandleFunc("GET /admin", h.session(h.adminPage))
+	mux.HandleFunc("POST /admin/{action}", h.session(h.adminAction))
+	mux.HandleFunc("POST /f/{key}", h.submitForm)
+	mux.HandleFunc("OPTIONS /f/{key}", h.formPreflight)
+}
+
+func cacheStatic(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "public, max-age=3600")
+		next.ServeHTTP(w, r)
+	})
+}
+
+// ───────────── sessions ─────────────
+
+func (h *Handler) cookieName() string {
+	if h.cfg.SecureCookies() {
+		return "__Host-hilo_session"
+	}
+	return "hilo_session"
+}
+
+func (h *Handler) setCookie(w http.ResponseWriter, name, value string, maxAge int) {
+	// Secure is on whenever the base URL is https; config only allows plain
+	// http for localhost development.
+	http.SetCookie(w, &http.Cookie{Name: name, Value: value, Path: "/", MaxAge: maxAge, HttpOnly: true, //nolint:gosec // G124: see above
+		Secure: h.cfg.SecureCookies(), SameSite: http.SameSiteLaxMode})
+}
+
+// view is what a page handler gets about the signed-in user.
+type view struct {
+	Sess       identity.Session
+	Workspaces []workspaceItem
+	Current    *workspaceItem
+	Actor      crm.Actor
+}
+
+type workspaceItem struct {
+	ID   uuid.UUID
+	Name string
+	Role string
+}
+
+// IsAdmin reports whether the user administers the current workspace.
+func (v view) IsAdmin() bool {
+	return v.Current != nil && (v.Current.Role == "owner" || v.Current.Role == "admin")
+}
+
+func (v view) caller() identity.Caller {
+	c := identity.Caller{UserID: v.Sess.UserID, IsSuperadmin: v.Sess.IsSuperadmin}
+	if v.Current != nil {
+		c.WorkspaceID, c.Role = v.Current.ID, v.Current.Role
+	}
+	return c
+}
+
+// session requires a signed-in user; POSTs also need a valid CSRF token and a
+// same-origin Origin header.
+func (h *Handler) session(next func(http.ResponseWriter, *http.Request, view)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		c, err := r.Cookie(h.cookieName())
+		var sess identity.Session
+		if err == nil {
+			sess, err = h.id.ResolveSession(r.Context(), c.Value)
+		}
+		if err != nil {
+			if r.Method == http.MethodGet {
+				http.Redirect(w, r, "/login?return_to="+url.QueryEscape(r.URL.RequestURI()), http.StatusSeeOther)
+				return
+			}
+			http.Error(w, "sign in required", http.StatusUnauthorized)
+			return
+		}
+		if r.Method != http.MethodGet && !h.validPost(r, sess) {
+			h.log.Warn("csrf check failed", "path", r.URL.Path, "ip", h.ips.Of(r))
+			http.Error(w, "invalid or expired form, reload the page and try again", http.StatusForbidden)
+			return
+		}
+		v, err := h.loadView(r.Context(), sess)
+		if err != nil {
+			h.fail(w, r, err)
+			return
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		next(w, r, v)
+	}
+}
+
+// member additionally requires a current workspace.
+func (h *Handler) member(next func(http.ResponseWriter, *http.Request, view)) http.HandlerFunc {
+	return h.session(func(w http.ResponseWriter, r *http.Request, v view) {
+		if v.Current == nil {
+			http.Redirect(w, r, "/workspaces/new", http.StatusSeeOther)
+			return
+		}
+		next(w, r, v)
+	})
+}
+
+func (h *Handler) validPost(r *http.Request, sess identity.Session) bool {
+	if o := r.Header.Get("Origin"); o != "" && o != h.cfg.BaseURL {
+		return false
+	}
+	return secure.Equal(r.PostFormValue("csrf"), sess.CSRFToken)
+}
+
+func (h *Handler) loadView(ctx context.Context, sess identity.Session) (view, error) {
+	list, err := h.id.Workspaces(ctx, sess.UserID)
+	if err != nil {
+		return view{}, err
+	}
+	v := view{Sess: sess}
+	for _, w := range list {
+		v.Workspaces = append(v.Workspaces, workspaceItem{ID: w.ID, Name: w.Name, Role: w.Role})
+	}
+	for i := range v.Workspaces {
+		if sess.WorkspaceID != nil && v.Workspaces[i].ID == *sess.WorkspaceID {
+			v.Current = &v.Workspaces[i]
+		}
+	}
+	if v.Current == nil && len(v.Workspaces) > 0 {
+		v.Current = &v.Workspaces[0]
+	}
+	if v.Current != nil {
+		v.Actor = crm.NewActor(sess.UserID, v.Current.ID, v.Current.Role, "session", "web", "")
+	}
+	return v, nil
+}
+
+// ───────────── rendering ─────────────
+
+type page struct {
+	Title string
+	View  *view
+	Nav   string
+	Flash string
+	Error string
+	Data  any
+	Cfg   *config.Config
+}
+
+func (h *Handler) render(w http.ResponseWriter, status int, name string, p page) {
+	t, ok := h.tpl[name]
+	if !ok {
+		h.log.Error("unknown template", "name", name)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	p.Cfg = h.cfg
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(status)
+	if err := t.Execute(w, p); err != nil {
+		h.log.Error("render", "template", name, "err", err)
+	}
+}
+
+// fail renders a safe error page; details go to the log only.
+func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
+	status, msg := http.StatusInternalServerError, "Algo salió mal. Probá de nuevo en un momento."
+	var ve *crm.ValidationError
+	switch {
+	case errors.As(err, &ve):
+		status, msg = http.StatusBadRequest, ve.Error()
+	case errors.Is(err, crm.ErrNotFound), errors.Is(err, identity.ErrNotFound):
+		status, msg = http.StatusNotFound, "No encontrado."
+	case errors.Is(err, crm.ErrForbidden), errors.Is(err, identity.ErrForbidden):
+		status, msg = http.StatusForbidden, "No tenés permiso para hacer esto."
+	case errors.Is(err, crm.ErrConflict), errors.Is(err, identity.ErrLastOwner):
+		status, msg = http.StatusConflict, err.Error()
+	default:
+		h.log.Error("web", "path", r.URL.Path, "err", err)
+	}
+	h.render(w, status, "error", page{Title: "Error", Error: msg})
+}
+
+func (h *Handler) home(w http.ResponseWriter, r *http.Request) {
+	h.member(func(w http.ResponseWriter, r *http.Request, _ view) {
+		http.Redirect(w, r, "/board", http.StatusSeeOther)
+	})(w, r)
+}
+
+// safeReturn accepts only same-site absolute paths (no //host, no \).
+func safeReturn(s string) string {
+	if s == "" || !strings.HasPrefix(s, "/") || strings.HasPrefix(s, "//") || strings.ContainsAny(s, "\\\r\n") || len(s) > 4000 {
+		return "/"
+	}
+	return s
+}

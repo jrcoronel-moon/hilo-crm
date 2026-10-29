@@ -1,0 +1,40 @@
+{{define "content"}}
+{{$d := .Data}}
+<div class="toolbar">
+  <h1>{{$d.Pipeline.Name}}</h1>
+  {{if gt (len $d.Pipelines) 1}}
+  <form method="get" action="/board" class="inline">
+    <select name="pipeline" data-autosubmit aria-label="Pipeline">
+      {{range $d.Pipelines}}<option value="{{.ID}}" {{if eq .ID $d.Pipeline.ID}}selected{{end}}>{{.Name}}</option>{{end}}
+    </select>
+    <noscript><button>Ver</button></noscript>
+  </form>
+  {{end}}
+  <span class="muted small">Abiertas + cerradas en los últimos 30 días</span>
+</div>
+<div class="board">
+  {{range $d.Columns}}
+  <section class="col cat-{{.Stage.Category}}">
+    <header>
+      <h2>{{.Stage.Name}}</h2>
+      <span class="count">{{len .Cards}}</span>
+      <p class="total">{{moneyMap .Total}}</p>
+    </header>
+    <ol>
+      {{range .Cards}}
+      <li class="opp">
+        <p class="title">{{.Title}}</p>
+        {{with deref .CompanyName}}<p class="company">{{.}}</p>{{end}}
+        <p class="amount">{{minor .AmountMinor .Currency}}</p>
+        {{if .NextStep}}<p class="next">→ {{.NextStep}}{{with datep .NextStepAt}} · {{.}}{{end}}</p>{{end}}
+        <p class="meta">{{ago .LastInteractionAt}}{{with datep .ExpectedCloseDate}} · cierre {{.}}{{end}}</p>
+      </li>
+      {{else}}
+      <li class="empty">Sin oportunidades</li>
+      {{end}}
+    </ol>
+  </section>
+  {{end}}
+</div>
+<p class="muted small hint">Las oportunidades se crean y mueven desde tus agentes (MCP). Conectá uno en <a href="/settings#agentes">Ajustes</a>.</p>
+{{end}}
