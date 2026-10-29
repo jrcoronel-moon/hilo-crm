@@ -50,7 +50,7 @@ button.link { font: inherit; background: none; border: 0; color: var(--brand); c
 
 /* board */
 .toolbar { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; margin-bottom: .8rem; } .toolbar h1 { margin: 0; }
-.board { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(230px, 1fr); gap: .7rem; overflow-x: auto; padding-bottom: .6rem; align-items: start; }
+.board { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(190px, 1fr); gap: .7rem; overflow-x: auto; padding-bottom: .6rem; align-items: start; }
 .col { background: color-mix(in srgb, var(--line) 35%, var(--bg)); border-radius: var(--radius); padding: .6rem; min-height: 12rem; border-top: 3px solid var(--brand); }
 .col.cat-won { border-top-color: var(--won); } .col.cat-lost { border-top-color: var(--lost); } .col.cat-initial { border-top-color: var(--accent); }
 .col header { display: grid; grid-template-columns: 1fr auto; align-items: baseline; margin-bottom: .5rem; }
