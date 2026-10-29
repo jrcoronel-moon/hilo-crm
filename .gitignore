@@ -57,3 +57,6 @@ reports/
 
 # ── Local tool state ──
 .claude/
+
+# ── Python bytecode (scripts/) ──
+__pycache__/
