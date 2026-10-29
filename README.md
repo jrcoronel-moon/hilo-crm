@@ -64,7 +64,10 @@ URL del servidor MCP: `https://<tu-dominio>/mcp`
 - **Claude (web/desktop)**: Ajustes → Conectores → *Agregar conector personalizado* → pegá la URL. Se abre Hilo para
   iniciar sesión y autorizar; elegís el workspace y, si querés, acceso de solo lectura.
 - **Claude Code**: `claude mcp add --transport http hilo https://<tu-dominio>/mcp`
-- **ChatGPT, Grok, Cursor y otros**: agregá la URL como servidor MCP remoto. Si el cliente no soporta OAuth, creá un
+- **Grok (API de xAI)**: herramienta `{"type": "mcp", "server_url": "https://<tu-dominio>/mcp", "authorization":
+  "hilo_pat_…"}` en `/v1/responses` (el token solo: xAI agrega `Bearer`). Para probarlo contra tu stack local, con
+  túnel incluido: `./scripts/try-grok.py`.
+- **ChatGPT, Cursor y otros**: agregá la URL como servidor MCP remoto. Si el cliente no soporta OAuth, creá un
   token personal en *Ajustes → Agentes* y envialo como `Authorization: Bearer hilo_pat_…`.
 
 ### Herramientas MCP
