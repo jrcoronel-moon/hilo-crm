@@ -1,0 +1,60 @@
+{{define "actions"}}<a class="btn primary" href="#nuevo-token"><svg class="i sm"><use href="#i-plus"/></svg>Crear token</a>{{end}}
+{{define "content"}}
+{{$d := .Data}}
+<section class="card">
+  <div class="card-head">
+    <div><h2>Servidor MCP</h2><p class="muted small">Pegá esta URL en cualquier cliente MCP. Si soporta OAuth, te va a traer a Hilo para autorizar.</p></div>
+    <div class="copybox aside"><code>{{$d.MCPURL}}</code><button class="btn" type="button" data-copy="{{$d.MCPURL}}"><svg class="i sm"><use href="#i-copy"/></svg>Copiar</button></div>
+  </div>
+  <div class="howto">
+    <div><b>Claude (web / desktop)</b>Ajustes → Conectores → Agregar conector personalizado → pegá la URL.</div>
+    <div><b>Claude Code</b><code data-copy="claude mcp add --transport http hilo {{$d.MCPURL}}">claude mcp add --transport http hilo {{$d.MCPURL}}</code></div>
+    <div><b>Grok, ChatGPT, Cursor y otros</b>Sin OAuth, usá un token personal en <code>Authorization: Bearer …</code></div>
+  </div>
+</section>
+
+{{if $d.NewToken}}
+<div class="newtoken">
+  <b>Tu nuevo token — copialo ahora, no se vuelve a mostrar</b>
+  <div class="copybox"><code class="grow">{{$d.NewToken}}</code><button class="btn" type="button" data-copy="{{$d.NewToken}}"><svg class="i sm"><use href="#i-copy"/></svg>Copiar</button></div>
+</div>
+{{end}}
+
+<section class="card">
+  <div class="card-head"><h2>Agentes conectados por OAuth</h2>{{if $d.Connections}}<span class="aside"><span class="badge ok">{{len $d.Connections}} activos</span></span>{{end}}</div>
+  {{if $d.Connections}}
+  <table class="table">
+    <tr><th>Aplicación</th><th>Tipo</th><th>Autorizado</th><th>Último uso</th><th></th></tr>
+    {{range $d.Connections}}
+    <tr><td><div class="cellflex"><span class="av md agent2">{{initials .Name ""}}</span><div class="who"><b>{{.Name}}</b><small>{{if eq .Kind "cimd"}}verificado{{else}}nombre no verificado{{end}}</small></div></div></td>
+      <td><span class="tag outline">OAuth</span></td><td>{{date .GrantedAt}}</td><td>{{agoT .LastRefresh}}</td>
+      <td class="num"><form method="post" action="/settings/connection-revoke" data-confirm="¿Revocar a {{.Name}}?|El agente pierde acceso de inmediato. Esta acción queda en Auditoría."><input type="hidden" name="csrf" value="{{$d.CSRF}}"><input type="hidden" name="client" value="{{.ClientID}}"><button class="link danger">Revocar</button></form></td></tr>
+    {{end}}
+  </table>
+  {{else}}
+  <div class="empty"><span class="ic"><svg class="i"><use href="#i-plug"/></svg></span><h2>Todavía no hay agentes conectados</h2><p>Conectá Claude, ChatGPT o Cursor con la URL de arriba y aparecen acá.</p></div>
+  {{end}}
+</section>
+
+<section class="card" id="nuevo-token">
+  <div class="card-head"><h2>Tokens personales</h2><span class="aside">Se muestran una sola vez al crearlos</span></div>
+  {{if $d.PATs}}
+  <table class="table">
+    <tr><th>Nombre</th><th>Prefijo</th><th>Alcance</th><th>Vence</th><th>Último uso</th><th></th></tr>
+    {{range $d.PATs}}
+    <tr><td><b>{{.Name}}</b></td><td><code>{{.Prefix}}…</code></td>
+      <td>{{if eq .Scope "crm:read"}}<span class="tag">solo lectura</span>{{else}}<span class="tag amber">completo</span>{{end}}</td>
+      <td>{{with datep .ExpiresAt}}{{.}}{{else}}nunca{{end}}</td><td>{{with .LastUsedAt}}{{ago .}}{{else}}—{{end}}</td>
+      <td class="num"><form method="post" action="/settings/token-revoke" data-confirm="¿Revocar el token {{.Name}}?|El agente que lo usa pierde acceso de inmediato."><input type="hidden" name="csrf" value="{{$d.CSRF}}"><input type="hidden" name="id" value="{{.ID}}"><button class="link danger">Revocar</button></form></td></tr>
+    {{end}}
+  </table>
+  {{end}}
+  <form method="post" action="/settings/token" class="row">
+    <input type="hidden" name="csrf" value="{{$d.CSRF}}">
+    <label class="field grow">Nombre<input name="name" placeholder="p. ej. grok-bot" required maxlength="100"></label>
+    <label class="field">Vencimiento<select name="days"><option value="90">Vence en 90 días</option><option value="30">30 días</option><option value="365">1 año</option><option value="0">Nunca</option></select></label>
+    <label class="check"><input type="checkbox" name="read_only" value="1"> Solo lectura</label>
+    <button class="btn strong">Crear token</button>
+  </form>
+</section>
+{{end}}

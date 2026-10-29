@@ -1,0 +1,36 @@
+{{define "content"}}
+{{$d := .Data}}{{$base := .Cfg.BaseURL}}
+<p class="muted">Cada envío crea (o vincula, sin sobrescribir) el contacto y la empresa, una oportunidad en la etapa inicial y una interacción <em>form · inbound</em>.</p>
+{{range $d.Forms}}
+<section class="card">
+  <div class="card-head"><h2>{{.Name}}</h2>{{if .IsActive}}<span class="badge ok">activo</span>{{else}}<span class="badge">inactivo</span>{{end}}
+    <form method="post" action="/settings/form-toggle" class="aside"><input type="hidden" name="csrf" value="{{$d.CSRF}}"><input type="hidden" name="id" value="{{.ID}}"><input type="hidden" name="active" value="{{if .IsActive}}0{{else}}1{{end}}"><button class="btn sm">{{if .IsActive}}Desactivar{{else}}Activar{{end}}</button></form></div>
+  <div class="copybox"><code class="grow">{{$base}}/f/{{.PublicKey}}</code><button class="btn" type="button" data-copy="{{$base}}/f/{{.PublicKey}}"><svg class="i sm"><use href="#i-copy"/></svg>Copiar</button></div>
+  <pre class="snippet">&lt;form method="post" action="{{$base}}/f/{{.PublicKey}}"&gt;
+  &lt;input name="name" placeholder="Nombre"&gt;
+  &lt;input name="email" type="email" required&gt;
+  &lt;input name="company" placeholder="Empresa"&gt;
+  &lt;textarea name="message"&gt;&lt;/textarea&gt;
+  &lt;input name="website" style="display:none" tabindex="-1" autocomplete="off"&gt;
+  &lt;button&gt;Enviar&lt;/button&gt;
+&lt;/form&gt;</pre>
+  {{if .AllowedOrigins}}<p class="muted small">Orígenes permitidos: {{range .AllowedOrigins}}<code>{{.}}</code> {{end}}</p>{{end}}
+</section>
+{{else}}
+<div class="empty"><span class="ic"><svg class="i"><use href="#i-file"/></svg></span><h2>Todavía no hay formularios</h2><p>Creá uno y pegá el snippet en tu web: cada envío llega como lead a la etapa inicial.</p></div>
+{{end}}
+<section class="card">
+  <h2>Nuevo formulario</h2>
+  <form method="post" action="/settings/form" class="stack">
+    <input type="hidden" name="csrf" value="{{$d.CSRF}}">
+    <div class="row">
+      <label class="field grow">Nombre<input name="name" placeholder="Contacto web" required maxlength="100"></label>
+      <label class="field">Pipeline<select name="pipeline">{{range $d.Pipelines}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></label>
+      <label class="field">Canal<select name="channel">{{range $d.Channels}}<option value="{{.ID}}" {{if eq .Kind "form"}}selected{{end}}>{{.Name}}</option>{{end}}</select></label>
+    </div>
+    <label class="field">Orígenes permitidos<input name="origins" placeholder="https://www.tuweb.com (separados por espacio)"></label>
+    <label class="field">URL de agradecimiento (opcional)<input name="redirect_url" placeholder="https://www.tuweb.com/gracias"></label>
+    <div><button class="btn primary">Crear formulario</button></div>
+  </form>
+</section>
+{{end}}

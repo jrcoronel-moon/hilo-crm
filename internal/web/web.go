@@ -97,8 +97,12 @@ func (h *Handler) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /workspaces", h.session(h.createWorkspace))
 	mux.HandleFunc("POST /workspaces/switch", h.session(h.switchWorkspace))
 	mux.HandleFunc("GET /board", h.member(h.board))
+	mux.HandleFunc("POST /board/move", h.member(h.boardMove))
 	mux.HandleFunc("GET /dashboard", h.member(h.dashboard))
-	mux.HandleFunc("GET /settings", h.member(h.settings))
+	mux.HandleFunc("GET /settings", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/settings/agents", http.StatusSeeOther)
+	})
+	mux.HandleFunc("GET /settings/{section}", h.member(h.settings))
 	mux.HandleFunc("POST /settings/{action}", h.member(h.settingsAction))
 	mux.HandleFunc("GET /admin", h.session(h.adminPage))
 	mux.HandleFunc("POST /admin/{action}", h.session(h.adminAction))
@@ -135,6 +139,8 @@ type view struct {
 	Workspaces []workspaceItem
 	Current    *workspaceItem
 	Actor      crm.Actor
+	AgentCount int // OAuth agents connected (sidebar)
+	TokenCount int // active personal access tokens (sidebar)
 }
 
 type workspaceItem struct {
@@ -225,6 +231,13 @@ func (h *Handler) loadView(ctx context.Context, sess identity.Session) (view, er
 	}
 	if v.Current != nil {
 		v.Actor = crm.NewActor(sess.UserID, v.Current.ID, v.Current.Role, "session", "web", "")
+		c := v.caller()
+		if conns, err := h.id.Connections(ctx, c); err == nil {
+			v.AgentCount = len(conns)
+		}
+		if pats, err := h.id.PATs(ctx, c); err == nil {
+			v.TokenCount = len(pats)
+		}
 	}
 	return v, nil
 }
@@ -233,6 +246,8 @@ func (h *Handler) loadView(ctx context.Context, sess identity.Session) (view, er
 
 type page struct {
 	Title string
+	Crumb string // secondary title ("Funnel · Ventas")
+	Bare  bool   // full-page screens without the sidebar (consent)
 	View  *view
 	Nav   string
 	Flash string

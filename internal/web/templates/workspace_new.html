@@ -1,11 +1,8 @@
 {{define "content"}}
-<section class="narrow card">
-  <h1>Crear un workspace</h1>
-  <p class="muted">Un workspace agrupa empresas, contactos, oportunidades y pipelines de un equipo. Se crea con un pipeline de ventas y canales por defecto que luego podés cambiar.</p>
-  <form method="post" action="/workspaces">
-    <input type="hidden" name="csrf" value="{{.View.Sess.CSRFToken}}">
-    <label>Nombre <input name="name" required maxlength="120" placeholder="Mi empresa"></label>
-    <button class="btn primary">Crear</button>
-  </form>
-</section>
+<p class="muted">Un workspace agrupa empresas, contactos, oportunidades y pipelines de un equipo. Se crea con un pipeline de ventas y canales por defecto que después podés cambiar.</p>
+<form method="post" action="/workspaces" class="stack">
+  <input type="hidden" name="csrf" value="{{.View.Sess.CSRFToken}}">
+  <label class="field">Nombre <input name="name" required maxlength="120" placeholder="Mi empresa"></label>
+  <button class="btn primary">Crear workspace</button>
+</form>
 {{end}}

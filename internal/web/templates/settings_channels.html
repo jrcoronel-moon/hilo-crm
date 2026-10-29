@@ -1,0 +1,26 @@
+{{define "content"}}
+{{$d := .Data}}{{$admin := .View.IsAdmin}}
+<section class="card">
+  <div class="card-head"><div><h2>Canales</h2><p class="muted small">Origen de leads y canal de cada interacción (web, formularios, email, redes, referidos…).</p></div></div>
+  <table class="table">
+    <tr><th>Nombre</th><th>Tipo</th><th></th></tr>
+    {{range $d.Channels}}
+    <tr>
+      {{if $admin}}
+      <td colspan="2"><form method="post" action="/settings/channel" class="row"><input type="hidden" name="csrf" value="{{$d.CSRF}}"><input type="hidden" name="id" value="{{.ID}}">
+        <input name="name" value="{{.Name}}" required maxlength="100" aria-label="Nombre">{{$k := .Kind}}<select name="kind" aria-label="Tipo">{{range $d.ChannelKinds}}<option {{if eq . $k}}selected{{end}}>{{.}}</option>{{end}}</select><button class="btn sm">Guardar</button></form></td>
+      <td class="num"><form method="post" action="/settings/channel-archive" data-confirm="¿Archivar el canal {{.Name}}?|Deja de ofrecerse a los agentes. Las referencias existentes se conservan."><input type="hidden" name="csrf" value="{{$d.CSRF}}"><input type="hidden" name="id" value="{{.ID}}"><button class="link danger">Archivar</button></form></td>
+      {{else}}<td>{{.Name}}</td><td><span class="tag">{{.Kind}}</span></td><td></td>{{end}}
+    </tr>
+    {{end}}
+  </table>
+  {{if $admin}}
+  <form method="post" action="/settings/channel" class="row">
+    <input type="hidden" name="csrf" value="{{$d.CSRF}}">
+    <input name="name" placeholder="Nuevo canal" required maxlength="100" class="grow" aria-label="Nuevo canal">
+    <select name="kind" aria-label="Tipo">{{range $d.ChannelKinds}}<option>{{.}}</option>{{end}}</select>
+    <button class="btn strong"><svg class="i sm"><use href="#i-plus"/></svg>Agregar</button>
+  </form>
+  {{end}}
+</section>
+{{end}}

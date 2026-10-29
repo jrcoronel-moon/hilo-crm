@@ -12,7 +12,73 @@ import (
 	"github.com/jrcoronel-moon/hilo-crm/internal/store"
 )
 
+// settingsSection describes one settings page.
+type settingsSection struct {
+	title string
+	admin bool // only owners/admins may open it
+	load  func(h *Handler, r *http.Request, v view, d *settingsData) error
+}
+
+var settingsSections = map[string]settingsSection{
+	"agents": {title: "Agentes (MCP)", load: func(h *Handler, r *http.Request, v view, d *settingsData) error {
+		var err error
+		if d.Connections, err = h.id.Connections(r.Context(), v.caller()); err != nil {
+			return err
+		}
+		d.PATs, err = h.id.PATs(r.Context(), v.caller())
+		return err
+	}},
+	"pipelines": {title: "Pipelines", load: func(h *Handler, r *http.Request, v view, d *settingsData) error {
+		var err error
+		d.Pipelines, err = h.crm.ListPipelines(r.Context(), v.Actor)
+		return err
+	}},
+	"channels": {title: "Canales", load: func(h *Handler, r *http.Request, v view, d *settingsData) error {
+		var err error
+		d.Channels, err = h.crm.ListChannels(r.Context(), v.Actor)
+		return err
+	}},
+	"forms": {title: "Formularios", admin: true, load: func(h *Handler, r *http.Request, v view, d *settingsData) error {
+		var err error
+		if d.Forms, err = h.crm.ListLeadForms(r.Context(), v.Actor); err != nil {
+			return err
+		}
+		if d.Pipelines, err = h.crm.ListPipelines(r.Context(), v.Actor); err != nil {
+			return err
+		}
+		d.Channels, err = h.crm.ListChannels(r.Context(), v.Actor)
+		return err
+	}},
+	"members": {title: "Miembros", load: func(h *Handler, r *http.Request, v view, d *settingsData) error {
+		var err error
+		if d.Members, err = h.id.Members(r.Context(), v.caller()); err != nil || !v.IsAdmin() {
+			return err
+		}
+		if d.Invitations, err = h.id.Invitations(r.Context(), v.caller()); err != nil {
+			return err
+		}
+		d.Domains, err = h.id.WorkspaceDomains(r.Context(), v.caller())
+		return err
+	}},
+	"audit": {title: "Auditoría", admin: true, load: func(h *Handler, r *http.Request, v view, d *settingsData) error {
+		var err error
+		d.Audit, err = h.crm.ListAudit(r.Context(), v.Actor, "", 100)
+		return err
+	}},
+}
+
+// actionSection maps a POST /settings/{action} to the page it returns to.
+var actionSection = map[string]string{
+	"pipeline": "pipelines", "pipeline-archive": "pipelines",
+	"channel": "channels", "channel-archive": "channels",
+	"form": "forms", "form-toggle": "forms",
+	"invite": "members", "role": "members", "remove": "members", "invitation-revoke": "members",
+	"domain": "members", "domain-remove": "members",
+	"token": "agents", "token-revoke": "agents", "connection-revoke": "agents",
+}
+
 type settingsData struct {
+	Section      string
 	CSRF         string
 	Pipelines    []crm.PipelineView
 	Channels     []crm.ChannelView
@@ -27,7 +93,6 @@ type settingsData struct {
 	NewToken     string
 	MCPURL       string
 	Categories   []string
-	BlankStages  []int
 }
 
 var flashes = map[string]string{
@@ -38,52 +103,40 @@ var flashes = map[string]string{
 }
 
 func (h *Handler) settings(w http.ResponseWriter, r *http.Request, v view) {
-	h.renderSettings(w, r, v, flashes[r.URL.Query().Get("ok")], "")
+	h.renderSettings(w, r, v, r.PathValue("section"), flashes[r.URL.Query().Get("ok")], "")
 }
 
-func (h *Handler) renderSettings(w http.ResponseWriter, r *http.Request, v view, flash, newToken string) {
-	ctx, a, c := r.Context(), v.Actor, v.caller()
-	d := settingsData{CSRF: v.Sess.CSRFToken, ChannelKinds: crm.ChannelKinds, NewToken: newToken, MCPURL: h.cfg.MCPResource(),
-		Categories: []string{crm.CatInitial, crm.CatInProgress, crm.CatWon, crm.CatLost}, BlankStages: []int{1, 2, 3}}
-	var err error
-	collect := func(e error) {
-		if err == nil {
-			err = e
-		}
+func (h *Handler) renderSettings(w http.ResponseWriter, r *http.Request, v view, section, flash, newToken string) {
+	sec, ok := settingsSections[section]
+	if !ok {
+		http.NotFound(w, r)
+		return
 	}
-	d.Pipelines, err = h.crm.ListPipelines(ctx, a)
-	var e error
-	d.Channels, e = h.crm.ListChannels(ctx, a)
-	collect(e)
-	d.Members, e = h.id.Members(ctx, c)
-	collect(e)
-	d.PATs, e = h.id.PATs(ctx, c)
-	collect(e)
-	d.Connections, e = h.id.Connections(ctx, c)
-	collect(e)
-	if v.IsAdmin() {
-		d.Forms, e = h.crm.ListLeadForms(ctx, a)
-		collect(e)
-		d.Invitations, e = h.id.Invitations(ctx, c)
-		collect(e)
-		d.Domains, e = h.id.WorkspaceDomains(ctx, c)
-		collect(e)
-		d.Audit, e = h.crm.ListAudit(ctx, a, "", 50)
-		collect(e)
+	if sec.admin && !v.IsAdmin() {
+		h.fail(w, r, crm.ErrForbidden)
+		return
 	}
-	if err != nil {
+	d := settingsData{Section: section, CSRF: v.Sess.CSRFToken, ChannelKinds: crm.ChannelKinds, NewToken: newToken,
+		MCPURL: h.cfg.MCPResource(), Categories: []string{crm.CatInitial, crm.CatInProgress, crm.CatWon, crm.CatLost}}
+	if err := sec.load(h, r, v, &d); err != nil {
 		h.fail(w, r, err)
 		return
 	}
-	h.render(w, http.StatusOK, "settings", page{Title: "Ajustes", View: &v, Nav: "settings", Flash: flash, Data: d})
+	h.render(w, http.StatusOK, "settings_"+section, page{Title: "Ajustes", Crumb: sec.title, View: &v, Nav: section, Flash: flash, Data: d})
 }
 
 func (h *Handler) settingsAction(w http.ResponseWriter, r *http.Request, v view) {
 	ctx, a, c := r.Context(), v.Actor, v.caller()
 	f := r.PostFormValue
+	action := r.PathValue("action")
+	section, known := actionSection[action]
+	if !known {
+		http.NotFound(w, r)
+		return
+	}
 	ok := "saved"
 	var err error
-	switch r.PathValue("action") {
+	switch action {
 	case "pipeline":
 		_, err = h.crm.ConfigurePipeline(ctx, a, pipelineFromForm(r))
 	case "pipeline-archive":
@@ -116,21 +169,18 @@ func (h *Handler) settingsAction(w http.ResponseWriter, r *http.Request, v view)
 			h.fail(w, r, terr)
 			return
 		}
-		h.renderSettings(w, r, v, "Token creado. Copialo ahora: no se vuelve a mostrar.", tok)
+		h.renderSettings(w, r, v, "agents", "Token creado. Copialo ahora: no se vuelve a mostrar.", tok)
 		return
 	case "token-revoke":
 		err, ok = withID(f("id"), func(id uuid.UUID) error { return h.id.RevokePAT(ctx, c, id) }), "revoked"
 	case "connection-revoke":
 		err, ok = h.id.RevokeConnection(ctx, c, f("client")), "revoked"
-	default:
-		http.NotFound(w, r)
-		return
 	}
 	if err != nil {
 		h.fail(w, r, err)
 		return
 	}
-	http.Redirect(w, r, "/settings?ok="+ok, http.StatusSeeOther)
+	http.Redirect(w, r, "/settings/"+section+"?ok="+ok, http.StatusSeeOther)
 }
 
 func withID(s string, fn func(uuid.UUID) error) error {
@@ -141,18 +191,13 @@ func withID(s string, fn func(uuid.UUID) error) error {
 	return fn(id)
 }
 
-// pipelineFromForm reads the pipeline editor: parallel stage_* arrays (blank
-// names are ignored), ordered by the position inputs, plus reassign_<id>
-// selects for removed stages.
+// pipelineFromForm reads the pipeline editor: parallel stage_* arrays in
+// display order (rows can be reordered by dragging; blank names mean
+// "delete this stage"), plus reassign_<id> selects for removed stages.
 func pipelineFromForm(r *http.Request) crm.PipelineInput {
 	f := r.PostForm
 	in := crm.PipelineInput{ID: f.Get("id"), Name: f.Get("name"), IsDefault: f.Get("is_default") == "1", Reassign: map[string]string{}}
-	ids, names, cats, probs, pos := f["stage_id"], f["stage_name"], f["stage_category"], f["stage_probability"], f["stage_position"]
-	type row struct {
-		pos int
-		st  crm.StageInput
-	}
-	var rows []row
+	ids, names, cats, probs := f["stage_id"], f["stage_name"], f["stage_category"], f["stage_probability"]
 	for i := range names {
 		if strings.TrimSpace(names[i]) == "" || i >= len(cats) {
 			continue
@@ -166,21 +211,7 @@ func pipelineFromForm(r *http.Request) crm.PipelineInput {
 				st.Probability = &p
 			}
 		}
-		p := i * 100
-		if i < len(pos) {
-			if v, err := strconv.Atoi(pos[i]); err == nil {
-				p = v*100 + i
-			}
-		}
-		rows = append(rows, row{pos: p, st: st})
-	}
-	for i := 1; i < len(rows); i++ { // insertion sort: tiny lists, stable
-		for j := i; j > 0 && rows[j].pos < rows[j-1].pos; j-- {
-			rows[j], rows[j-1] = rows[j-1], rows[j]
-		}
-	}
-	for _, rw := range rows {
-		in.Stages = append(in.Stages, rw.st)
+		in.Stages = append(in.Stages, st)
 	}
 	for k, vals := range f {
 		if id, ok := strings.CutPrefix(k, "reassign_"); ok && len(vals) > 0 && vals[0] != "" {

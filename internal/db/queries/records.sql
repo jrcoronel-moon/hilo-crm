@@ -130,12 +130,16 @@ WHERE o.workspace_id = $1 AND o.archived_at IS NULL
 ORDER BY o.id DESC
 LIMIT sqlc.arg(lim);
 
--- Board: open opportunities plus those closed in the last 30 days.
+-- Board: open opportunities plus those closed in the last 30 days, with
+-- what the cards show (tags, owner, staleness).
 -- name: BoardOpportunities :many
 SELECT o.id, o.title, o.stage_id, o.status, o.amount_minor, o.currency, o.next_step, o.next_step_at,
-       o.last_interaction_at, o.expected_close_date, c.name AS company_name
+       o.last_interaction_at, o.expected_close_date, o.tags, o.updated_at,
+       COALESCE(o.last_interaction_at, o.stage_entered_at) AS last_activity,
+       c.name AS company_name, u.name AS owner_name, u.email AS owner_email
 FROM opportunities o
 LEFT JOIN companies c ON c.id = o.company_id
+LEFT JOIN users u ON u.id = o.owner_id
 WHERE o.workspace_id = $1 AND o.pipeline_id = $2 AND o.archived_at IS NULL
   AND (o.status = 'open' OR o.closed_at > now() - interval '30 days')
 ORDER BY o.updated_at DESC

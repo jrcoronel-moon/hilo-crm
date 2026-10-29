@@ -1,40 +1,68 @@
+{{define "actions"}}
+{{if gt (len .Data.Pipelines) 1}}
+<form method="get" action="/board" class="inline">
+  <select name="pipeline" data-autosubmit aria-label="Pipeline">
+    {{range .Data.Pipelines}}<option value="{{.ID}}" {{if eq .ID $.Data.Pipeline.ID}}selected{{end}}>{{.Name}}</option>{{end}}
+  </select>
+</form>
+{{end}}
+{{end}}
+
 {{define "content"}}
-{{$d := .Data}}
-<div class="toolbar">
-  <h1>{{$d.Pipeline.Name}}</h1>
-  {{if gt (len $d.Pipelines) 1}}
-  <form method="get" action="/board" class="inline">
-    <select name="pipeline" data-autosubmit aria-label="Pipeline">
-      {{range $d.Pipelines}}<option value="{{.ID}}" {{if eq .ID $d.Pipeline.ID}}selected{{end}}>{{.Name}}</option>{{end}}
-    </select>
-    <noscript><button>Ver</button></noscript>
-  </form>
-  {{end}}
-  <span class="muted small">Abiertas + cerradas en los últimos 30 días</span>
+{{$d := .Data}}{{$m := $d.Metrics}}
+<div class="kpis">
+  <div class="kpi inline"><span>Abiertas</span><strong>{{$m.OpenCount}}</strong><small>{{moneyMap $m.OpenAmount}}</small></div>
+  <div class="kpi inline"><span>Ponderado</span><strong>{{moneyMap $m.Weighted}}</strong></div>
+  <div class="kpi inline"><span>Win rate</span><strong>{{pct $m.WinRate}}</strong><small>{{$m.WonCount}} {{if eq $m.WonCount 1}}ganada{{else}}ganadas{{end}} / {{$m.LostCount}} {{if eq $m.LostCount 1}}perdida{{else}}perdidas{{end}}</small></div>
+  <div class="kpi inline {{if gt $m.StaleCount 0}}alert{{end}}"><span>Estancadas</span><strong>{{$m.StaleCount}}</strong><small>sin actividad 14 d</small></div>
 </div>
-<div class="board">
-  {{range $d.Columns}}
-  <section class="col cat-{{.Stage.Category}}">
+
+{{if and (eq $m.OpenCount 0) (eq $m.WonCount 0) (eq $m.LostCount 0)}}
+<div class="empty">
+  <span class="ic"><svg class="i"><use href="#i-plug"/></svg></span>
+  <h2>Todavía no hay oportunidades</h2>
+  <p>Conectá Claude, ChatGPT, Grok o Cursor por MCP y las oportunidades aparecen solas.</p>
+  <a class="btn primary" href="/settings/agents">Conectar agente</a>
+</div>
+{{end}}
+<div class="board" data-board data-csrf="{{$d.CSRF}}">
+  {{range $col := $d.Columns}}
+  <section class="col" data-stage="{{.Stage.ID}}" data-stage-name="{{.Stage.Name}}" data-category="{{.Stage.Category}}" data-probability="{{.Stage.Probability}}">
     <header>
+      <span class="dot {{stageClass .Stage.Category .Stage.Position}}"></span>
       <h2>{{.Stage.Name}}</h2>
-      <span class="count">{{len .Cards}}</span>
-      <p class="total">{{moneyMap .Total}}</p>
+      <span class="n">{{len .Cards}}</span>
+      <span class="sum">{{moneyMap .Total}}</span>
     </header>
     <ol>
       {{range .Cards}}
-      <li class="opp">
-        <p class="title">{{.Title}}</p>
-        {{with deref .CompanyName}}<p class="company">{{.}}</p>{{end}}
-        <p class="amount">{{minor .AmountMinor .Currency}}</p>
-        {{if .NextStep}}<p class="next">→ {{.NextStep}}{{with datep .NextStepAt}} · {{.}}{{end}}</p>{{end}}
-        <p class="meta">{{ago .LastInteractionAt}}{{with datep .ExpectedCloseDate}} · cierre {{.}}{{end}}</p>
+      <li class="opp {{if and (eq .Status "open") (stale .LastActivity)}}stale{{end}} {{if fresh .UpdatedAt}}fresh{{end}}" draggable="true" data-opp="{{.ID}}">
+        <span class="t">{{.Title}}</span>
+        {{with deref .CompanyName}}<span class="co">{{.}}</span>{{end}}
+        {{$t := firstTags .Tags 3}}{{if or $t.Shown (and (eq .Status "open") (stale .LastActivity))}}
+        <span class="tags">
+          {{if and (eq .Status "open") (stale .LastActivity)}}<span class="badge err">estancada</span>{{end}}
+          {{range $t.Shown}}<span class="tag {{tagClass .}}">{{.}}</span>{{end}}{{if $t.More}}<span class="tag">+{{$t.More}}</span>{{end}}
+        </span>
+        {{end}}
+        <span class="amt">{{minor .AmountMinor .Currency}}</span>
+        {{if .NextStep}}<span class="next"><svg class="i sm"><use href="#i-arrow"/></svg>{{.NextStep}}</span>{{end}}
+        <span class="meta">{{if .OwnerEmail}}<span class="av" title="{{deref .OwnerEmail}}">{{initials (deref .OwnerName) (deref .OwnerEmail)}}</span>{{end}}<span>{{agoT .LastActivity}}{{with datep .ExpectedCloseDate}} · cierre {{.}}{{end}}</span></span>
       </li>
-      {{else}}
-      <li class="empty">Sin oportunidades</li>
       {{end}}
     </ol>
   </section>
   {{end}}
 </div>
-<p class="muted small hint">Las oportunidades se crean y mueven desde tus agentes (MCP). Conectá uno en <a href="/settings#agentes">Ajustes</a>.</p>
+
+<dialog id="reason"><form method="dialog" class="dlg">
+  <span class="ic"><svg class="i"><use href="#i-alert"/></svg></span>
+  <div><h2>Mover a <span data-stage></span></h2><p>Contá por qué se perdió: queda en el historial y ayuda a tus agentes.</p>
+    <input name="reason" maxlength="1000" placeholder="p. ej. sin presupuesto este año" aria-label="Motivo"></div>
+  <div class="acts"><button class="btn" value="cancel">Cancelar</button><button class="btn danger solid" value="ok">Marcar perdida</button></div>
+</form></dialog>
+{{end}}
+
+{{define "footer"}}
+<div class="foot-note"><svg class="i sm"><use href="#i-plug"/></svg>Las oportunidades se crean y mueven desde tus agentes (MCP). Arrastrá una tarjeta para corregir una etapa a mano; el cambio queda en Auditoría.<a href="/settings/agents">Conectar un agente</a></div>
 {{end}}

@@ -89,9 +89,12 @@ func (q *Queries) ArchiveOpportunity(ctx context.Context, arg ArchiveOpportunity
 
 const boardOpportunities = `-- name: BoardOpportunities :many
 SELECT o.id, o.title, o.stage_id, o.status, o.amount_minor, o.currency, o.next_step, o.next_step_at,
-       o.last_interaction_at, o.expected_close_date, c.name AS company_name
+       o.last_interaction_at, o.expected_close_date, o.tags, o.updated_at,
+       COALESCE(o.last_interaction_at, o.stage_entered_at) AS last_activity,
+       c.name AS company_name, u.name AS owner_name, u.email AS owner_email
 FROM opportunities o
 LEFT JOIN companies c ON c.id = o.company_id
+LEFT JOIN users u ON u.id = o.owner_id
 WHERE o.workspace_id = $1 AND o.pipeline_id = $2 AND o.archived_at IS NULL
   AND (o.status = 'open' OR o.closed_at > now() - interval '30 days')
 ORDER BY o.updated_at DESC
@@ -114,10 +117,16 @@ type BoardOpportunitiesRow struct {
 	NextStepAt        *time.Time `json:"next_step_at"`
 	LastInteractionAt *time.Time `json:"last_interaction_at"`
 	ExpectedCloseDate *time.Time `json:"expected_close_date"`
+	Tags              []string   `json:"tags"`
+	UpdatedAt         time.Time  `json:"updated_at"`
+	LastActivity      time.Time  `json:"last_activity"`
 	CompanyName       *string    `json:"company_name"`
+	OwnerName         *string    `json:"owner_name"`
+	OwnerEmail        *string    `json:"owner_email"`
 }
 
-// Board: open opportunities plus those closed in the last 30 days.
+// Board: open opportunities plus those closed in the last 30 days, with
+// what the cards show (tags, owner, staleness).
 func (q *Queries) BoardOpportunities(ctx context.Context, arg BoardOpportunitiesParams) ([]BoardOpportunitiesRow, error) {
 	rows, err := q.db.Query(ctx, boardOpportunities, arg.WorkspaceID, arg.PipelineID)
 	if err != nil {
@@ -138,7 +147,12 @@ func (q *Queries) BoardOpportunities(ctx context.Context, arg BoardOpportunities
 			&i.NextStepAt,
 			&i.LastInteractionAt,
 			&i.ExpectedCloseDate,
+			&i.Tags,
+			&i.UpdatedAt,
+			&i.LastActivity,
 			&i.CompanyName,
+			&i.OwnerName,
+			&i.OwnerEmail,
 		); err != nil {
 			return nil, err
 		}

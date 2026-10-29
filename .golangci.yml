@@ -42,7 +42,8 @@ linters:
       excludes:
         - G104 # covered by errcheck
     misspell:
-      ignore-rules: [momento, sesion, ciudad, contraseña]
+      # Spanish UI copy is not English misspelled.
+      ignore-rules: [momento, sesion, ciudad, contraseña, contactos, administrar, corporativo]
     nolintlint:
       require-explanation: true
       require-specific: true
@@ -62,6 +63,8 @@ linters:
       default-signifies-exhaustive: true
   exclusions:
     generated: strict
+    paths:
+      - tmp # git-ignored scratch programs
     rules:
       # Test tables and fixtures are allowed to repeat themselves.
       - path: _test\.go

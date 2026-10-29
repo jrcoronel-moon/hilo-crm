@@ -1,54 +1,60 @@
+{{define "actions"}}
+{{$d := .Data}}
+<form method="get" action="/dashboard" class="row">
+  {{if gt (len $d.Pipelines) 1}}
+  <select name="pipeline" data-autosubmit aria-label="Pipeline">{{range $d.Pipelines}}<option value="{{.ID}}" {{if eq .ID $d.Metrics.PipelineID}}selected{{end}}>{{.Name}}</option>{{end}}</select>
+  {{else}}<input type="hidden" name="pipeline" value="{{$d.Metrics.PipelineID}}">{{end}}
+  <select name="days" data-autosubmit aria-label="Período">
+    <option value="30" {{if eq $d.Days 30}}selected{{end}}>Últimos 30 días</option>
+    <option value="90" {{if eq $d.Days 90}}selected{{end}}>Últimos 90 días</option>
+    <option value="180" {{if eq $d.Days 180}}selected{{end}}>Últimos 180 días</option>
+    <option value="365" {{if eq $d.Days 365}}selected{{end}}>Último año</option>
+  </select>
+</form>
+<button class="btn" type="button" data-copy="{{$d.Share}}" data-copied="Link copiado"><svg class="i sm"><use href="#i-share"/></svg>Compartir</button>
+{{end}}
+
 {{define "content"}}
 {{$d := .Data}}{{$m := $d.Metrics}}
-<div class="toolbar">
-  <h1>Dashboard · {{$m.PipelineName}}</h1>
-  <form method="get" action="/dashboard" class="inline">
-    {{if gt (len $d.Pipelines) 1}}
-    <select name="pipeline" data-autosubmit aria-label="Pipeline">
-      {{range $d.Pipelines}}<option value="{{.ID}}" {{if eq .ID $m.PipelineID}}selected{{end}}>{{.Name}}</option>{{end}}
-    </select>
-    {{end}}
-    <select name="days" data-autosubmit aria-label="Período">
-      <option value="30" {{if eq $d.Days 30}}selected{{end}}>Últimos 30 días</option>
-      <option value="90" {{if eq $d.Days 90}}selected{{end}}>Últimos 90 días</option>
-      <option value="180" {{if eq $d.Days 180}}selected{{end}}>Últimos 180 días</option>
-      <option value="365" {{if eq $d.Days 365}}selected{{end}}>Último año</option>
-    </select>
-    <noscript><button>Ver</button></noscript>
-  </form>
-</div>
 <div class="kpis">
   <div class="kpi"><span>Abiertas</span><strong>{{$m.OpenCount}}</strong><small>{{moneyMap $m.OpenAmount}}</small></div>
-  <div class="kpi"><span>Ponderado</span><strong>{{moneyMap $m.Weighted}}</strong><small>según probabilidad</small></div>
+  <div class="kpi"><span>Ponderado</span><strong>{{moneyShort $m.Weighted}}</strong><small>según probabilidad</small></div>
   <div class="kpi"><span>Ganadas</span><strong>{{$m.WonCount}}</strong><small>{{moneyMap $m.WonAmount}}</small></div>
   <div class="kpi"><span>Win rate</span><strong>{{pct $m.WinRate}}</strong><small>{{$m.WonCount}} ganadas / {{$m.LostCount}} perdidas</small></div>
-  <div class="kpi"><span>Ciclo medio</span><strong>{{$m.AvgCycleDays}} d</strong><small>de creación a ganada</small></div>
+  <div class="kpi"><span>Ciclo medio</span><strong>{{if $m.WonCount}}{{$m.AvgCycleDays}} d{{else}}—{{end}}</strong><small>{{if $m.WonCount}}de creación a ganada{{else}}sin cerradas aún{{end}}</small></div>
   <div class="kpi {{if gt $m.StaleCount 0}}alert{{end}}"><span>Estancadas</span><strong>{{$m.StaleCount}}</strong><small>sin actividad 14 d</small></div>
 </div>
-<div class="panels">
-  <section class="card">
-    <h2>Funnel abierto por etapa</h2>
-    <table class="bars">
-      {{range $m.Stages}}{{if not (isClosing .Category)}}
-      <tr><th>{{.Name}}</th><td><svg class="bar" aria-hidden="true"><rect height="100%" width="{{bar .Count $d.MaxStage}}"/></svg></td><td class="num">{{.Count}}</td><td class="num muted">{{moneyMap .Amount}}</td><td class="num muted">{{.AvgDays}} d</td></tr>
-      {{end}}{{end}}
-    </table>
-    <p class="muted small">Cantidad · monto · días promedio en la etapa</p>
-  </section>
-  <section class="card">
-    <h2>Nuevas oportunidades por canal</h2>
-    <table class="bars">
-      {{range $m.LeadsByChan}}<tr><th>{{.Channel}}</th><td><svg class="bar alt" aria-hidden="true"><rect height="100%" width="{{bar .Count $d.MaxChan}}"/></svg></td><td class="num">{{.Count}}</td></tr>
-      {{else}}<tr><td class="muted">Sin datos en el período</td></tr>{{end}}
-    </table>
-  </section>
-  <section class="card wide">
-    <h2>Interacciones por semana</h2>
-    <table class="bars">
-      {{range $d.Weeks}}<tr><th>{{.Week}}</th><td><svg class="bar" aria-hidden="true"><rect height="100%" width="{{bar .Total $d.MaxWeek}}"/></svg></td><td class="num">{{.Total}}</td><td class="num muted">↓{{.Inbound}} ↑{{.Outbound}} ·{{.Internal}}</td></tr>
-      {{else}}<tr><td class="muted">Sin interacciones en el período</td></tr>{{end}}
-    </table>
-    <p class="muted small">↓ entrantes · ↑ salientes · notas internas</p>
-  </section>
+<div class="grid2">
+  <div class="gcol">
+    <section class="card">
+      <div class="card-head"><h2>Funnel abierto por etapa</h2><span class="aside">cantidad · monto · días promedio</span></div>
+      <div class="bars">
+        {{range $i, $s := $m.Stages}}{{if not (isClosing .Category)}}
+        <div class="r"><span>{{.Name}}</span>
+          <svg class="track" aria-hidden="true"><rect class="bg" width="100%" height="10" rx="5"/><rect class="{{stageClass .Category $i}}" width="{{bar .Count $d.MaxStage}}" height="10" rx="5"/></svg>
+          <b class="num">{{.Count}}</b><span class="v">{{moneyMap .Amount}} · {{.AvgDays}} d</span></div>
+        {{end}}{{end}}
+      </div>
+    </section>
+    <section class="card">
+      <div class="card-head"><h2>Interacciones por semana</h2><span class="aside">últimos {{$d.Days}} días</span></div>
+      {{if $d.Weeks}}
+      <svg class="chart" viewBox="0 -4 600 120" role="img" aria-label="Interacciones por semana">
+        {{range $d.Weeks}}<rect x="{{.X}}" y="{{.Y}}" width="{{.W}}" height="{{.H}}" rx="3" class="{{if .Peak}}c-p3{{else}}teal-400{{end}}"><title>{{.Label}}: {{.Value}}</title></rect>{{end}}
+        <text x="0" y="114">{{(index $d.Weeks 0).Label}}</text>
+        {{with $d.WeekPeak}}<text x="300" y="114" text-anchor="middle">pico {{.Value}} · {{.Label}}</text>{{end}}
+        <text x="600" y="114" text-anchor="end">{{(index $d.Weeks (len $d.Weeks | add -1)).Label}}</text>
+      </svg>
+      {{else}}<p class="muted">Sin interacciones en el período.</p>{{end}}
+    </section>
+  </div>
+  <div class="gcol">
+    <section class="card">
+      <div class="card-head"><h2>Nuevas oportunidades por canal</h2></div>
+      {{if $d.Channels}}
+      <div class="legend">{{range $d.Channels}}<div><span class="dot {{.Class}}"></span><span>{{.Name}}</span><span>{{.Pct}}% · {{.Count}}</span></div>{{end}}</div>
+      {{else}}<p class="muted">Sin oportunidades nuevas en el período.</p>{{end}}
+    </section>
+  </div>
 </div>
 {{end}}

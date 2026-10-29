@@ -15,6 +15,7 @@ import (
 	"net/http/cookiejar"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"regexp"
 	"strings"
 	"testing"
@@ -46,6 +47,9 @@ func start(t *testing.T) *stack {
 	t.Helper()
 	d := testdb.New(t)
 	log := slog.New(slog.DiscardHandler)
+	if os.Getenv("HILO_E2E_LOG") != "" { // debugging: see server-side errors
+		log = slog.New(slog.NewTextHandler(os.Stderr, nil))
+	}
 	ts := httptest.NewUnstartedServer(nil)
 	base := "http://" + ts.Listener.Addr().String()
 	cfg := &config.Config{BaseURL: base, SessionSecret: []byte(strings.Repeat("s", 40)), DevLogin: true,
@@ -95,7 +99,7 @@ func (s *stack) do(method, path string, form url.Values, hdr ...string) (*http.R
 var (
 	csrfRe = regexp.MustCompile(`name="csrf" value="([^"]+)"`)
 	reqRe  = regexp.MustCompile(`name="req" value="([^"]+)"`)
-	wsRe   = regexp.MustCompile(`name="workspace"><option value="([0-9a-f-]{36})"`)
+	wsRe   = regexp.MustCompile(`name="workspace"[^>]*><option value="([0-9a-f-]{36})"`)
 	hrefRe = regexp.MustCompile(`data-navigate href="([^"]+)"`)
 )
 
@@ -233,7 +237,7 @@ func TestOAuthAgentFlow(t *testing.T) {
 	}
 	res, page := s.do("GET", "/oauth/authorize?"+authz.Encode(), nil)
 	if res.StatusCode != http.StatusOK || !strings.Contains(page, "Test Agent") || !strings.Contains(page, "no está verificado") {
-		t.Fatalf("consent page: %d", res.StatusCode)
+		t.Fatalf("consent page: %d\n%s", res.StatusCode, page)
 	}
 	csrf, blob, ws := find(t, csrfRe, page), find(t, reqRe, page), find(t, wsRe, page)
 
@@ -354,7 +358,7 @@ func TestWebSecurity(t *testing.T) {
 	if res, _ = s.do("POST", "/settings/channel", url.Values{"csrf": {csrf}, "name": {`<img src=x onerror=alert(1)>`}, "kind": {"web"}}); res.StatusCode != http.StatusSeeOther {
 		t.Fatalf("create channel: %d", res.StatusCode)
 	}
-	_, page = s.do("GET", "/settings", nil)
+	_, page = s.do("GET", "/settings/channels", nil)
 	if strings.Contains(page, "<img src=x") || !strings.Contains(page, "&lt;img src=x onerror=alert(1)&gt;") {
 		t.Fatal("channel name not escaped")
 	}
@@ -371,7 +375,7 @@ func TestWebSecurity(t *testing.T) {
 	if _, err := mcpSession(t, s.base, pat); err != nil {
 		t.Fatalf("PAT against MCP: %v", err)
 	}
-	_, page = s.do("GET", "/settings", nil)
+	_, page = s.do("GET", "/settings/agents", nil)
 	if strings.Contains(page, pat) {
 		t.Fatal("PAT shown again after creation")
 	}
@@ -389,7 +393,7 @@ func TestLeadFormEndpoint(t *testing.T) {
 	if res.StatusCode != http.StatusBadRequest && res.StatusCode != http.StatusNotFound {
 		t.Fatalf("form with empty channel should fail: %d", res.StatusCode)
 	}
-	_, page := s.do("GET", "/settings", nil)
+	_, page := s.do("GET", "/settings/forms", nil)
 	ch := regexp.MustCompile(`<option value="([0-9a-f-]{36})" selected>Formulario</option>`).FindStringSubmatch(page)
 	if ch == nil {
 		t.Fatal("form channel not found")
@@ -397,7 +401,7 @@ func TestLeadFormEndpoint(t *testing.T) {
 	if res, _ = s.do("POST", "/settings/form", url.Values{"csrf": {csrf}, "name": {"Web"}, "channel": {ch[1]}, "origins": {"https://www.acme.test"}}); res.StatusCode != http.StatusSeeOther {
 		t.Fatalf("create form: %d", res.StatusCode)
 	}
-	_, page = s.do("GET", "/settings", nil)
+	_, page = s.do("GET", "/settings/forms", nil)
 	key := regexp.MustCompile(`/f/(lf_[A-Za-z0-9_-]+)`).FindStringSubmatch(page)[1]
 
 	anon := &http.Client{}
@@ -494,7 +498,7 @@ func TestRefreshReuseRevokesFamily(t *testing.T) {
 		t.Fatal("tokens of a replayed family must be revoked")
 	}
 	// Refresh with another client's id fails.
-	cid2, tk3 := s.connectAgent(find(t, csrfRe, func() string { _, p := s.do("GET", "/settings", nil); return p }()))
+	cid2, tk3 := s.connectAgent(find(t, csrfRe, func() string { _, p := s.do("GET", "/settings/agents", nil); return p }()))
 	_ = cid2
 	if st, _ = s.token(url.Values{"grant_type": {"refresh_token"}, "client_id": {clientID}, "refresh_token": {tk3.Refresh}}); st != http.StatusBadRequest {
 		t.Fatalf("cross-client refresh: %d", st)
@@ -533,9 +537,9 @@ func TestSettingsAndAdmin(t *testing.T) {
 		t.Fatalf("workspace domain: %d", c)
 	}
 	// Pipeline editor: rename a stage, add one, delete one with reassignment.
-	_, page = s.do("GET", "/settings", nil)
-	pid := regexp.MustCompile(`name="id" value="([0-9a-f-]{36})">\s*<div class="row"><label>Nombre <input name="name" value="Ventas"`).FindStringSubmatch(page)
-	stages := regexp.MustCompile(`name="stage_id" value="([0-9a-f-]{36})"></td>\s*<td><input name="stage_name" value="([^"]+)"`).FindAllStringSubmatch(page, -1)
+	_, page = s.do("GET", "/settings/pipelines", nil)
+	pid := regexp.MustCompile(`name="id" value="([0-9a-f-]{36})">\s*<div class="row"><label class="field grow">Nombre<input name="name" value="Ventas"`).FindStringSubmatch(page)
+	stages := regexp.MustCompile(`name="stage_id" value="([0-9a-f-]{36})">\s*<input type="text" name="stage_name" value="([^"]+)"`).FindAllStringSubmatch(page, -1)
 	if pid == nil || len(stages) != 6 {
 		t.Fatalf("pipeline editor not rendered (%d stages)", len(stages))
 	}
@@ -585,7 +589,7 @@ func TestSettingsAndAdmin(t *testing.T) {
 		t.Fatal("opportunity not reassigned to Demo")
 	}
 	// The connected agent shows up and can be revoked from the web.
-	_, page = s.do("GET", "/settings", nil)
+	_, page = s.do("GET", "/settings/agents", nil)
 	client := regexp.MustCompile(`name="client" value="([^"]+)"`).FindStringSubmatch(page)
 	if client == nil {
 		t.Fatal("connected agent not listed")
@@ -615,8 +619,77 @@ func TestSettingsAndAdmin(t *testing.T) {
 	if res, _ = s.do("GET", "/admin", nil); res.StatusCode != http.StatusForbidden {
 		t.Fatalf("member reached /admin: %d", res.StatusCode)
 	}
-	_, page = s.do("GET", "/settings", nil)
-	if strings.Contains(page, `action="/settings/pipeline"`) || strings.Contains(page, "Auditoría") {
+	_, page = s.do("GET", "/settings/pipelines", nil)
+	if strings.Contains(page, `action="/settings/pipeline"`) || strings.Contains(page, `href="/settings/audit"`) {
 		t.Fatal("member sees admin controls")
+	}
+}
+
+func TestBoardDragAndDrop(t *testing.T) {
+	s := start(t)
+	csrf := s.signIn()
+	_, tk := s.connectAgent(csrf)
+	cs, err := mcpSession(t, s.base, tk.Access)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := cs.CallTool(context.Background(), &mcp.CallToolParams{Name: "upsert_opportunity", Arguments: map[string]any{"title": "Arrastrable"}})
+	if err != nil || out.IsError {
+		t.Fatalf("seed: %v", err)
+	}
+	var created struct {
+		Record crm.OpportunityView `json:"record"`
+	}
+	_ = json.Unmarshal([]byte(out.Content[0].(*mcp.TextContent).Text), &created)
+	_, page := s.do("GET", "/board", nil)
+	stage := func(name string) string {
+		m := regexp.MustCompile(`data-stage="([0-9a-f-]{36})" data-stage-name="` + name + `"`).FindStringSubmatch(page)
+		if m == nil {
+			t.Fatalf("column %s not on the board", name)
+		}
+		return m[1]
+	}
+	move := func(stageID, reason string, withCSRF bool) (int, string) {
+		v := url.Values{"opportunity": {created.Record.ID.String()}, "stage": {stageID}, "reason": {reason}}
+		if withCSRF {
+			v.Set("csrf", csrf)
+		}
+		res, body := s.do("POST", "/board/move", v, "Accept", "application/json")
+		return res.StatusCode, body
+	}
+	if c, _ := move(stage("Propuesta"), "", false); c != http.StatusForbidden {
+		t.Fatalf("move without csrf: %d", c)
+	}
+	if c, body := move(stage("Propuesta"), "", true); c != http.StatusOK || !strings.Contains(body, `"stage":"Propuesta"`) {
+		t.Fatalf("move: %d %s", c, body)
+	}
+	if c, body := move(stage("Perdido"), "", true); c != http.StatusBadRequest || !strings.Contains(body, "lost_reason") {
+		t.Fatalf("lost without reason: %d %s", c, body)
+	}
+	if c, body := move(stage("Perdido"), "Eligió a la competencia", true); c != http.StatusOK || !strings.Contains(body, `"status":"lost"`) {
+		t.Fatalf("lost with reason: %d %s", c, body)
+	}
+	tl, _ := cs.CallTool(context.Background(), &mcp.CallToolParams{Name: "get_timeline", Arguments: map[string]any{"opportunity": created.Record.ID.String()}})
+	if txt := tl.Content[0].(*mcp.TextContent).Text; !strings.Contains(txt, "Eligió a la competencia") || !strings.Contains(txt, "Propuesta") {
+		t.Fatalf("web moves missing from history: %s", txt)
+	}
+	// A viewer cannot move cards.
+	if c := func() int {
+		v := url.Values{"csrf": {csrf}, "email": {"lector@acme.test"}, "role": {"viewer"}}
+		res, _ := s.do("POST", "/settings/invite", v)
+		return res.StatusCode
+	}(); c != http.StatusSeeOther {
+		t.Fatalf("invite viewer: %d", c)
+	}
+	_, _ = s.do("POST", "/logout", url.Values{"csrf": {csrf}})
+	res, _ := s.devLogin("lector@acme.test", "/")
+	if strings.Contains(res.Header.Get("Location"), "error") {
+		t.Fatalf("viewer login: %s", res.Header.Get("Location"))
+	}
+	_, page = s.do("GET", "/board", nil)
+	viewerCSRF := find(t, csrfRe, page)
+	v := url.Values{"csrf": {viewerCSRF}, "opportunity": {created.Record.ID.String()}, "stage": {stage("Lead")}}
+	if res, _ := s.do("POST", "/board/move", v); res.StatusCode != http.StatusForbidden {
+		t.Fatalf("viewer moved a card: %d", res.StatusCode)
 	}
 }

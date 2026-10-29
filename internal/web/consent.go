@@ -4,6 +4,7 @@ import (
 	"errors"
 	"html/template"
 	"net/http"
+	"strings"
 
 	"github.com/google/uuid"
 
@@ -14,6 +15,25 @@ type consentData struct {
 	Pending oauth.Pending
 	Blob    string
 	CSRF    string
+	Scopes  []scopeInfo
+}
+
+type scopeInfo struct{ Name, Label, Desc, Icon string }
+
+var scopeInfos = map[string]scopeInfo{
+	"crm:read":  {"crm:read", "Leer", "Empresas, contactos, oportunidades, interacciones y métricas.", "i-eye"},
+	"crm:write": {"crm:write", "Escribir", "Crear y mover oportunidades, registrar interacciones.", "i-pencil"},
+	"crm:admin": {"crm:admin", "Administrar", "Pipelines y canales. Pocos agentes lo necesitan.", "i-shield"},
+}
+
+func describeScopes(scope string) []scopeInfo {
+	var out []scopeInfo
+	for _, s := range strings.Fields(scope) {
+		if info, ok := scopeInfos[s]; ok {
+			out = append(out, info)
+		}
+	}
+	return out
 }
 
 // authorize validates the request, makes sure the user is signed in, and
@@ -41,8 +61,8 @@ func (h *Handler) authorize(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.Header().Set("X-Frame-Options", "DENY")
-		h.render(w, http.StatusOK, "consent", page{Title: "Autorizar acceso", View: &v,
-			Data: consentData{Pending: p, Blob: blob, CSRF: v.Sess.CSRFToken}})
+		h.render(w, http.StatusOK, "consent", page{Title: "Autorizar acceso", View: &v, Bare: true,
+			Data: consentData{Pending: p, Blob: blob, CSRF: v.Sess.CSRFToken, Scopes: describeScopes(p.Scope)}})
 	})(w, r)
 }
 

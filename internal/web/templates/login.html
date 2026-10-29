@@ -1,23 +1,38 @@
-{{define "content"}}
-<section class="login">
-  <img src="/static/favicon.svg" alt="" width="56" height="56">
-  <h1>Hilo CRM</h1>
-  <p class="muted">El CRM headless para que tus agentes de IA sigan cada oportunidad.</p>
-  {{with .Data}}
-  <div class="providers">
-    {{if .Google}}<a class="btn provider" href="/auth/google?return_to={{.ReturnTo}}">Continuar con Google</a>{{end}}
-    {{if .Microsoft}}<a class="btn provider" href="/auth/microsoft?return_to={{.ReturnTo}}">Continuar con Microsoft</a>{{end}}
-    {{if not (or .Google .Microsoft .Dev)}}<p class="flash err">No hay proveedores de inicio de sesión configurados. Definí GOOGLE_CLIENT_ID o MICROSOFT_CLIENT_ID.</p>{{end}}
+{{define "bare"}}
+<div class="split">
+  <div class="l">
+    <div class="login">
+      <img class="logo" src="/static/favicon.svg" alt="">
+      <h1>Entrar a Hilo CRM</h1>
+      <p class="lead">El CRM headless para que tus agentes de IA sigan cada oportunidad.</p>
+      {{if .Error}}<div class="notice err" role="alert"><svg class="i sm"><use href="#i-alert"/></svg>{{.Error}}</div>{{end}}
+      {{with .Data}}
+      {{if .Google}}<a class="btn provider" href="/auth/google?return_to={{.ReturnTo}}"><svg class="i sm" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" stroke="none" d="M22 12.2c0-.7-.1-1.4-.2-2H12v3.9h5.6a4.8 4.8 0 0 1-2.1 3.1v2.6h3.4c2-1.8 3.1-4.5 3.1-7.6z"/><path fill="#34A853" stroke="none" d="M12 22c2.8 0 5.2-.9 6.9-2.5l-3.4-2.6c-.9.6-2.1 1-3.5 1-2.7 0-5-1.8-5.8-4.3H2.7v2.7A10 10 0 0 0 12 22z"/><path fill="#FBBC05" stroke="none" d="M6.2 13.6a6 6 0 0 1 0-3.8V7.1H2.7a10 10 0 0 0 0 8.9z"/><path fill="#EA4335" stroke="none" d="M12 6c1.5 0 2.9.5 4 1.5l3-3A10 10 0 0 0 2.7 7.1l3.5 2.7C7 7.8 9.3 6 12 6z"/></svg>Continuar con Google</a>{{end}}
+      {{if .Microsoft}}<a class="btn provider" href="/auth/microsoft?return_to={{.ReturnTo}}"><svg class="i sm" viewBox="0 0 24 24" aria-hidden="true"><path fill="#F25022" stroke="none" d="M3 3h8.5v8.5H3z"/><path fill="#7FBA00" stroke="none" d="M12.5 3H21v8.5h-8.5z"/><path fill="#00A4EF" stroke="none" d="M3 12.5h8.5V21H3z"/><path fill="#FFB900" stroke="none" d="M12.5 12.5H21V21h-8.5z"/></svg>Continuar con Microsoft</a>{{end}}
+      {{if not (or .Google .Microsoft .Dev)}}<div class="notice err">No hay proveedores de inicio de sesión configurados. Definí GOOGLE_CLIENT_ID o MICROSOFT_CLIENT_ID.</div>{{end}}
+      {{if .Dev}}
+      <form method="post" action="/auth/dev" class="stack">
+        <div class="notice warn"><svg class="i sm"><use href="#i-alert"/></svg>Modo desarrollo: login sin contraseña (solo localhost).</div>
+        <input type="hidden" name="csrf" value="{{.CSRF}}">
+        <input type="hidden" name="return_to" value="{{.ReturnTo}}">
+        <input type="email" name="email" placeholder="email@empresa.com" required autocomplete="email">
+        <button class="btn strong">Entrar (dev)</button>
+      </form>
+      {{end}}
+      {{end}}
+      <div class="notice info"><svg class="i sm"><use href="#i-shield"/></svg><span>Solo pueden entrar personas con email verificado de un dominio habilitado, o con una invitación pendiente.</span></div>
+      <p class="muted small">¿Sos un agente? Conectate por MCP con <code>/mcp</code> y OAuth, sin esta pantalla.</p>
+    </div>
   </div>
-  {{if .Dev}}
-  <form method="post" action="/auth/dev" class="dev">
-    <p class="warn">Modo desarrollo: login sin contraseña (solo localhost).</p>
-    <input type="hidden" name="csrf" value="{{.CSRF}}">
-    <input type="hidden" name="return_to" value="{{.ReturnTo}}">
-    <input type="email" name="email" placeholder="email@empresa.com" required autocomplete="email">
-    <button class="btn">Entrar (dev)</button>
-  </form>
-  {{end}}
-  {{end}}
-</section>
+  <div class="r">
+    <div class="pitch">
+      <span class="eyebrow">Hecho para agentes</span>
+      <h2>Tus agentes crean y mueven oportunidades. Vos mirás el funnel.</h2>
+      <div class="item"><span class="av md agent">AI</span><div><small>Tu agente · por MCP</small>Crea la oportunidad, el contacto y la empresa</div></div>
+      <div class="item"><span class="av md agent2">CC</span><div><small>Claude Code · OAuth</small>La mueve de etapa y registra cada reunión</div></div>
+      <div class="item"><span class="av md">VOS</span><div><small>Desde la web</small>Ves el funnel, revocás accesos y auditás todo</div></div>
+      <div class="pills"><span>MCP + OAuth</span><span>Auditoría completa</span><span>Formularios de leads</span></div>
+    </div>
+  </div>
+</div>
 {{end}}

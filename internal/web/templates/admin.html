@@ -1,30 +1,24 @@
 {{define "content"}}
 {{$d := .Data}}
-<h1>Superadmin</h1>
-<div class="panels">
+<div class="grid2">
   <section class="card">
-    <h2>Dominios habilitados para entrar</h2>
-    <p class="muted small">Solo pueden iniciar sesión personas con email verificado de estos dominios, o con una invitación pendiente. Sin dominios, solo superadmins e invitados.</p>
-    <ul class="list">
-      {{range $d.Domains}}
-      <li><code>{{.Domain}}</code>
-        <form method="post" action="/admin/domain-remove" class="inline"><input type="hidden" name="csrf" value="{{$d.CSRF}}"><input type="hidden" name="domain" value="{{.Domain}}"><button class="link danger">quitar</button></form>
-      </li>
-      {{else}}<li class="muted">Ninguno</li>{{end}}
-    </ul>
+    <div><h2>Dominios habilitados para entrar</h2><p class="muted small">Solo pueden iniciar sesión personas con email verificado de estos dominios, o con una invitación pendiente. Sin dominios, solo superadmins e invitados.</p></div>
+    {{if $d.Domains}}<div class="row">{{range $d.Domains}}<span class="chip"><code>{{.Domain}}</code>
+      <form method="post" action="/admin/domain-remove" class="inline" data-confirm="¿Deshabilitar {{.Domain}}?|Nadie nuevo de ese dominio va a poder iniciar sesión."><input type="hidden" name="csrf" value="{{$d.CSRF}}"><input type="hidden" name="domain" value="{{.Domain}}"><button class="link" aria-label="Quitar"><svg class="i sm"><use href="#i-x"/></svg></button></form></span>{{end}}</div>
+    {{else}}<p class="muted">Ninguno.</p>{{end}}
     <form method="post" action="/admin/domain" class="row">
       <input type="hidden" name="csrf" value="{{$d.CSRF}}">
-      <input name="domain" placeholder="empresa.com" required>
-      <button class="btn">Agregar</button>
+      <input name="domain" placeholder="empresa.com" required class="grow" aria-label="Dominio">
+      <button class="btn strong">Agregar</button>
     </form>
   </section>
   <section class="card">
     <h2>Workspaces</h2>
-    <table class="grid">
-      <tr><th>Nombre</th><th>Slug</th><th>Miembros</th><th>Creado</th></tr>
-      {{range $d.Workspaces}}<tr><td>{{.Name}}</td><td><code>{{.Slug}}</code></td><td class="num">{{.MemberCount}}</td><td>{{date .CreatedAt}}</td></tr>{{end}}
+    <table class="table">
+      <tr><th>Nombre</th><th>Slug</th><th class="num">Miembros</th><th>Creado</th></tr>
+      {{range $d.Workspaces}}<tr><td><b>{{.Name}}</b></td><td><code>{{.Slug}}</code></td><td class="num">{{.MemberCount}}</td><td>{{date .CreatedAt}}</td></tr>{{end}}
     </table>
-    <p class="muted small">Los superadmins se definen con SUPERADMIN_EMAILS o con <code>hiloctl superadmin grant &lt;email&gt;</code>.</p>
+    <p class="muted small">Los superadmins se definen con <code>SUPERADMIN_EMAILS</code> o con <code>hiloctl superadmin grant &lt;email&gt;</code>.</p>
   </section>
 </div>
 {{end}}
