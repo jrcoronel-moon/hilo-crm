@@ -1,0 +1,59 @@
+# ── Secrets: never commit. Only *.example files with placeholders are allowed. ──
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.asc
+*.gpg
+id_rsa*
+id_ed25519*
+*.ovpn
+secrets/
+credentials*
+!**/credentials*.go
+.aws/
+.gcloud/
+gcloud-*.json
+service-account*.json
+*-credentials.json
+*.tfstate
+*.tfstate.*
+.terraform/
+
+# ── Data, dumps and backups ──
+*.sql.gz
+*.dump
+*.backup
+backups/
+pgdata/
+*.db
+*.db-*
+*.sqlite*
+
+# ── Build output ──
+/bin/
+/dist/
+*.exe
+*.test
+*.out
+coverage*.html
+coverage*.txt
+/tmp/
+reports/
+
+# ── Editors / OS ──
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# ── Local tool state ──
+.claude/

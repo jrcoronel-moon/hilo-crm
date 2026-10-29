@@ -1,0 +1,28 @@
+# gitleaks configuration: the default rule set plus Hilo's own token formats.
+title = "hilo-crm"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "hilo-personal-access-token"
+description = "Hilo CRM personal access token"
+regex = '''hilo_pat_[A-Za-z0-9_-]{43}'''
+keywords = ["hilo_pat_"]
+
+[[rules]]
+id = "hilo-oauth-token"
+description = "Hilo CRM OAuth access/refresh token"
+regex = '''hilo_(at|rt)_[A-Za-z0-9_-]{43}'''
+keywords = ["hilo_at_", "hilo_rt_"]
+
+[allowlist]
+description = "Test-only placeholders and generated code"
+paths = [
+  '''go\.sum$''',
+  '''tools/go\.sum$''',
+]
+# Fixed, clearly fake credentials used only by the throw-away test database.
+regexes = [
+  '''test-only-[a-z]+''',
+]

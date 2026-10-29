@@ -1,0 +1,24 @@
+# Throw-away Postgres for the test suite (`make test`). Data lives in tmpfs and
+# disappears with the container. Credentials here are test-only placeholders.
+name: hilo-test
+services:
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: test-only-superuser
+      POSTGRES_DB: hilo
+      HILO_MIGRATOR_PASSWORD: test-only-migrator
+      HILO_APP_PASSWORD: test-only-app
+    command: ["postgres", "-c", "fsync=off", "-c", "synchronous_commit=off", "-c", "full_page_writes=off", "-c", "max_connections=300"]
+    ports:
+      - "127.0.0.1:${HILO_TEST_PG_PORT:-54329}:5432"
+    tmpfs:
+      - /var/lib/postgresql
+    volumes:
+      - ../deploy/postgres/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d hilo && psql -U postgres -d hilo -tAc \"select 1 from pg_roles where rolname='hilo_app'\" | grep -q 1"]
+      interval: 1s
+      timeout: 3s
+      retries: 60

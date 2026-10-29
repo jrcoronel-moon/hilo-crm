@@ -1,0 +1,6 @@
+#!/bin/sh
+# Pre-commit gate: formatting, secret scan of the staged changes, and lint.
+# Install once with `make hooks`. Never bypass it with --no-verify for real
+# commits: CI runs a stricter version of the same checks.
+set -e
+make -s check-fast
