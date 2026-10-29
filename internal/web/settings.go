@@ -96,11 +96,14 @@ type settingsData struct {
 }
 
 var flashes = map[string]string{
-	"saved":   "Cambios guardados.",
-	"invited": "Invitación enviada. La persona entra con su cuenta de Google o Microsoft.",
-	"revoked": "Acceso revocado.",
-	"removed": "Eliminado.",
-	"created": "Oportunidad creada.",
+	"saved":    "Cambios guardados.",
+	"invited":  "Invitación enviada. La persona entra con su cuenta de Google o Microsoft.",
+	"revoked":  "Acceso revocado.",
+	"removed":  "Eliminado.",
+	"created":  "Oportunidad creada.",
+	"company":  "Empresa creada.",
+	"contact":  "Contacto creado.",
+	"archived": "Archivado. Ya no aparece en listas ni búsquedas; el historial se conserva.",
 }
 
 func (h *Handler) settings(w http.ResponseWriter, r *http.Request, v view) {

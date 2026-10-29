@@ -281,3 +281,34 @@ strong.big { font-size: 32px; font-weight: 700; letter-spacing: -.02em; }
 .donut svg circle { fill: none; }
 .bulkbar[hidden] { display: none; }
 @media (max-height: 940px) { .agent-box { display: none; } }
+/* record pages */
+.record-head { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.record-head h1 { font-size: 22px; } .kpis.mini { grid-template-columns: repeat(3, minmax(110px, auto)); }
+.kpis.mini .kpi { padding: 10px 14px; } .kpis.mini .kpi strong { font-size: 20px; }
+.timeline { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.timeline li { display: grid; grid-template-columns: 14px 1fr; gap: 12px; position: relative; }
+.timeline li::before { content: ""; position: absolute; left: 6px; top: 16px; bottom: -14px; width: 2px; background: var(--line); }
+.timeline li:last-child::before { display: none; }
+.timeline .tl-dot { width: 14px; height: 14px; border-radius: 50%; background: var(--teal-50); border: 2px solid var(--teal); margin-top: 3px; }
+.timeline .stage_change .tl-dot { border: 0; }
+.timeline div { display: grid; gap: 3px; } .pre { white-space: pre-wrap; }
+/* sidebar: collapse (icons only) and resize; widths are classes so the strict CSP holds */
+.shell { grid-template-columns: var(--side-w, 232px) minmax(0, 1fr); }
+.sw-200 { --side-w: 200px; } .sw-220 { --side-w: 220px; } .sw-240 { --side-w: 240px; } .sw-260 { --side-w: 260px; }
+.sw-280 { --side-w: 280px; } .sw-300 { --side-w: 300px; } .sw-320 { --side-w: 320px; } .sw-340 { --side-w: 340px; } .sw-360 { --side-w: 360px; }
+.side { position: sticky; } .brand-row { display: flex; align-items: center; gap: 4px; padding-bottom: 6px; }
+.brand-row .brand { padding-bottom: 8px; flex: 1; min-width: 0; } .brand-row .brand span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.collapse-btn { padding: 0 8px; color: var(--muted); }
+.resizer { position: absolute; top: 12px; bottom: 12px; right: -9px; width: 10px; cursor: col-resize; border-radius: 4px; z-index: 5; }
+.resizer:hover, .resizing .resizer { background: color-mix(in srgb, var(--teal-400) 45%, transparent); }
+.resizing { cursor: col-resize; user-select: none; }
+.nav a span, .nav span.soon { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.collapsed { --side-w: 72px; }
+.collapsed .side { padding: 14px 10px; overflow: visible; }
+.collapsed .brand-row { flex-direction: column; } .collapsed .brand span, .collapsed .nav a span, .collapsed .nav-label,
+.collapsed .agent-box, .collapsed .me .grow, .collapsed .nav em { display: none; }
+.collapsed .nav a { justify-content: center; padding: 0; } .collapsed .me { flex-direction: column; padding: 4px 0; }
+.collapsed .collapse-btn svg { transform: scaleX(-1); } .collapsed .resizer { display: none; }
+@media (max-width: 860px) { .shell, .collapsed { --side-w: 1fr; } .resizer, .collapse-btn { display: none; } }
+.timeline .stage_change .tl-dot.c-initial { background: var(--warn); } .timeline .stage_change .tl-dot.c-p1 { background: var(--info); }
+.timeline .stage_change .tl-dot.c-won { background: var(--ok); } .timeline .stage_change .tl-dot.c-lost { background: #9AA3B2; }

@@ -9,7 +9,10 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/google/uuid"
+
 	"github.com/jrcoronel-moon/hilo-crm/internal/crm"
+	"github.com/jrcoronel-moon/hilo-crm/internal/store"
 )
 
 var funcs = template.FuncMap{
@@ -40,6 +43,9 @@ var funcs = template.FuncMap{
 	"addf":       func(a, b float64) float64 { return a + b },
 	"divf":       func(a, b float64) float64 { return a / b },
 	"mulf":       func(a, b float64) float64 { return a * b },
+	"join":       strings.Join,
+	"trim":       strings.TrimSpace,
+	"ownerSel":   ownerSel,
 }
 
 // staleAfter matches the dashboard's "estancadas" KPI.
@@ -244,4 +250,19 @@ func roleLabel(r string) string {
 		return "Lector"
 	}
 	return r
+}
+
+// ownerSel feeds the "owner-select" partial: members plus the current owner.
+func ownerSel(members []store.ListMembersRow, cur *uuid.UUID) struct {
+	Members []store.ListMembersRow
+	Cur     string
+} {
+	c := ""
+	if cur != nil {
+		c = cur.String()
+	}
+	return struct {
+		Members []store.ListMembersRow
+		Cur     string
+	}{members, c}
 }

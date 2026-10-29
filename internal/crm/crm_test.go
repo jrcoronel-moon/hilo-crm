@@ -585,3 +585,43 @@ func TestInteractionsOrderedByWhenTheyHappened(t *testing.T) {
 		t.Fatalf("bad cursor: %v", err)
 	}
 }
+
+func TestCompanyAndContactRows(t *testing.T) {
+	f := setup(t)
+	a, _ := f.workspace("Acme")
+	must2(f.crm.UpsertCompany(f.ctx, a, crm.CompanyInput{Name: s("Globex"), Domain: s("globex.com"), Tags: &[]string{"vip"}}))
+	must2(f.crm.UpsertCompany(f.ctx, a, crm.CompanyInput{Name: s("Initech")})) // no interactions, no domain
+	ana := must2(f.crm.UpsertContact(f.ctx, a, crm.ContactInput{Email: s("ana@globex.com"), FirstName: s("Ana"), Company: s("globex.com")}))
+	bob := must2(f.crm.UpsertContact(f.ctx, a, crm.ContactInput{Email: s("bob@globex.com"), Company: s("globex.com")}))
+	o1 := must2(f.crm.UpsertOpportunity(f.ctx, a, crm.OpportunityInput{Title: s("Primary"), PrimaryContact: s(ana.Email), Company: s("globex.com")}))
+	must2(f.crm.UpsertOpportunity(f.ctx, a, crm.OpportunityInput{Title: s("Linked"), Contacts: []crm.ContactRole{{Contact: ana.Email, Role: "champion"}}}))
+	must2(f.crm.UpsertOpportunity(f.ctx, a, crm.OpportunityInput{Title: s("Other"), PrimaryContact: s(bob.Email)}))
+	must(f.crm.LogInteraction(f.ctx, a, crm.InteractionInput{Type: "call", Contact: ana.Email, Opportunity: o1.ID.String()}))
+
+	cs := must(f.crm.CompanyRows(f.ctx, a, crm.ListFilter{}))
+	if len(cs.Items) != 2 {
+		t.Fatalf("companies: %+v", cs.Items)
+	}
+	for _, c := range cs.Items {
+		switch c.Name {
+		case "Globex":
+			if c.Contacts != 2 || c.OpenOpps != 1 || c.LastActivity == nil {
+				t.Fatalf("globex stats: %+v", c)
+			}
+		case "Initech":
+			if c.LastActivity != nil || c.Contacts != 0 {
+				t.Fatalf("initech stats: %+v", c)
+			}
+		}
+	}
+	if r := must(f.crm.CompanyRows(f.ctx, a, crm.ListFilter{Tag: "vip"})); len(r.Items) != 1 {
+		t.Fatalf("company tag filter: %+v", r.Items)
+	}
+	if r := must(f.crm.ContactRows(f.ctx, a, crm.ListFilter{Query: "globex"})); len(r.Items) != 2 || r.Items[0].Company != "Globex" {
+		t.Fatalf("contacts by company name: %+v", r.Items)
+	}
+	opps := must(f.crm.ListOpportunities(f.ctx, a, crm.OpportunityFilter{Contact: ana.Email}))
+	if len(opps.Items) != 2 {
+		t.Fatalf("opportunities of a contact (primary + linked): %+v", opps.Items)
+	}
+}

@@ -771,3 +771,77 @@ func TestWebDataFeatures(t *testing.T) {
 		t.Fatal("dashboard goal / activity / monthly chart missing")
 	}
 }
+
+func TestCompaniesAndContactsPages(t *testing.T) {
+	s := start(t)
+	csrf := s.signIn()
+	post := func(path string, v url.Values) *http.Response {
+		v.Set("csrf", csrf)
+		res, _ := s.do("POST", path, v)
+		return res
+	}
+	res := post("/companies", url.Values{"name": {"Globex"}, "domain": {"https://www.globex.com"}})
+	if res.StatusCode != http.StatusSeeOther || !strings.Contains(res.Header.Get("Location"), "ok=company") {
+		t.Fatalf("create company: %d %s", res.StatusCode, res.Header.Get("Location"))
+	}
+	companyURL := strings.Split(res.Header.Get("Location"), "?")[0]
+	res = post("/contacts", url.Values{"first_name": {"Ana"}, "email": {"ana@globex.com"}, "company": {"globex.com"}})
+	contactURL := strings.Split(res.Header.Get("Location"), "?")[0]
+	if res.StatusCode != http.StatusSeeOther || !strings.HasPrefix(contactURL, "/contacts/") {
+		t.Fatalf("create contact: %d", res.StatusCode)
+	}
+	_, page := s.do("GET", companyURL, nil)
+	if !strings.Contains(page, "ana@globex.com") || !strings.Contains(page, `value="globex.com"`) {
+		t.Fatal("company page should list its contact and show the normalised domain")
+	}
+	// Edit: industry, country, tags; an invalid country is rejected.
+	edit := url.Values{"name": {"Globex Corp"}, "domain": {"globex.com"}, "industry": {"Energía"}, "country": {"ar"}, "tags": {"vip, energía"}, "size_range": {"51-200"}}
+	if res = post(companyURL, edit); res.StatusCode != http.StatusSeeOther {
+		t.Fatalf("edit company: %d", res.StatusCode)
+	}
+	edit.Set("country", "Argentina")
+	if res = post(companyURL, edit); res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("invalid country accepted: %d", res.StatusCode)
+	}
+	if _, page = s.do("GET", "/companies?q=corp", nil); !strings.Contains(page, "Globex Corp") || !strings.Contains(page, "Energía") {
+		t.Fatal("companies list after edit")
+	}
+	if _, page = s.do("GET", "/contacts?q=globex", nil); !strings.Contains(page, "Globex Corp") {
+		t.Fatal("contacts list should show the company")
+	}
+	// The contact page shows the opportunities they are on.
+	_, page = s.do("GET", "/board", nil)
+	pipe := regexp.MustCompile(`name="pipeline" value="([0-9a-f-]{36})"`).FindStringSubmatch(page)[1]
+	post("/opportunities", url.Values{"pipeline": {pipe}, "title": {"Planta solar"}, "company": {"Globex Corp"}})
+	if _, page = s.do("GET", companyURL, nil); !strings.Contains(page, "Planta solar") {
+		t.Fatal("company page should list its opportunities")
+	}
+	// Archive the contact: gone from the list, still reachable by nobody.
+	if res = post(contactURL+"/archive", url.Values{}); res.StatusCode != http.StatusSeeOther {
+		t.Fatalf("archive contact: %d", res.StatusCode)
+	}
+	if _, page = s.do("GET", "/contacts", nil); strings.Contains(page, `href="`+contactURL+`"`) {
+		t.Fatal("archived contact still listed")
+	}
+	if res, _ = s.do("GET", contactURL, nil); res.StatusCode != http.StatusNotFound {
+		t.Fatalf("archived contact page: %d", res.StatusCode)
+	}
+	// Sidebar preference cookie: valid values become a class, anything else is ignored.
+	for value, want := range map[string]string{"c": `class="shell collapsed"`, "280": `class="shell sw-280"`, "290": `class="shell "`, `"><script>`: `class="shell "`} {
+		res, page := s.do("GET", "/companies", nil, "Cookie", "hilo_side="+url.QueryEscape(value)+"; "+cookieHeader(s))
+		if res.StatusCode != http.StatusOK || !strings.Contains(page, want) {
+			t.Fatalf("hilo_side=%q: want %s", value, want)
+		}
+	}
+}
+
+// cookieHeader returns the session cookie of the browser jar (tests that set
+// an extra cookie by hand must resend it).
+func cookieHeader(s *stack) string {
+	u, _ := url.Parse(s.base)
+	var parts []string
+	for _, c := range s.web.Jar.Cookies(u) {
+		parts = append(parts, c.Name+"="+c.Value)
+	}
+	return strings.Join(parts, "; ")
+}

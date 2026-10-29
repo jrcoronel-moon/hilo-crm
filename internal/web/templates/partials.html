@@ -1,0 +1,31 @@
+{{define "opp-table"}}
+{{if .}}
+<table class="table">
+  <tr><th>Oportunidad</th><th>Etapa</th><th class="num">Monto</th><th>Última actividad</th></tr>
+  {{range .}}<tr><td class="who"><b>{{.Title}}</b><small>{{.Kind}}</small></td><td><span class="row"><span class="dot {{stageClass .StageCategory 1}}"></span>{{.StageName}}</span></td>
+    <td class="num">{{money .Amount .Currency}}</td><td>{{ago .LastInteractionAt}}</td></tr>{{end}}
+</table>
+{{else}}<p class="muted">Sin oportunidades.</p>{{end}}
+{{end}}
+
+{{define "timeline"}}
+{{if .}}
+<ol class="timeline">
+  {{range .}}
+  <li class="{{.Kind}}">
+    <span class="tl-dot {{if eq .Kind "stage_change"}}{{stageClass .Detail 1}}{{end}}" title="{{if eq .Kind "stage_change"}}{{catLabel .Detail}}{{end}}"></span>
+    <div>
+      {{if eq .Kind "stage_change"}}<b>Pasó a {{.Label}}</b>{{with .Subject}} <span class="muted">desde {{.}}</span>{{end}}{{with .Summary}}<p class="muted small">{{.}}</p>{{end}}
+      {{else}}<span class="row"><span class="tag outline">{{.Label}}</span><span class="muted small">{{if eq .Detail "inbound"}}↓ entrante{{else if eq .Detail "outbound"}}↑ saliente{{else}}interna{{end}}</span></span>
+        {{with .Subject}}<b>{{.}}</b>{{end}}{{with .Summary}}<p class="muted small pre">{{.}}</p>{{end}}{{end}}
+      <small class="muted">{{date .At}} {{.At.Format "15:04"}}</small>
+    </div>
+  </li>
+  {{end}}
+</ol>
+{{else}}<p class="muted">Sin actividad registrada.</p>{{end}}
+{{end}}
+
+{{define "owner-select"}}
+<label class="field">Dueño<select name="owner"><option value="">—</option>{{$cur := .Cur}}{{range .Members}}<option value="{{.Email}}" {{if and $cur (eq .ID.String $cur)}}selected{{end}}>{{or .Name .Email}}</option>{{end}}</select></label>
+{{end}}

@@ -44,27 +44,29 @@
   <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></symbol>
   <symbol id="i-key" viewBox="0 0 24 24"><path d="M20 8.5a4.5 4.5 0 0 1-6 4.2L8 19H5v-3l6.3-6A4.5 4.5 0 1 1 20 8.5z"/></symbol>
   <symbol id="i-pulse" viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></symbol>
+  <symbol id="i-sidebar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M14 10l-2 2 2 2"/></symbol>
   <symbol id="i-out" viewBox="0 0 24 24"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></symbol>
 </svg>
 {{if and .View .View.Current (not .Bare)}}
-<div class="shell">
+<div class="shell {{.View.Side}}" data-shell>
   <aside class="side">
-    <a class="brand" href="/board"><img src="/static/favicon.svg" alt=""> Hilo CRM</a>
+    <div class="brand-row"><a class="brand" href="/board"><img src="/static/favicon.svg" alt=""><span>Hilo CRM</span></a>
+      <button type="button" class="btn ghost sm collapse-btn" data-collapse title="Plegar / desplegar menú" aria-label="Plegar o desplegar el menú"><svg class="i sm"><use href="#i-sidebar"/></svg></button></div>
     <nav class="nav">
-      <a href="/board" {{if eq .Nav "board"}}aria-current="page"{{end}}><svg class="i"><use href="#i-funnel"/></svg>Funnel</a>
-      <a href="/dashboard" {{if eq .Nav "dashboard"}}aria-current="page"{{end}}><svg class="i"><use href="#i-dash"/></svg>Dashboard</a>
+      <a href="/board" {{if eq .Nav "board"}}aria-current="page"{{end}} title="Funnel"><svg class="i"><use href="#i-funnel"/></svg><span>Funnel</span></a>
+      <a href="/dashboard" {{if eq .Nav "dashboard"}}aria-current="page"{{end}} title="Dashboard"><svg class="i"><use href="#i-dash"/></svg><span>Dashboard</span></a>
       <div class="nav-label">Datos</div>
-      <span class="soon"><svg class="i"><use href="#i-building"/></svg>Empresas<em>pronto</em></span>
-      <span class="soon"><svg class="i"><use href="#i-users"/></svg>Contactos<em>pronto</em></span>
+      <a href="/companies" {{if eq .Nav "companies"}}aria-current="page"{{end}} title="Empresas"><svg class="i"><use href="#i-building"/></svg><span>Empresas</span></a>
+      <a href="/contacts" {{if eq .Nav "contacts"}}aria-current="page"{{end}} title="Contactos"><svg class="i"><use href="#i-users"/></svg><span>Contactos</span></a>
       {{template "nav-data" .}}
       <div class="nav-label">Configuración</div>
-      <a href="/settings/agents" {{if eq .Nav "agents"}}aria-current="page"{{end}}><svg class="i"><use href="#i-plug"/></svg>Agentes (MCP)</a>
-      <a href="/settings/pipelines" {{if eq .Nav "pipelines"}}aria-current="page"{{end}}><svg class="i"><use href="#i-branch"/></svg>Pipelines</a>
-      <a href="/settings/channels" {{if eq .Nav "channels"}}aria-current="page"{{end}}><svg class="i"><use href="#i-radio"/></svg>Canales</a>
-      {{if .View.IsAdmin}}<a href="/settings/forms" {{if eq .Nav "forms"}}aria-current="page"{{end}}><svg class="i"><use href="#i-file"/></svg>Formularios</a>{{end}}
-      <a href="/settings/members" {{if eq .Nav "members"}}aria-current="page"{{end}}><svg class="i"><use href="#i-useradd"/></svg>Miembros</a>
-      {{if .View.IsAdmin}}<a href="/settings/audit" {{if eq .Nav "audit"}}aria-current="page"{{end}}><svg class="i"><use href="#i-shield"/></svg>Auditoría</a>{{end}}
-      {{if .View.Sess.IsSuperadmin}}<a href="/admin" {{if eq .Nav "admin"}}aria-current="page"{{end}}><svg class="i"><use href="#i-star"/></svg>Superadmin</a>{{end}}
+      <a href="/settings/agents" {{if eq .Nav "agents"}}aria-current="page"{{end}} title="Agentes (MCP)"><svg class="i"><use href="#i-plug"/></svg><span>Agentes (MCP)</span></a>
+      <a href="/settings/pipelines" {{if eq .Nav "pipelines"}}aria-current="page"{{end}} title="Pipelines"><svg class="i"><use href="#i-branch"/></svg><span>Pipelines</span></a>
+      <a href="/settings/channels" {{if eq .Nav "channels"}}aria-current="page"{{end}} title="Canales"><svg class="i"><use href="#i-radio"/></svg><span>Canales</span></a>
+      {{if .View.IsAdmin}}<a href="/settings/forms" {{if eq .Nav "forms"}}aria-current="page"{{end}} title="Formularios"><svg class="i"><use href="#i-file"/></svg><span>Formularios</span></a>{{end}}
+      <a href="/settings/members" {{if eq .Nav "members"}}aria-current="page"{{end}} title="Miembros"><svg class="i"><use href="#i-useradd"/></svg><span>Miembros</span></a>
+      {{if .View.IsAdmin}}<a href="/settings/audit" {{if eq .Nav "audit"}}aria-current="page"{{end}} title="Auditoría"><svg class="i"><use href="#i-shield"/></svg><span>Auditoría</span></a>{{end}}
+      {{if .View.Sess.IsSuperadmin}}<a href="/admin" {{if eq .Nav "admin"}}aria-current="page"{{end}} title="Superadmin"><svg class="i"><use href="#i-star"/></svg><span>Superadmin</span></a>{{end}}
     </nav>
     <div class="side-foot">
       {{if ne .Nav "agents"}}
@@ -87,6 +89,7 @@
         <form method="post" action="/logout"><input type="hidden" name="csrf" value="{{.View.Sess.CSRFToken}}"><button class="btn ghost sm" title="Salir" aria-label="Salir"><svg class="i sm"><use href="#i-out"/></svg></button></form>
       </div>
     </div>
+    <div class="resizer" data-resizer title="Arrastrá para cambiar el ancho · doble clic para restablecer" aria-hidden="true"></div>
   </aside>
   <main class="main">
     <header class="head">
@@ -121,4 +124,4 @@
 </body>
 </html>
 {{define "nav-data"}}{{template "nav-data-live" .}}{{end}}
-{{define "nav-data-live"}}<a href="/opportunities" {{if eq .Nav "opportunities"}}aria-current="page"{{end}}><svg class="i"><use href="#i-brief"/></svg>Oportunidades</a><a href="/interactions" {{if eq .Nav "interactions"}}aria-current="page"{{end}}><svg class="i"><use href="#i-msg"/></svg>Interacciones</a>{{end}}
+{{define "nav-data-live"}}<a href="/opportunities" {{if eq .Nav "opportunities"}}aria-current="page"{{end}} title="Oportunidades"><svg class="i"><use href="#i-brief"/></svg><span>Oportunidades</span></a><a href="/interactions" {{if eq .Nav "interactions"}}aria-current="page"{{end}} title="Interacciones"><svg class="i"><use href="#i-msg"/></svg><span>Interacciones</span></a>{{end}}

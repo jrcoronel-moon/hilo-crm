@@ -40,6 +40,20 @@ WHERE workspace_id = $1 AND archived_at IS NULL
 ORDER BY id DESC
 LIMIT sqlc.arg(lim);
 
+-- Web list with what the table shows.
+-- name: CompaniesWithStats :many
+SELECT c.id, c.name, c.domain, c.industry, c.country, c.tags, c.created_at,
+       (SELECT count(*) FROM contacts ct WHERE ct.workspace_id = c.workspace_id AND ct.company_id = c.id AND ct.archived_at IS NULL)::int AS contacts,
+       (SELECT count(*) FROM opportunities o WHERE o.workspace_id = c.workspace_id AND o.company_id = c.id AND o.archived_at IS NULL AND o.status = 'open')::int AS open_opps,
+       COALESCE((SELECT max(i.occurred_at) FROM interactions i WHERE i.workspace_id = c.workspace_id AND i.company_id = c.id), 'epoch')::timestamptz AS last_activity
+FROM companies c
+WHERE c.workspace_id = $1 AND c.archived_at IS NULL
+  AND (sqlc.narg(query)::text IS NULL OR c.name ILIKE '%' || sqlc.narg(query) || '%' OR c.domain ILIKE '%' || sqlc.narg(query) || '%')
+  AND (sqlc.narg(tag)::text IS NULL OR sqlc.narg(tag) = ANY (c.tags))
+  AND (sqlc.narg(cursor)::uuid IS NULL OR c.id < sqlc.narg(cursor))
+ORDER BY c.id DESC
+LIMIT sqlc.arg(lim);
+
 -- ───────────── contacts ─────────────
 
 -- name: GetContact :one
@@ -75,6 +89,21 @@ WHERE workspace_id = $1 AND archived_at IS NULL
   AND (sqlc.narg(tag)::text IS NULL OR sqlc.narg(tag) = ANY (tags))
   AND (sqlc.narg(cursor)::uuid IS NULL OR id < sqlc.narg(cursor))
 ORDER BY id DESC
+LIMIT sqlc.arg(lim);
+
+-- name: ContactsWithStats :many
+SELECT ct.id, ct.first_name, ct.last_name, ct.email, ct.title, ct.phone, ct.tags, ct.company_id,
+       co.name AS company_name,
+       COALESCE((SELECT max(i.occurred_at) FROM interactions i WHERE i.workspace_id = ct.workspace_id AND i.contact_id = ct.id), 'epoch')::timestamptz AS last_activity
+FROM contacts ct
+LEFT JOIN companies co ON co.id = ct.company_id
+WHERE ct.workspace_id = $1 AND ct.archived_at IS NULL
+  AND (sqlc.narg(query)::text IS NULL OR ct.email ILIKE '%' || sqlc.narg(query) || '%'
+       OR (ct.first_name || ' ' || ct.last_name) ILIKE '%' || sqlc.narg(query) || '%' OR co.name ILIKE '%' || sqlc.narg(query) || '%')
+  AND (sqlc.narg(company_id)::uuid IS NULL OR ct.company_id = sqlc.narg(company_id))
+  AND (sqlc.narg(tag)::text IS NULL OR sqlc.narg(tag) = ANY (ct.tags))
+  AND (sqlc.narg(cursor)::uuid IS NULL OR ct.id < sqlc.narg(cursor))
+ORDER BY ct.id DESC
 LIMIT sqlc.arg(lim);
 
 -- ───────────── opportunities ─────────────
@@ -121,6 +150,8 @@ WHERE o.workspace_id = $1 AND o.archived_at IS NULL
   AND (sqlc.narg(status)::text IS NULL OR o.status = sqlc.narg(status))
   AND (sqlc.narg(owner_id)::uuid IS NULL OR o.owner_id = sqlc.narg(owner_id))
   AND (sqlc.narg(company_id)::uuid IS NULL OR o.company_id = sqlc.narg(company_id))
+  AND (sqlc.narg(contact_id)::uuid IS NULL OR o.primary_contact_id = sqlc.narg(contact_id)
+       OR EXISTS (SELECT 1 FROM opportunity_contacts oc WHERE oc.opportunity_id = o.id AND oc.contact_id = sqlc.narg(contact_id)))
   AND (sqlc.narg(channel_id)::uuid IS NULL OR o.source_channel_id = sqlc.narg(channel_id))
   AND (sqlc.narg(query)::text IS NULL OR o.title ILIKE '%' || sqlc.narg(query) || '%')
   AND (sqlc.narg(tag)::text IS NULL OR sqlc.narg(tag) = ANY (o.tags))

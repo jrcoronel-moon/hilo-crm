@@ -259,3 +259,78 @@ func (s *Service) FindOrCreateCompany(ctx context.Context, a Actor, name, domain
 	})
 	return id, err
 }
+
+// CompanyRow is one line of the companies list.
+type CompanyRow struct {
+	ID                     uuid.UUID
+	Name, Domain, Industry string
+	Country                string
+	Tags                   []string
+	Contacts, OpenOpps     int
+	LastActivity           *time.Time
+}
+
+// CompanyRows lists companies with their counts (web table).
+func (s *Service) CompanyRows(ctx context.Context, a Actor, f ListFilter) (Page[CompanyRow], error) {
+	var out Page[CompanyRow]
+	err := s.tx(ctx, a, PermRead, func(q *store.Queries) error {
+		la, err := f.args(resolvers{ctx, q, a.WorkspaceID})
+		if err != nil {
+			return err
+		}
+		rows, err := q.CompaniesWithStats(ctx, store.CompaniesWithStatsParams{WorkspaceID: a.WorkspaceID, Query: la.query, Tag: la.tag, Cursor: la.cur, Lim: la.limit})
+		if err != nil {
+			return err
+		}
+		out.Items = make([]CompanyRow, 0, len(rows))
+		for _, r := range rows {
+			out.Items = append(out.Items, CompanyRow{ID: r.ID, Name: r.Name, Domain: deref(r.Domain), Industry: r.Industry, Country: r.Country,
+				Tags: r.Tags, Contacts: int(r.Contacts), OpenOpps: int(r.OpenOpps), LastActivity: notEpoch(r.LastActivity)})
+		}
+		out.NextCursor = nextCursor(rows, la.limit, func(r store.CompaniesWithStatsRow) uuid.UUID { return r.ID })
+		return nil
+	})
+	return out, err
+}
+
+// ContactRow is one line of the contacts list.
+type ContactRow struct {
+	ID                        uuid.UUID
+	Name, Email, Title, Phone string
+	CompanyID                 *uuid.UUID
+	Company                   string
+	Tags                      []string
+	LastActivity              *time.Time
+}
+
+// ContactRows lists contacts with their company (web table).
+func (s *Service) ContactRows(ctx context.Context, a Actor, f ListFilter) (Page[ContactRow], error) {
+	var out Page[ContactRow]
+	err := s.tx(ctx, a, PermRead, func(q *store.Queries) error {
+		la, err := f.args(resolvers{ctx, q, a.WorkspaceID})
+		if err != nil {
+			return err
+		}
+		rows, err := q.ContactsWithStats(ctx, store.ContactsWithStatsParams{WorkspaceID: a.WorkspaceID, Query: la.query, CompanyID: la.company,
+			Tag: la.tag, Cursor: la.cur, Lim: la.limit})
+		if err != nil {
+			return err
+		}
+		out.Items = make([]ContactRow, 0, len(rows))
+		for _, r := range rows {
+			out.Items = append(out.Items, ContactRow{ID: r.ID, Name: strings.TrimSpace(r.FirstName + " " + r.LastName), Email: deref(r.Email),
+				Title: r.Title, Phone: r.Phone, CompanyID: r.CompanyID, Company: deref(r.CompanyName), Tags: r.Tags, LastActivity: notEpoch(r.LastActivity)})
+		}
+		out.NextCursor = nextCursor(rows, la.limit, func(r store.ContactsWithStatsRow) uuid.UUID { return r.ID })
+		return nil
+	})
+	return out, err
+}
+
+// notEpoch maps the SQL "no activity" sentinel (epoch) to nil.
+func notEpoch(t time.Time) *time.Time {
+	if t.Unix() == 0 {
+		return nil
+	}
+	return &t
+}

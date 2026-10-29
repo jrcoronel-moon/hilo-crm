@@ -17,7 +17,8 @@ y administrar el workspace.
 - **Métricas**: volumen y valor ponderado por etapa, win rate, ciclo, tiempo en etapa, estancadas, leads por canal,
   interacciones por semana, monto ganado por mes, **objetivo mensual por pipeline** y actividad por agente.
 - **Web para las personas**: funnel con arrastre entre etapas (con deshacer y motivo de pérdida), búsqueda, filtros,
-  nueva oportunidad, exportación CSV, listas de oportunidades (con acciones en lote) e interacciones, dashboard y
+  nueva oportunidad, exportación CSV, empresas y contactos (listas, fichas con timeline, edición), oportunidades
+  (con acciones en lote) e interacciones, dashboard y
   ajustes. Todo pasa por las mismas reglas y la misma auditoría que los agentes.
 - **Seguridad primero**: Postgres con Row-Level Security y FKs compuestas por workspace, roles de base de datos
   de mínimo privilegio, CSP estricta, contenedores sin root y de solo lectura, y un harness que corre lint de

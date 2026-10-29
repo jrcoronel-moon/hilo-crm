@@ -252,3 +252,45 @@ document.addEventListener("keydown", (e) => {
     if (s) { e.preventDefault(); s.focus(); s.select(); }
   }
 });
+
+// ───── sidebar: collapse and resize (persisted in the hilo_side cookie,
+// which the server validates and turns into a class: no flash, no inline
+// styles) ─────
+const shell = $("[data-shell]");
+if (shell) {
+  const save = (v) => {
+    const secure = location.protocol === "https:" ? "; Secure" : "";
+    document.cookie = `hilo_side=${v}; Path=/; Max-Age=31536000; SameSite=Lax${secure}`;
+  };
+  const widthClass = () => [...shell.classList].find((c) => c.startsWith("sw-"));
+  $("[data-collapse]")?.addEventListener("click", () => {
+    const collapsed = shell.classList.toggle("collapsed");
+    save(collapsed ? "c" : (widthClass() || "sw-232").slice(3));
+  });
+  const handle = $("[data-resizer]");
+  handle?.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    handle.setPointerCapture(e.pointerId);
+    shell.classList.add("resizing");
+    const left = shell.getBoundingClientRect().left + 16;
+    let w = 0;
+    const move = (ev) => {
+      w = Math.min(360, Math.max(200, Math.round((ev.clientX - left) / 20) * 20));
+      const old = widthClass();
+      if (old) shell.classList.remove(old);
+      shell.classList.add("sw-" + w);
+    };
+    const up = () => {
+      shell.classList.remove("resizing");
+      handle.removeEventListener("pointermove", move);
+      if (w) save(String(w));
+    };
+    handle.addEventListener("pointermove", move);
+    handle.addEventListener("pointerup", up, { once: true });
+  });
+  handle?.addEventListener("dblclick", () => {
+    const old = widthClass();
+    if (old) shell.classList.remove(old);
+    save("");
+  });
+}

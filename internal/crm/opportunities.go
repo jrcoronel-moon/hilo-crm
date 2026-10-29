@@ -451,6 +451,7 @@ type OpportunityFilter struct {
 	Status      string `json:"status,omitempty" jsonschema:"open, won or lost"`
 	Owner       string `json:"owner,omitempty" jsonschema:"member id or email"`
 	Company     string `json:"company,omitempty" jsonschema:"company id or domain"`
+	Contact     string `json:"contact,omitempty" jsonschema:"contact id or email (primary or linked)"`
 	Channel     string `json:"channel,omitempty" jsonschema:"source channel id or name"`
 	Query       string `json:"query,omitempty" jsonschema:"substring of the title"`
 	Tag         string `json:"tag,omitempty" jsonschema:"only opportunities with this tag"`
@@ -498,6 +499,7 @@ func (s *Service) ListOpportunities(ctx context.Context, a Actor, f OpportunityF
 		}
 		pt.ref(&p.OwnerID, strPtrIf(f.Owner), r.owner)
 		pt.ref(&p.CompanyID, strPtrIf(f.Company), r.company)
+		pt.ref(&p.ContactID, strPtrIf(f.Contact), r.contact)
 		pt.ref(&p.ChannelID, strPtrIf(f.Channel), r.channel)
 		pt.ref(&p.Cursor, strPtrIf(f.Cursor), func(v string) (uuid.UUID, error) { return parseID("cursor", v) })
 		if pt.err != nil {

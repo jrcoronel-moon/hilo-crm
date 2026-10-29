@@ -1,0 +1,55 @@
+{{define "actions"}}{{if .View.CanWrite}}<form method="post" action="/companies/{{.Data.C.ID}}/archive" data-confirm="¿Archivar {{.Data.C.Name}}?|Deja de aparecer en listas y búsquedas. Sus contactos, oportunidades e historial se conservan."><input type="hidden" name="csrf" value="{{.Data.CSRF}}"><button class="btn ghost danger"><svg class="i sm"><use href="#i-trash"/></svg>Archivar</button></form>{{end}}{{end}}
+{{define "content"}}
+{{$d := .Data}}{{$c := $d.C}}
+<div class="record-head">
+  <span class="av lg">{{initials $c.Name ""}}</span>
+  <div class="grow"><h1>{{$c.Name}}</h1><p class="muted">{{with $c.Domain}}<a href="https://{{.}}" rel="noopener noreferrer" target="_blank">{{.}}</a>{{else}}sin dominio{{end}}{{with $c.Industry}} · {{.}}{{end}}{{with $c.Country}} · {{.}}{{end}}</p></div>
+  <div class="kpis mini">
+    <div class="kpi"><span>Contactos</span><strong>{{len $d.Contacts}}</strong></div>
+    <div class="kpi"><span>Oportunidades</span><strong>{{len $d.Opportunities}}</strong></div>
+    <div class="kpi"><span>Interacciones</span><strong>{{$c.Interactions}}</strong></div>
+  </div>
+</div>
+<div class="grid2">
+  <div class="gcol">
+    <section class="card"><div class="card-head"><h2>Oportunidades</h2></div>{{template "opp-table" $d.Opportunities}}</section>
+    <section class="card"><div class="card-head"><h2>Contactos</h2>{{if $.View.CanWrite}}<button class="btn sm aside" type="button" data-open="#new-contact"><svg class="i sm"><use href="#i-plus"/></svg>Agregar</button>{{end}}</div>
+      {{if $d.Contacts}}<table class="table">{{range $d.Contacts}}<tr><td><a class="cellflex" href="/contacts/{{.ID}}"><span class="av">{{initials .Name .Email}}</span><span class="who"><b>{{or .Name .Email}}</b><small>{{.Title}}</small></span></a></td><td>{{.Email}}</td><td>{{ago .LastActivity}}</td></tr>{{end}}</table>
+      {{else}}<p class="muted">Sin contactos.</p>{{end}}</section>
+    <section class="card"><div class="card-head"><h2>Actividad</h2></div>{{template "timeline" $d.Timeline}}</section>
+  </div>
+  <div class="gcol">
+    <section class="card">
+      <h2>Datos</h2>
+      {{if $.View.CanWrite}}
+      <form method="post" action="/companies/{{$c.ID}}" class="stack">
+        <input type="hidden" name="csrf" value="{{$d.CSRF}}">
+        <label class="field">Nombre<input name="name" value="{{$c.Name}}" required maxlength="200"></label>
+        <label class="field">Dominio<input name="domain" value="{{$c.Domain}}" placeholder="empresa.com"></label>
+        <div class="row"><label class="field grow">Industria<input name="industry" value="{{$c.Industry}}" maxlength="100"></label>
+          <label class="field">País<input name="country" value="{{$c.Country}}" maxlength="2" size="3" placeholder="AR"></label></div>
+        <label class="field">Tamaño<select name="size_range"><option value="">—</option>{{range $d.Sizes}}<option {{if eq . $c.SizeRange}}selected{{end}}>{{.}}</option>{{end}}</select></label>
+        <label class="field">Sitio web<input name="website" value="{{$c.Website}}" placeholder="https://"></label>
+        {{template "owner-select" (ownerSel $d.Members $c.OwnerID)}}
+        <label class="field">Tags (separados por coma)<input name="tags" value="{{join $c.Tags ", "}}"></label>
+        <label class="field">Descripción<textarea name="description" rows="4" maxlength="5000">{{$c.Description}}</textarea></label>
+        <div><button class="btn primary">Guardar</button></div>
+      </form>
+      {{else}}
+      <dl class="facts">{{with $c.Website}}<dt>Sitio</dt><dd>{{.}}</dd>{{end}}{{with $c.SizeRange}}<dt>Tamaño</dt><dd>{{.}}</dd>{{end}}<dt>Tags</dt><dd>{{range $c.Tags}}<span class="tag {{tagClass .}}">{{.}}</span> {{else}}—{{end}}</dd></dl>
+      {{with $c.Description}}<p class="pre">{{.}}</p>{{end}}
+      {{end}}
+      <p class="muted small">Creada {{date $c.CreatedAt}} · actualizada {{date $c.UpdatedAt}}{{with $c.ExternalID}} · id externo <code>{{.}}</code>{{end}}</p>
+    </section>
+  </div>
+</div>
+{{if $.View.CanWrite}}
+<dialog id="new-contact" class="wide"><form method="post" action="/contacts" class="stack">
+  <input type="hidden" name="csrf" value="{{$d.CSRF}}"><input type="hidden" name="company" value="{{or $c.Domain $c.Name}}">
+  <h2>Nuevo contacto en {{$c.Name}}</h2>
+  <div class="row"><label class="field grow">Nombre<input name="first_name" maxlength="100"></label><label class="field grow">Apellido<input name="last_name" maxlength="100"></label></div>
+  <label class="field">Email<input name="email" type="email"></label>
+  <div class="acts"><button class="btn" type="button" data-close>Cancelar</button><button class="btn primary">Crear contacto</button></div>
+</form></dialog>
+{{end}}
+{{end}}

@@ -17,6 +17,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -69,10 +70,10 @@ func (h *Handler) parseTemplates() error {
 	h.tpl = map[string]*template.Template{}
 	for _, p := range pages {
 		name := strings.TrimSuffix(strings.TrimPrefix(p, "templates/"), ".html")
-		if name == "layout" {
+		if name == "layout" || name == "partials" {
 			continue
 		}
-		t, err := template.New("layout.html").Funcs(funcs).ParseFS(templateFS, "templates/layout.html", p)
+		t, err := template.New("layout.html").Funcs(funcs).ParseFS(templateFS, "templates/layout.html", "templates/partials.html", p)
 		if err != nil {
 			return err
 		}
@@ -103,6 +104,16 @@ func (h *Handler) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /opportunities/bulk", h.member(h.bulk))
 	mux.HandleFunc("GET /opportunities.csv", h.member(h.exportCSV))
 	mux.HandleFunc("GET /interactions", h.member(h.interactions))
+	mux.HandleFunc("GET /companies", h.member(h.companies))
+	mux.HandleFunc("POST /companies", h.member(h.saveCompany))
+	mux.HandleFunc("GET /companies/{id}", h.member(h.company))
+	mux.HandleFunc("POST /companies/{id}", h.member(h.saveCompany))
+	mux.HandleFunc("POST /companies/{id}/archive", h.member(h.archiveRecord("company")))
+	mux.HandleFunc("GET /contacts", h.member(h.contacts))
+	mux.HandleFunc("POST /contacts", h.member(h.saveContact))
+	mux.HandleFunc("GET /contacts/{id}", h.member(h.contact))
+	mux.HandleFunc("POST /contacts/{id}", h.member(h.saveContact))
+	mux.HandleFunc("POST /contacts/{id}/archive", h.member(h.archiveRecord("contact")))
 	mux.HandleFunc("GET /dashboard", h.member(h.dashboard))
 	mux.HandleFunc("GET /settings", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/settings/agents", http.StatusSeeOther)
@@ -144,8 +155,9 @@ type view struct {
 	Workspaces []workspaceItem
 	Current    *workspaceItem
 	Actor      crm.Actor
-	AgentCount int // OAuth agents connected (sidebar)
-	TokenCount int // active personal access tokens (sidebar)
+	Side       string // sidebar layout class from the hilo_side cookie
+	AgentCount int    // OAuth agents connected (sidebar)
+	TokenCount int    // active personal access tokens (sidebar)
 }
 
 type workspaceItem struct {
@@ -197,6 +209,7 @@ func (h *Handler) session(next func(http.ResponseWriter, *http.Request, view)) h
 			h.fail(w, r, err)
 			return
 		}
+		v.Side = sideClass(r)
 		w.Header().Set("Cache-Control", "no-store")
 		next(w, r, v)
 	}
@@ -302,6 +315,22 @@ func (h *Handler) home(w http.ResponseWriter, r *http.Request) {
 	h.member(func(w http.ResponseWriter, r *http.Request, _ view) {
 		http.Redirect(w, r, "/board", http.StatusSeeOther)
 	})(w, r)
+}
+
+// sideClass maps the sidebar preference cookie (set by app.js) to a CSS
+// class. Only known values are accepted: the cookie is user-controlled.
+func sideClass(r *http.Request) string {
+	c, err := r.Cookie("hilo_side")
+	if err != nil {
+		return ""
+	}
+	if c.Value == "c" {
+		return "collapsed"
+	}
+	if w, err := strconv.Atoi(c.Value); err == nil && w >= 200 && w <= 360 && w%20 == 0 {
+		return "sw-" + c.Value
+	}
+	return ""
 }
 
 // safeReturn accepts only same-site absolute paths (no //host, no \).

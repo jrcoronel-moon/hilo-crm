@@ -183,6 +183,155 @@ func (q *Queries) BoardOpportunities(ctx context.Context, arg BoardOpportunities
 	return items, nil
 }
 
+const companiesWithStats = `-- name: CompaniesWithStats :many
+SELECT c.id, c.name, c.domain, c.industry, c.country, c.tags, c.created_at,
+       (SELECT count(*) FROM contacts ct WHERE ct.workspace_id = c.workspace_id AND ct.company_id = c.id AND ct.archived_at IS NULL)::int AS contacts,
+       (SELECT count(*) FROM opportunities o WHERE o.workspace_id = c.workspace_id AND o.company_id = c.id AND o.archived_at IS NULL AND o.status = 'open')::int AS open_opps,
+       COALESCE((SELECT max(i.occurred_at) FROM interactions i WHERE i.workspace_id = c.workspace_id AND i.company_id = c.id), 'epoch')::timestamptz AS last_activity
+FROM companies c
+WHERE c.workspace_id = $1 AND c.archived_at IS NULL
+  AND ($2::text IS NULL OR c.name ILIKE '%' || $2 || '%' OR c.domain ILIKE '%' || $2 || '%')
+  AND ($3::text IS NULL OR $3 = ANY (c.tags))
+  AND ($4::uuid IS NULL OR c.id < $4)
+ORDER BY c.id DESC
+LIMIT $5
+`
+
+type CompaniesWithStatsParams struct {
+	WorkspaceID uuid.UUID  `json:"workspace_id"`
+	Query       *string    `json:"query"`
+	Tag         *string    `json:"tag"`
+	Cursor      *uuid.UUID `json:"cursor"`
+	Lim         int32      `json:"lim"`
+}
+
+type CompaniesWithStatsRow struct {
+	ID           uuid.UUID `json:"id"`
+	Name         string    `json:"name"`
+	Domain       *string   `json:"domain"`
+	Industry     string    `json:"industry"`
+	Country      string    `json:"country"`
+	Tags         []string  `json:"tags"`
+	CreatedAt    time.Time `json:"created_at"`
+	Contacts     int32     `json:"contacts"`
+	OpenOpps     int32     `json:"open_opps"`
+	LastActivity time.Time `json:"last_activity"`
+}
+
+// Web list with what the table shows.
+func (q *Queries) CompaniesWithStats(ctx context.Context, arg CompaniesWithStatsParams) ([]CompaniesWithStatsRow, error) {
+	rows, err := q.db.Query(ctx, companiesWithStats,
+		arg.WorkspaceID,
+		arg.Query,
+		arg.Tag,
+		arg.Cursor,
+		arg.Lim,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CompaniesWithStatsRow{}
+	for rows.Next() {
+		var i CompaniesWithStatsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Domain,
+			&i.Industry,
+			&i.Country,
+			&i.Tags,
+			&i.CreatedAt,
+			&i.Contacts,
+			&i.OpenOpps,
+			&i.LastActivity,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const contactsWithStats = `-- name: ContactsWithStats :many
+SELECT ct.id, ct.first_name, ct.last_name, ct.email, ct.title, ct.phone, ct.tags, ct.company_id,
+       co.name AS company_name,
+       COALESCE((SELECT max(i.occurred_at) FROM interactions i WHERE i.workspace_id = ct.workspace_id AND i.contact_id = ct.id), 'epoch')::timestamptz AS last_activity
+FROM contacts ct
+LEFT JOIN companies co ON co.id = ct.company_id
+WHERE ct.workspace_id = $1 AND ct.archived_at IS NULL
+  AND ($2::text IS NULL OR ct.email ILIKE '%' || $2 || '%'
+       OR (ct.first_name || ' ' || ct.last_name) ILIKE '%' || $2 || '%' OR co.name ILIKE '%' || $2 || '%')
+  AND ($3::uuid IS NULL OR ct.company_id = $3)
+  AND ($4::text IS NULL OR $4 = ANY (ct.tags))
+  AND ($5::uuid IS NULL OR ct.id < $5)
+ORDER BY ct.id DESC
+LIMIT $6
+`
+
+type ContactsWithStatsParams struct {
+	WorkspaceID uuid.UUID  `json:"workspace_id"`
+	Query       *string    `json:"query"`
+	CompanyID   *uuid.UUID `json:"company_id"`
+	Tag         *string    `json:"tag"`
+	Cursor      *uuid.UUID `json:"cursor"`
+	Lim         int32      `json:"lim"`
+}
+
+type ContactsWithStatsRow struct {
+	ID           uuid.UUID  `json:"id"`
+	FirstName    string     `json:"first_name"`
+	LastName     string     `json:"last_name"`
+	Email        *string    `json:"email"`
+	Title        string     `json:"title"`
+	Phone        string     `json:"phone"`
+	Tags         []string   `json:"tags"`
+	CompanyID    *uuid.UUID `json:"company_id"`
+	CompanyName  *string    `json:"company_name"`
+	LastActivity time.Time  `json:"last_activity"`
+}
+
+func (q *Queries) ContactsWithStats(ctx context.Context, arg ContactsWithStatsParams) ([]ContactsWithStatsRow, error) {
+	rows, err := q.db.Query(ctx, contactsWithStats,
+		arg.WorkspaceID,
+		arg.Query,
+		arg.CompanyID,
+		arg.Tag,
+		arg.Cursor,
+		arg.Lim,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ContactsWithStatsRow{}
+	for rows.Next() {
+		var i ContactsWithStatsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.FirstName,
+			&i.LastName,
+			&i.Email,
+			&i.Title,
+			&i.Phone,
+			&i.Tags,
+			&i.CompanyID,
+			&i.CompanyName,
+			&i.LastActivity,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const countInteractions = `-- name: CountInteractions :one
 SELECT count(*)::int FROM interactions
 WHERE workspace_id = $1
@@ -915,15 +1064,17 @@ WHERE o.workspace_id = $1 AND o.archived_at IS NULL
   AND ($5::text IS NULL OR o.status = $5)
   AND ($6::uuid IS NULL OR o.owner_id = $6)
   AND ($7::uuid IS NULL OR o.company_id = $7)
-  AND ($8::uuid IS NULL OR o.source_channel_id = $8)
-  AND ($9::text IS NULL OR o.title ILIKE '%' || $9 || '%')
-  AND ($10::text IS NULL OR $10 = ANY (o.tags))
-  AND ($11::date IS NULL OR o.expected_close_date <= $11)
-  AND ($12::timestamptz IS NULL
-       OR (o.status = 'open' AND COALESCE(o.last_interaction_at, o.stage_entered_at) < $12))
-  AND ($13::uuid IS NULL OR o.id < $13)
+  AND ($8::uuid IS NULL OR o.primary_contact_id = $8
+       OR EXISTS (SELECT 1 FROM opportunity_contacts oc WHERE oc.opportunity_id = o.id AND oc.contact_id = $8))
+  AND ($9::uuid IS NULL OR o.source_channel_id = $9)
+  AND ($10::text IS NULL OR o.title ILIKE '%' || $10 || '%')
+  AND ($11::text IS NULL OR $11 = ANY (o.tags))
+  AND ($12::date IS NULL OR o.expected_close_date <= $12)
+  AND ($13::timestamptz IS NULL
+       OR (o.status = 'open' AND COALESCE(o.last_interaction_at, o.stage_entered_at) < $13))
+  AND ($14::uuid IS NULL OR o.id < $14)
 ORDER BY o.id DESC
-LIMIT $14
+LIMIT $15
 `
 
 type ListOpportunitiesParams struct {
@@ -934,6 +1085,7 @@ type ListOpportunitiesParams struct {
 	Status      *string    `json:"status"`
 	OwnerID     *uuid.UUID `json:"owner_id"`
 	CompanyID   *uuid.UUID `json:"company_id"`
+	ContactID   *uuid.UUID `json:"contact_id"`
 	ChannelID   *uuid.UUID `json:"channel_id"`
 	Query       *string    `json:"query"`
 	Tag         *string    `json:"tag"`
@@ -987,6 +1139,7 @@ func (q *Queries) ListOpportunities(ctx context.Context, arg ListOpportunitiesPa
 		arg.Status,
 		arg.OwnerID,
 		arg.CompanyID,
+		arg.ContactID,
 		arg.ChannelID,
 		arg.Query,
 		arg.Tag,
