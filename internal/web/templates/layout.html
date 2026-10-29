@@ -113,11 +113,11 @@
 {{end}}
 {{end}}
 <div class="toasts" id="toasts" aria-live="polite">{{with .Flash}}<div class="toast" data-autohide><svg class="i sm"><use href="#i-check"/></svg><span>{{.}}</span></div>{{end}}</div>
-<dialog id="confirm"><form method="dialog" class="dlg">
+<dialog id="confirm"><div class="dlg">
   <span class="ic"><svg class="i"><use href="#i-alert"/></svg></span>
   <div><h2 data-title></h2><p data-body></p></div>
-  <div class="acts"><button class="btn" value="cancel">Cancelar</button><button class="btn danger solid" value="ok" data-ok>Confirmar</button></div>
-</form></dialog>
+  <div class="acts"><button type="button" class="btn" data-dlg="cancel">Cancelar</button><button type="button" class="btn danger solid" data-dlg="ok">Confirmar</button></div>
+</div></dialog>
 </body>
 </html>
 {{define "nav-data"}}{{template "nav-data-live" .}}{{end}}

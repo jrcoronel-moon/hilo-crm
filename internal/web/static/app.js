@@ -32,6 +32,20 @@ function toast(text, opts = {}) {
 }
 $$(".toast[data-autohide]").forEach((t) => setTimeout(() => t.remove(), 4000));
 
+// Dialog buttons close their dialog with a value (no <form method=dialog>,
+// so the page carries no form without a CSRF token).
+document.addEventListener("click", (e) => {
+  const b = e.target instanceof Element ? e.target.closest("[data-dlg]") : null;
+  if (b) b.closest("dialog")?.close(b.dataset.dlg);
+});
+document.addEventListener("keydown", (e) => {
+  const d = document.querySelector("dialog[open]");
+  if (e.key === "Enter" && d && e.target instanceof HTMLInputElement && d.contains(e.target) && !e.target.form) {
+    e.preventDefault();
+    d.close("ok");
+  }
+});
+
 // ───── confirmation dialog: <form data-confirm="Title|Body"> ─────
 const dlg = $("#confirm");
 document.addEventListener("submit", (e) => {
@@ -187,7 +201,7 @@ function askReason(stage) {
     const d = $("#reason");
     if (!d) { resolve(""); return; }
     $("[data-stage]", d).textContent = stage;
-    const input = $("input", d);
+    const input = $("[data-reason]", d);
     input.value = "";
     d.returnValue = "";
     d.showModal();

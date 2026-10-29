@@ -84,12 +84,12 @@
 </form></dialog>
 {{end}}
 
-<dialog id="reason"><form method="dialog" class="dlg">
+<dialog id="reason"><div class="dlg">
   <span class="ic"><svg class="i"><use href="#i-alert"/></svg></span>
   <div><h2>Mover a <span data-stage></span></h2><p>Contá por qué se perdió: queda en el historial y ayuda a tus agentes.</p>
-    <input name="reason" maxlength="1000" placeholder="p. ej. sin presupuesto este año" aria-label="Motivo"></div>
-  <div class="acts"><button class="btn" value="cancel">Cancelar</button><button class="btn danger solid" value="ok">Marcar perdida</button></div>
-</form></dialog>
+    <input maxlength="1000" placeholder="p. ej. sin presupuesto este año" aria-label="Motivo" data-reason></div>
+  <div class="acts"><button type="button" class="btn" data-dlg="cancel">Cancelar</button><button type="button" class="btn danger solid" data-dlg="ok">Marcar perdida</button></div>
+</div></dialog>
 {{end}}
 
 {{define "footer"}}
