@@ -46,11 +46,13 @@ type Server struct {
 	log    *slog.Logger
 	schema *mcp.SchemaCache
 	limit  *httpx.RateLimiter
+	ips    *httpx.ClientIP
 }
 
 // New builds the MCP server.
 func New(cfg *config.Config, d *db.DB, svc *crm.Service, log *slog.Logger) *Server {
-	return &Server{cfg: cfg, db: d, crm: svc, log: log, schema: mcp.NewSchemaCache(), limit: httpx.NewRateLimiter(600, 120)}
+	return &Server{cfg: cfg, db: d, crm: svc, log: log, schema: mcp.NewSchemaCache(), limit: httpx.NewRateLimiter(600, 120),
+		ips: httpx.NewClientIP(cfg.TrustedProxies)}
 }
 
 type principalKey struct{}
@@ -80,7 +82,11 @@ func (s *Server) authenticate(next http.Handler) http.Handler {
 		tok := httpx.BearerToken(r)
 		p, err := oauth.ResolveBearer(r.Context(), s.db.Platform(), tok, s.cfg.MCPResource())
 		if err != nil {
-			if !errors.Is(err, oauth.ErrInvalidToken) {
+			var it *oauth.InvalidTokenError
+			if errors.As(err, &it) {
+				// The client only ever sees the generic 401 below.
+				s.log.Info("mcp auth rejected", "reason", it.Reason, "token_prefix", it.Prefix, "ip", s.ips.Of(r))
+			} else {
 				s.log.Error("mcp auth", "err", err)
 			}
 			h := challenge

@@ -104,3 +104,19 @@ ORDER BY created_at DESC;
 -- name: RevokePAT :execrows
 UPDATE personal_access_tokens SET revoked_at = now()
 WHERE id = $1 AND user_id = $2 AND workspace_id = $3 AND revoked_at IS NULL;
+
+-- Diagnostics for rejected bearer tokens (logged server-side only, never
+-- returned to the client): why does a known hash not resolve?
+-- name: DiagnosePAT :one
+SELECT (p.revoked_at IS NOT NULL)::boolean AS revoked,
+       COALESCE(p.expires_at <= now(), false)::boolean AS expired,
+       EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = p.workspace_id AND m.user_id = p.user_id) AS member,
+       p.prefix
+FROM personal_access_tokens p WHERE p.token_hash = $1;
+
+-- name: DiagnoseAccessToken :one
+SELECT (t.revoked_at IS NOT NULL)::boolean AS revoked,
+       t.expires_at <= now() AS expired,
+       EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = t.workspace_id AND m.user_id = t.user_id) AS member,
+       t.resource
+FROM oauth_tokens t WHERE t.access_hash = $1;

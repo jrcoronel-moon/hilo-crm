@@ -222,6 +222,62 @@ func (q *Queries) CreatePAT(ctx context.Context, arg CreatePATParams) (CreatePAT
 	return i, err
 }
 
+const diagnoseAccessToken = `-- name: DiagnoseAccessToken :one
+SELECT (t.revoked_at IS NOT NULL)::boolean AS revoked,
+       t.expires_at <= now() AS expired,
+       EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = t.workspace_id AND m.user_id = t.user_id) AS member,
+       t.resource
+FROM oauth_tokens t WHERE t.access_hash = $1
+`
+
+type DiagnoseAccessTokenRow struct {
+	Revoked  bool   `json:"revoked"`
+	Expired  bool   `json:"expired"`
+	Member   bool   `json:"member"`
+	Resource string `json:"resource"`
+}
+
+func (q *Queries) DiagnoseAccessToken(ctx context.Context, accessHash string) (DiagnoseAccessTokenRow, error) {
+	row := q.db.QueryRow(ctx, diagnoseAccessToken, accessHash)
+	var i DiagnoseAccessTokenRow
+	err := row.Scan(
+		&i.Revoked,
+		&i.Expired,
+		&i.Member,
+		&i.Resource,
+	)
+	return i, err
+}
+
+const diagnosePAT = `-- name: DiagnosePAT :one
+SELECT (p.revoked_at IS NOT NULL)::boolean AS revoked,
+       COALESCE(p.expires_at <= now(), false)::boolean AS expired,
+       EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = p.workspace_id AND m.user_id = p.user_id) AS member,
+       p.prefix
+FROM personal_access_tokens p WHERE p.token_hash = $1
+`
+
+type DiagnosePATRow struct {
+	Revoked bool   `json:"revoked"`
+	Expired bool   `json:"expired"`
+	Member  bool   `json:"member"`
+	Prefix  string `json:"prefix"`
+}
+
+// Diagnostics for rejected bearer tokens (logged server-side only, never
+// returned to the client): why does a known hash not resolve?
+func (q *Queries) DiagnosePAT(ctx context.Context, tokenHash string) (DiagnosePATRow, error) {
+	row := q.db.QueryRow(ctx, diagnosePAT, tokenHash)
+	var i DiagnosePATRow
+	err := row.Scan(
+		&i.Revoked,
+		&i.Expired,
+		&i.Member,
+		&i.Prefix,
+	)
+	return i, err
+}
+
 const getOAuthClient = `-- name: GetOAuthClient :one
 
 SELECT client_id, kind, secret_hash, name, redirect_uris, created_at, last_used_at FROM oauth_clients WHERE client_id = $1
