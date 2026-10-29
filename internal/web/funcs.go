@@ -46,6 +46,7 @@ var funcs = template.FuncMap{
 	"join":       strings.Join,
 	"trim":       strings.TrimSpace,
 	"ownerSel":   ownerSel,
+	"tagField":   tagField,
 }
 
 // staleAfter matches the dashboard's "estancadas" KPI.
@@ -265,4 +266,15 @@ func ownerSel(members []store.ListMembersRow, cur *uuid.UUID) struct {
 		Members []store.ListMembersRow
 		Cur     string
 	}{members, c}
+}
+
+// tagField feeds the "tag-field" partial.
+func tagField(tags []string, suggest []crm.TagCount) struct {
+	Tags    []string
+	Suggest []crm.TagCount
+} {
+	return struct {
+		Tags    []string
+		Suggest []crm.TagCount
+	}{tags, suggest}
 }

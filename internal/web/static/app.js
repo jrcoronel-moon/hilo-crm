@@ -294,3 +294,54 @@ if (shell) {
     save("");
   });
 }
+
+// ───── tag editor: chips over a comma-separated input (works without JS) ─────
+const PALETTE = ["indigo", "amber", "red", "teal", ""];
+function tagColor(tag) { // same FNV-1a 32 as the server's tagClass
+  let h = 0x811c9dc5;
+  for (const b of new TextEncoder().encode(tag.toLowerCase())) { h ^= b; h = Math.imul(h, 0x01000193) >>> 0; }
+  return PALETTE[h % PALETTE.length];
+}
+$$("[data-tag-editor]").forEach((box) => {
+  const source = $("[data-tag-source]", box);
+  const hidden = document.createElement("input");
+  hidden.type = "hidden"; hidden.name = source.name;
+  source.removeAttribute("name");
+  source.value.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean).forEach(add);
+  source.value = "";
+  source.placeholder = "+ tag";
+  box.append(hidden);
+  sync();
+  function add(t) {
+    t = t.trim().toLowerCase();
+    if (!t || tags().includes(t)) return;
+    const chip = document.createElement("span");
+    chip.className = ("tag " + tagColor(t)).trim();
+    chip.dataset.tag = t;
+    chip.append(t);
+    const x = document.createElement("button");
+    x.type = "button"; x.textContent = "×"; x.setAttribute("aria-label", "Quitar " + t);
+    x.addEventListener("click", () => { chip.remove(); sync(); });
+    chip.append(x);
+    box.insertBefore(chip, source);
+    sync();
+  }
+  function tags() { return $$(".tag[data-tag]", box).map((c) => c.dataset.tag); }
+  function sync() { hidden.value = tags().join(", "); }
+  source.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === ",") { e.preventDefault(); add(source.value); source.value = ""; }
+    else if (e.key === "Backspace" && !source.value) { $$(".tag[data-tag]", box).at(-1)?.remove(); sync(); }
+  });
+  source.addEventListener("change", () => { if (source.value.trim()) { add(source.value); source.value = ""; } });
+  source.form?.addEventListener("submit", () => { if (source.value.trim()) { add(source.value); source.value = ""; } });
+});
+
+// ───── record page: moving to a lost stage needs a reason ─────
+$$("form[data-move]").forEach((form) => form.addEventListener("submit", (e) => {
+  const opt = $("select[name=stage]", form).selectedOptions[0];
+  if (opt?.dataset.category === "lost" && !$("input[name=reason]", form).value.trim()) {
+    e.preventDefault();
+    toast("Escribí el motivo de pérdida.", { error: true });
+    $("input[name=reason]", form).focus();
+  }
+}));

@@ -17,9 +17,9 @@ y administrar el workspace.
 - **Métricas**: volumen y valor ponderado por etapa, win rate, ciclo, tiempo en etapa, estancadas, leads por canal,
   interacciones por semana, monto ganado por mes, **objetivo mensual por pipeline** y actividad por agente.
 - **Web para las personas**: funnel con arrastre entre etapas (con deshacer y motivo de pérdida), búsqueda, filtros,
-  nueva oportunidad, exportación CSV, empresas y contactos (listas, fichas con timeline, edición), oportunidades
-  (con acciones en lote) e interacciones, dashboard y
-  ajustes. Todo pasa por las mismas reglas y la misma auditoría que los agentes.
+  nueva oportunidad, exportación CSV, empresas, contactos y oportunidades (listas, fichas con timeline, edición
+  y tags editables con sugerencias), acciones en lote, interacciones, dashboard, ajustes y marca de la aplicación
+  (nombre y logo, configurables por el superadmin). Todo pasa por las mismas reglas y la misma auditoría que los agentes.
 - **Seguridad primero**: Postgres con Row-Level Security y FKs compuestas por workspace, roles de base de datos
   de mínimo privilegio, CSP estricta, contenedores sin root y de solo lectura, y un harness que corre lint de
   seguridad, secretos, vulnerabilidades, tests de aislamiento entre tenants y DAST en cada cambio.
@@ -78,7 +78,7 @@ URL del servidor MCP: `https://<tu-dominio>/mcp`
 
 | Lectura | Escritura | Administración |
 |---|---|---|
-| `search_crm`, `list_pipelines`, `list_channels`, `get_company`, `get_contact`, `get_opportunity`, `list_companies`, `list_contacts`, `list_opportunities`, `get_timeline`, `get_metrics` | `upsert_company`, `upsert_contact`, `upsert_opportunity`, `move_opportunity_stage`, `log_interaction`, `archive_record` | `configure_pipeline`, `upsert_channel` |
+| `search_crm`, `list_pipelines`, `list_channels`, `get_company`, `get_contact`, `get_opportunity`, `list_companies`, `list_contacts`, `list_opportunities`, `get_timeline`, `list_interactions`, `list_tags`, `get_metrics` | `upsert_company`, `upsert_contact`, `upsert_opportunity`, `move_opportunity_stage`, `log_interaction`, `archive_record` | `configure_pipeline`, `upsert_channel` |
 
 Cada agente ve solo las herramientas que su rol y su token permiten. Los `upsert_*` son idempotentes (por `id`,
 `external_id`, dominio o email), así que un agente puede reintentar sin duplicar.

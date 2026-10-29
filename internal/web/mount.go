@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/jrcoronel-moon/hilo-crm/internal/branding"
 	"github.com/jrcoronel-moon/hilo-crm/internal/config"
 	"github.com/jrcoronel-moon/hilo-crm/internal/crm"
 	"github.com/jrcoronel-moon/hilo-crm/internal/db"
@@ -14,7 +15,7 @@ import (
 // Mount wires the web UI and the OAuth authorization server onto one mux.
 func Mount(cfg *config.Config, d *db.DB, log *slog.Logger) (*http.ServeMux, error) {
 	oa := oauth.New(cfg, d, log)
-	h, err := New(cfg, crm.New(d, log), identity.New(d, log, cfg.SuperadminEmails), oa, log)
+	h, err := New(cfg, branding.New(d), crm.New(d, log), identity.New(d, log, cfg.SuperadminEmails), oa, log)
 	if err != nil {
 		return nil, err
 	}

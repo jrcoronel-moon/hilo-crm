@@ -285,3 +285,11 @@ UNION ALL
   WHERE opportunities.workspace_id = sqlc.arg(workspace_id) AND archived_at IS NULL
     AND title ILIKE '%' || sqlc.arg(query)::text || '%'
   LIMIT sqlc.arg(lim));
+
+-- Every tag in use on companies, contacts and opportunities (suggestions).
+-- name: ListAllTags :many
+SELECT t::text AS tag, count(*)::int AS n FROM (
+    SELECT unnest(companies.tags) AS t FROM companies WHERE companies.workspace_id = sqlc.arg(workspace_id) AND companies.archived_at IS NULL
+    UNION ALL SELECT unnest(contacts.tags) FROM contacts WHERE contacts.workspace_id = sqlc.arg(workspace_id) AND contacts.archived_at IS NULL
+    UNION ALL SELECT unnest(opportunities.tags) FROM opportunities WHERE opportunities.workspace_id = sqlc.arg(workspace_id) AND opportunities.archived_at IS NULL
+) x GROUP BY t ORDER BY n DESC, t LIMIT 200;

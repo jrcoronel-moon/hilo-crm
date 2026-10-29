@@ -23,6 +23,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/jrcoronel-moon/hilo-crm/internal/branding"
 	"github.com/jrcoronel-moon/hilo-crm/internal/config"
 	"github.com/jrcoronel-moon/hilo-crm/internal/crm"
 	"github.com/jrcoronel-moon/hilo-crm/internal/httpx"
@@ -40,6 +41,7 @@ var staticFS embed.FS
 // Handler serves the web UI.
 type Handler struct {
 	cfg   *config.Config
+	brand *branding.Service
 	crm   *crm.Service
 	id    *identity.Service
 	oauth *oauth.Server
@@ -53,9 +55,9 @@ type Handler struct {
 }
 
 // New builds the handler and parses the templates.
-func New(cfg *config.Config, crmSvc *crm.Service, idSvc *identity.Service, oa *oauth.Server, log *slog.Logger) (*Handler, error) {
+func New(cfg *config.Config, brand *branding.Service, crmSvc *crm.Service, idSvc *identity.Service, oa *oauth.Server, log *slog.Logger) (*Handler, error) {
 	h := &Handler{
-		cfg: cfg, crm: crmSvc, id: idSvc, oauth: oa, log: log, ips: httpx.NewClientIP(cfg.TrustedProxies),
+		cfg: cfg, brand: brand, crm: crmSvc, id: idSvc, oauth: oa, log: log, ips: httpx.NewClientIP(cfg.TrustedProxies),
 		loginLimit: httpx.NewRateLimiter(30, 30), formLimit: httpx.NewRateLimiter(10, 10),
 		http: &http.Client{Timeout: 15 * time.Second},
 	}
@@ -87,6 +89,7 @@ func (h *Handler) Routes(mux *http.ServeMux) {
 	static, _ := fs.Sub(staticFS, "static")
 	mux.Handle("GET /static/", http.StripPrefix("/static/", cacheStatic(http.FileServerFS(static))))
 	mux.HandleFunc("GET /{$}", h.home)
+	mux.HandleFunc("GET /branding/logo", h.logo)
 	mux.HandleFunc("GET /login", h.loginPage)
 	mux.HandleFunc("GET /auth/{provider}", h.authStart)
 	mux.HandleFunc("GET /auth/{provider}/callback", h.authCallback)
@@ -103,6 +106,11 @@ func (h *Handler) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /opportunities", h.member(h.opportunities))
 	mux.HandleFunc("POST /opportunities/bulk", h.member(h.bulk))
 	mux.HandleFunc("GET /opportunities.csv", h.member(h.exportCSV))
+	mux.HandleFunc("GET /opportunities/{id}", h.member(h.opportunity))
+	mux.HandleFunc("POST /opportunities/{id}", h.member(h.saveOpportunity))
+	mux.HandleFunc("POST /opportunities/{id}/move", h.member(h.moveOpportunity))
+	mux.HandleFunc("POST /opportunities/{id}/contacts", h.member(h.linkContact))
+	mux.HandleFunc("POST /opportunities/{id}/archive", h.member(h.archiveOpportunity))
 	mux.HandleFunc("GET /interactions", h.member(h.interactions))
 	mux.HandleFunc("GET /companies", h.member(h.companies))
 	mux.HandleFunc("POST /companies", h.member(h.saveCompany))
@@ -275,6 +283,7 @@ type page struct {
 	Error string
 	Data  any
 	Cfg   *config.Config
+	Brand branding.Brand
 }
 
 func (h *Handler) render(w http.ResponseWriter, status int, name string, p page) {
@@ -285,6 +294,7 @@ func (h *Handler) render(w http.ResponseWriter, status int, name string, p page)
 		return
 	}
 	p.Cfg = h.cfg
+	p.Brand = h.brand.Get(context.Background())
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(status)
 	if err := t.Execute(w, p); err != nil {
@@ -303,6 +313,10 @@ func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 		status, msg = http.StatusNotFound, "No encontrado."
 	case errors.Is(err, crm.ErrForbidden), errors.Is(err, identity.ErrForbidden):
 		status, msg = http.StatusForbidden, "No tenés permiso para hacer esto."
+	case errors.Is(err, branding.ErrName), errors.Is(err, branding.ErrLogo):
+		status, msg = http.StatusBadRequest, err.Error()
+	case errors.Is(err, branding.ErrForbidden):
+		status, msg = http.StatusForbidden, "Solo un superadmin puede cambiar la marca."
 	case errors.Is(err, crm.ErrConflict), errors.Is(err, identity.ErrLastOwner):
 		status, msg = http.StatusConflict, err.Error()
 	default:

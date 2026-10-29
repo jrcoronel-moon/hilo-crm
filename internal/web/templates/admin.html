@@ -1,5 +1,24 @@
 {{define "content"}}
 {{$d := .Data}}
+<section class="card">
+  <div class="card-head"><div><h2>Marca de la aplicación</h2><p class="muted small">Nombre y logo que ven todos: menú, login, pantalla de autorización de agentes y servidor MCP.</p></div></div>
+  <div class="row">
+    <img class="brand-preview" src="{{.Brand.LogoURL}}" alt="Logo actual">
+    <form method="post" action="/admin/brand-name" class="row grow">
+      <input type="hidden" name="csrf" value="{{$d.CSRF}}">
+      <label class="field grow">Nombre<input name="name" value="{{.Brand.Name}}" required maxlength="60"></label>
+      <button class="btn strong">Guardar nombre</button>
+    </form>
+  </div>
+  <div class="row">
+    <form method="post" action="/admin/brand-logo" enctype="multipart/form-data" class="row grow">
+      <input type="hidden" name="csrf" value="{{$d.CSRF}}">
+      <label class="field grow">Logo (PNG, JPEG, WebP o SVG · máx. 256 KB · cuadrado)<input type="file" name="logo" accept="image/png,image/jpeg,image/webp,image/svg+xml" required></label>
+      <button class="btn">Subir logo</button>
+    </form>
+    {{if .Brand.HasLogo}}<form method="post" action="/admin/brand-logo-reset" data-confirm="¿Volver al logo de Hilo?|El logo subido se elimina."><input type="hidden" name="csrf" value="{{$d.CSRF}}"><button class="btn ghost danger">Restablecer logo</button></form>{{end}}
+  </div>
+</section>
 <div class="grid2">
   <section class="card">
     <div><h2>Dominios habilitados para entrar</h2><p class="muted small">Solo pueden iniciar sesión personas con email verificado de estos dominios, o con una invitación pendiente. Sin dominios, solo superadmins e invitados.</p></div>

@@ -51,7 +51,7 @@
     <ol>
       {{range .Cards}}
       <li class="opp {{if and (eq .Status "open") (stale .LastActivity)}}stale{{end}} {{if fresh .UpdatedAt}}fresh{{end}}" draggable="true" data-opp="{{.ID}}">
-        <span class="t">{{.Title}}</span>
+        <a class="t" href="/opportunities/{{.ID}}" draggable="false">{{.Title}}</a>
         {{with deref .CompanyName}}<span class="co">{{.}}</span>{{end}}
         {{$t := firstTags .Tags 3}}{{if or $t.Shown (and (eq .Status "open") (stale .LastActivity))}}
         <span class="tags">
@@ -78,7 +78,7 @@
   <div class="row"><label class="field grow">Monto<input name="amount" inputmode="decimal" placeholder="12000"></label><label class="field">Moneda<input name="currency" value="USD" maxlength="3" size="4"></label>
     <label class="field grow">Etapa<select name="stage">{{range $d.Stages}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></label></div>
   <div class="row"><label class="field grow">Canal de origen<select name="channel"><option value="">—</option>{{range $d.Channels}}<option value="{{.Name}}">{{.Name}}</option>{{end}}</select></label>
-    <label class="field grow">Tags (separados por coma)<input name="tags" placeholder="pyme, inbound"></label></div>
+    <div class="grow">{{template "tag-field" (tagField nil $d.AllTags)}}</div></div>
   <label class="field">Próximo paso<input name="next_step" maxlength="500" placeholder="Llamar para calificar"></label>
   <div class="acts"><button class="btn" type="button" data-close>Cancelar</button><button class="btn primary">Crear oportunidad</button></div>
 </form></dialog>

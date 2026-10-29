@@ -27,7 +27,7 @@
         <label class="field">Empresa (nombre o dominio)<input name="company" value="{{$d.Company}}"></label>
         <label class="field">LinkedIn<input name="linkedin_url" value="{{$c.LinkedInURL}}" placeholder="https://www.linkedin.com/in/…"></label>
         {{template "owner-select" (ownerSel $d.Members $c.OwnerID)}}
-        <label class="field">Tags (separados por coma)<input name="tags" value="{{join $c.Tags ", "}}"></label>
+        {{template "tag-field" (tagField $c.Tags $d.Suggest)}}
         <div><button class="btn primary">Guardar</button></div>
       </form>
       {{else}}

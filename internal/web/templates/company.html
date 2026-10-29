@@ -31,7 +31,7 @@
         <label class="field">Tamaño<select name="size_range"><option value="">—</option>{{range $d.Sizes}}<option {{if eq . $c.SizeRange}}selected{{end}}>{{.}}</option>{{end}}</select></label>
         <label class="field">Sitio web<input name="website" value="{{$c.Website}}" placeholder="https://"></label>
         {{template "owner-select" (ownerSel $d.Members $c.OwnerID)}}
-        <label class="field">Tags (separados por coma)<input name="tags" value="{{join $c.Tags ", "}}"></label>
+        {{template "tag-field" (tagField $c.Tags $d.Suggest)}}
         <label class="field">Descripción<textarea name="description" rows="4" maxlength="5000">{{$c.Description}}</textarea></label>
         <div><button class="btn primary">Guardar</button></div>
       </form>

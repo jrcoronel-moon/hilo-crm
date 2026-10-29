@@ -38,6 +38,7 @@ body { background: var(--ground); color: var(--ink); font-size: 14px; line-heigh
 a { color: var(--teal); text-decoration: none; } a:hover { color: var(--teal-800); }
 code, .mono { font-family: var(--mono); font-size: 12.5px; }
 code { background: var(--subtle); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; word-break: break-all; }
+td code { word-break: normal; white-space: nowrap; }
 h1 { font-size: 24px; font-weight: 700; letter-spacing: -.02em; margin: 0; }
 h2 { font-size: 15px; font-weight: 600; margin: 0; }
 h3 { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 20px 0 8px; }
@@ -312,3 +313,19 @@ strong.big { font-size: 32px; font-weight: 700; letter-spacing: -.02em; }
 @media (max-width: 860px) { .shell, .collapsed { --side-w: 1fr; } .resizer, .collapse-btn { display: none; } }
 .timeline .stage_change .tl-dot.c-initial { background: var(--warn); } .timeline .stage_change .tl-dot.c-p1 { background: var(--info); }
 .timeline .stage_change .tl-dot.c-won { background: var(--ok); } .timeline .stage_change .tl-dot.c-lost { background: #9AA3B2; }
+/* sidebar footer: never overflow the card, whatever the width */
+.side { overflow-x: hidden; }
+.agent-box span { overflow-wrap: anywhere; }
+.me { min-width: 0; } .me .grow { min-width: 0; }
+.me b, .me small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.me form select { max-width: 100%; text-overflow: ellipsis; }
+.me > form:last-child { flex: none; }
+.brand-preview { width: 56px; height: 56px; border-radius: 12px; object-fit: contain; border: 1px solid var(--line); background: var(--subtle); }
+.brand img { object-fit: contain; border-radius: 8px; }
+/* tag editor (chips) */
+.tag-editor { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-height: 40px; padding: 6px 8px; border: 1px solid var(--field); border-radius: 10px; background: var(--panel); }
+.tag-editor:focus-within { border-color: var(--teal); box-shadow: 0 0 0 3px color-mix(in srgb, var(--teal) 18%, transparent); }
+.tag-editor input { border: 0; height: 26px; padding: 0 4px; flex: 1; min-width: 90px; box-shadow: none !important; }
+.tag-editor .tag button { background: none; border: 0; color: inherit; cursor: pointer; padding: 0 0 0 2px; font: inherit; line-height: 1; }
+.tag-editor.plain { border: 0; padding: 0; min-height: 0; } .tag-editor.plain input { border: 1px solid var(--field); height: 40px; padding: 0 12px; }
+.opp a.t { color: var(--ink); } .opp a.t:hover { color: var(--teal); }

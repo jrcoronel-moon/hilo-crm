@@ -102,13 +102,27 @@ func parseTimeCursor(c string) (time.Time, uuid.UUID, error) {
 	return at, uid, nil
 }
 
-// TagCount is a tag in use and how many opportunities carry it.
+// TagCount is a tag in use and how many records carry it.
 type TagCount struct {
-	Tag   string
-	Count int
+	Tag   string `json:"tag"`
+	Count int    `json:"count"`
 }
 
-// ListTags returns the tags in use, most used first.
+// ListAllTags returns every tag in use on companies, contacts and
+// opportunities, most used first.
+func (s *Service) ListAllTags(ctx context.Context, a Actor) ([]TagCount, error) {
+	var out []TagCount
+	err := s.tx(ctx, a, PermRead, func(q *store.Queries) error {
+		rows, err := q.ListAllTags(ctx, a.WorkspaceID)
+		for _, r := range rows {
+			out = append(out, TagCount{Tag: r.Tag, Count: int(r.N)})
+		}
+		return err
+	})
+	return out, err
+}
+
+// ListTags returns the tags in use on opportunities, most used first.
 func (s *Service) ListTags(ctx context.Context, a Actor) ([]TagCount, error) {
 	var out []TagCount
 	err := s.tx(ctx, a, PermRead, func(q *store.Queries) error {

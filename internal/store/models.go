@@ -241,6 +241,15 @@ type PlatformAllowedDomain struct {
 	CreatedAt time.Time  `json:"created_at"`
 }
 
+type PlatformSetting struct {
+	ID        bool       `json:"id"`
+	AppName   string     `json:"app_name"`
+	Logo      []byte     `json:"logo"`
+	LogoMime  string     `json:"logo_mime"`
+	UpdatedAt time.Time  `json:"updated_at"`
+	UpdatedBy *uuid.UUID `json:"updated_by"`
+}
+
 type Session struct {
 	TokenHash   string     `json:"token_hash"`
 	UserID      uuid.UUID  `json:"user_id"`

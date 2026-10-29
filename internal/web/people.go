@@ -62,6 +62,7 @@ type companyPage struct {
 	Timeline      []crm.TimelineEntry
 	Members       []store.ListMembersRow
 	Sizes         []string
+	Suggest       []crm.TagCount
 }
 
 var companySizes = []string{"1-10", "11-50", "51-200", "201-1000", "1001-5000", "5000+"}
@@ -82,7 +83,9 @@ func (h *Handler) company(w http.ResponseWriter, r *http.Request, v view) {
 		if opps, err = h.crm.ListOpportunities(ctx, a, crm.OpportunityFilter{Company: ref, Limit: 100}); err == nil {
 			d.Opportunities = opps.Items
 			if d.Timeline, err = h.crm.Timeline(ctx, a, crm.TimelineInput{Company: ref, Limit: 50}); err == nil {
-				d.Members, err = h.id.Members(ctx, v.caller())
+				if d.Members, err = h.id.Members(ctx, v.caller()); err == nil {
+					d.Suggest, err = h.crm.ListAllTags(ctx, a)
+				}
 			}
 		}
 	}
@@ -100,6 +103,7 @@ type contactPage struct {
 	Opportunities []crm.OpportunityView
 	Timeline      []crm.TimelineEntry
 	Members       []store.ListMembersRow
+	Suggest       []crm.TagCount
 }
 
 func (h *Handler) contact(w http.ResponseWriter, r *http.Request, v view) {
@@ -120,7 +124,9 @@ func (h *Handler) contact(w http.ResponseWriter, r *http.Request, v view) {
 	if err == nil {
 		d.Opportunities = opps.Items
 		if d.Timeline, err = h.crm.Timeline(ctx, a, crm.TimelineInput{Contact: ref, Limit: 50}); err == nil {
-			d.Members, err = h.id.Members(ctx, v.caller())
+			if d.Members, err = h.id.Members(ctx, v.caller()); err == nil {
+				d.Suggest, err = h.crm.ListAllTags(ctx, a)
+			}
 		}
 	}
 	if err != nil {

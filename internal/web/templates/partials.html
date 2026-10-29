@@ -2,7 +2,7 @@
 {{if .}}
 <table class="table">
   <tr><th>Oportunidad</th><th>Etapa</th><th class="num">Monto</th><th>Última actividad</th></tr>
-  {{range .}}<tr><td class="who"><b>{{.Title}}</b><small>{{.Kind}}</small></td><td><span class="row"><span class="dot {{stageClass .StageCategory 1}}"></span>{{.StageName}}</span></td>
+  {{range .}}<tr><td class="who"><a href="/opportunities/{{.ID}}"><b>{{.Title}}</b></a><small>{{.Kind}}</small></td><td><span class="row"><span class="dot {{stageClass .StageCategory 1}}"></span>{{.StageName}}</span></td>
     <td class="num">{{money .Amount .Currency}}</td><td>{{ago .LastInteractionAt}}</td></tr>{{end}}
 </table>
 {{else}}<p class="muted">Sin oportunidades.</p>{{end}}
@@ -28,4 +28,13 @@
 
 {{define "owner-select"}}
 <label class="field">Dueño<select name="owner"><option value="">—</option>{{$cur := .Cur}}{{range .Members}}<option value="{{.Email}}" {{if and $cur (eq .ID.String $cur)}}selected{{end}}>{{or .Name .Email}}</option>{{end}}</select></label>
+{{end}}
+
+{{define "tag-field"}}
+<label class="field">Tags
+  <span class="tag-editor" data-tag-editor>
+    <input name="tags" value="{{join .Tags ", "}}" placeholder="separados por coma" list="tag-suggest" data-tag-source>
+  </span>
+</label>
+<datalist id="tag-suggest">{{range .Suggest}}<option value="{{.Tag}}">{{.Count}}</option>{{end}}</datalist>
 {{end}}

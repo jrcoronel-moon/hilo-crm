@@ -33,7 +33,7 @@
     <tr>{{if $.View.CanWrite}}<th><input type="checkbox" data-select-all aria-label="Seleccionar todas"></th>{{end}}<th>Oportunidad</th><th>Etapa</th><th>Tags</th><th class="num">Monto</th><th>Última actividad</th><th>Cierre</th></tr>
     {{range $d.Page.Items}}
     <tr>{{if $.View.CanWrite}}<td><input type="checkbox" name="id" value="{{.ID}}" aria-label="Seleccionar {{.Title}}"></td>{{end}}
-      <td class="who"><b>{{.Title}}</b><small>{{if .CompanyID}}<a href="/companies/{{.CompanyID}}">{{.CompanyName}}</a>{{else}}—{{end}}</small></td>
+      <td class="who"><a href="/opportunities/{{.ID}}"><b>{{.Title}}</b></a><small>{{if .CompanyID}}<a href="/companies/{{.CompanyID}}">{{.CompanyName}}</a>{{else}}—{{end}}</small></td>
       <td><span class="row"><span class="dot {{stageClass .StageCategory 1}}"></span>{{.StageName}}</span></td>
       <td>{{$t := firstTags .Tags 2}}<span class="row">{{range $t.Shown}}<span class="tag {{tagClass .}}">{{.}}</span>{{end}}{{if $t.More}}<span class="tag">+{{$t.More}}</span>{{end}}</span></td>
       <td class="num">{{money .Amount .Currency}}</td>

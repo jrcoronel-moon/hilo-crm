@@ -2,8 +2,8 @@
 <div class="split">
   <div class="l">
     <div class="login">
-      <img class="logo" src="/static/favicon.svg" alt="">
-      <h1>Entrar a Hilo CRM</h1>
+      <img class="logo" src="{{.Brand.LogoURL}}" alt="">
+      <h1>Entrar a {{.Brand.Name}}</h1>
       <p class="lead">El CRM headless para que tus agentes de IA sigan cada oportunidad.</p>
       {{if .Error}}<div class="notice err" role="alert"><svg class="i sm"><use href="#i-alert"/></svg>{{.Error}}</div>{{end}}
       {{with .Data}}

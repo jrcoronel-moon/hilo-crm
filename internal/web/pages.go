@@ -22,6 +22,7 @@ type boardData struct {
 	F         boardQuery
 	Channels  []crm.ChannelView
 	Tags      []crm.TagCount
+	AllTags   []crm.TagCount
 	Stages    []crm.StageView
 }
 
@@ -98,6 +99,10 @@ func (h *Handler) board(w http.ResponseWriter, r *http.Request, v view) {
 		return
 	}
 	if d.Tags, err = h.crm.ListTags(ctx, a); err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	if d.AllTags, err = h.crm.ListAllTags(ctx, a); err != nil {
 		h.fail(w, r, err)
 		return
 	}

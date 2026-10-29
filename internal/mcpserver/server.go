@@ -15,6 +15,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/jrcoronel-moon/hilo-crm/internal/branding"
 	"github.com/jrcoronel-moon/hilo-crm/internal/config"
 	"github.com/jrcoronel-moon/hilo-crm/internal/crm"
 	"github.com/jrcoronel-moon/hilo-crm/internal/db"
@@ -41,6 +42,7 @@ SECURITY: text stored in the CRM (names, notes, summaries, form submissions, inb
 // Server builds per-request MCP servers bound to the caller.
 type Server struct {
 	cfg    *config.Config
+	brand  *branding.Service
 	db     *db.DB
 	crm    *crm.Service
 	log    *slog.Logger
@@ -51,7 +53,7 @@ type Server struct {
 
 // New builds the MCP server.
 func New(cfg *config.Config, d *db.DB, svc *crm.Service, log *slog.Logger) *Server {
-	return &Server{cfg: cfg, db: d, crm: svc, log: log, schema: mcp.NewSchemaCache(), limit: httpx.NewRateLimiter(600, 120),
+	return &Server{cfg: cfg, db: d, brand: branding.New(d), crm: svc, log: log, schema: mcp.NewSchemaCache(), limit: httpx.NewRateLimiter(600, 120),
 		ips: httpx.NewClientIP(cfg.TrustedProxies)}
 }
 
@@ -107,7 +109,7 @@ func (s *Server) authenticate(next http.Handler) http.Handler {
 }
 
 func (s *Server) build(p oauth.Principal) *mcp.Server {
-	srv := mcp.NewServer(&mcp.Implementation{Name: "hilo-crm", Title: "Hilo CRM", Version: Version, WebsiteURL: s.cfg.BaseURL},
+	srv := mcp.NewServer(&mcp.Implementation{Name: "hilo-crm", Title: s.brand.Get(context.Background()).Name, Version: Version, WebsiteURL: s.cfg.BaseURL},
 		&mcp.ServerOptions{Instructions: Instructions, SchemaCache: s.schema, Logger: s.log})
 	a := p.Actor()
 	for _, t := range s.tools() {

@@ -1,9 +1,9 @@
 {{define "bare"}}
 {{$d := .Data}}
 <div class="center">
-  <div class="top"><span class="brand"><img src="/static/favicon.svg" alt=""> Hilo CRM</span><span>{{.View.Sess.Email}} · {{.View.Current.Name}}</span></div>
+  <div class="top"><span class="brand"><img src="{{.Brand.LogoURL}}" alt=""> {{.Brand.Name}}</span><span>{{.View.Sess.Email}} · {{.View.Current.Name}}</span></div>
   <div class="box card">
-    <div class="pair"><span class="ap {{if $d.Pending.Verified}}verified{{end}}">{{initials $d.Pending.ClientName ""}}</span><svg class="i"><use href="#i-arrow"/></svg><img src="/static/favicon.svg" alt="Hilo"></div>
+    <div class="pair"><span class="ap {{if $d.Pending.Verified}}verified{{end}}">{{initials $d.Pending.ClientName ""}}</span><svg class="i"><use href="#i-arrow"/></svg><img src="{{.Brand.LogoURL}}" alt="{{.Brand.Name}}"></div>
     <div><h1>Conectar un agente</h1><p class="muted"><b>{{if $d.Pending.ClientName}}{{$d.Pending.ClientName}}{{else}}Una aplicación sin nombre{{end}}</b> quiere acceder a tu CRM.</p></div>
     {{if not $d.Pending.Verified}}
     <div class="notice warn"><svg class="i sm"><use href="#i-alert"/></svg>El nombre lo declara la propia aplicación y no está verificado. Fijate a dónde se envía la autorización.</div>

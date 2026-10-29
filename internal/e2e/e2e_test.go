@@ -845,3 +845,130 @@ func cookieHeader(s *stack) string {
 	}
 	return strings.Join(parts, "; ")
 }
+
+func TestOpportunityPageAndTags(t *testing.T) {
+	s := start(t)
+	csrf := s.signIn()
+	post := func(path string, v url.Values) (*http.Response, string) {
+		v.Set("csrf", csrf)
+		return s.do("POST", path, v)
+	}
+	_, page := s.do("GET", "/board", nil)
+	pipe := regexp.MustCompile(`name="pipeline" value="([0-9a-f-]{36})"`).FindStringSubmatch(page)[1]
+	post("/contacts", url.Values{"email": {"ana@globex.com"}, "first_name": {"Ana"}, "company": {"globex.com"}})
+	post("/contacts", url.Values{"email": {"bob@globex.com"}, "first_name": {"Bob"}})
+	post("/opportunities", url.Values{"pipeline": {pipe}, "title": {"Planta"}, "company": {"globex.com"}, "tags": {"pyme"}})
+	_, page = s.do("GET", "/board", nil)
+	oppURL := regexp.MustCompile(`href="(/opportunities/[0-9a-f-]{36})"`).FindStringSubmatch(page)[1]
+	var res *http.Response
+	// Edit every field, including tags (comma list, normalised) and the primary contact.
+	edit := url.Values{"title": {"Planta solar"}, "kind": {"project"}, "amount": {"2.500,75"}, "currency": {"EUR"}, "probability": {"40"},
+		"expected_close_date": {"2027-03-31"}, "company": {"globex.com"}, "primary_contact": {"ana@globex.com"}, "next_step": {"Visita técnica"},
+		"next_step_at": {"2027-01-15"}, "tags": {"PyME, energía, pyme"}, "description": {"Línea 1\nLínea 2"}, "channel": {""}, "owner": {""}}
+	if res, _ = post(oppURL, edit); res.StatusCode != http.StatusSeeOther {
+		t.Fatalf("save opportunity: %d", res.StatusCode)
+	}
+	_, page = s.do("GET", oppURL, nil)
+	for _, want := range []string{"Planta solar", "EUR 2.500,75", "40%", `value="pyme, energía"`, `value="ana@globex.com"`, "Visita técnica", `id="tag-suggest"`} {
+		if !strings.Contains(page, want) {
+			t.Fatalf("opportunity page missing %q", want)
+		}
+	}
+	edit.Set("probability", "150")
+	if res, _ = post(oppURL, edit); res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("probability 150 accepted: %d", res.StatusCode)
+	}
+	// Link a second contact with a role; move to lost needs a reason.
+	if res, _ = post(oppURL+"/contacts", url.Values{"contact": {"bob@globex.com"}, "role": {"champion"}}); res.StatusCode != http.StatusSeeOther {
+		t.Fatalf("link contact: %d", res.StatusCode)
+	}
+	lost := regexp.MustCompile(`<option value="([0-9a-f-]{36})" data-category="lost"`).FindStringSubmatch(page)[1]
+	if res, _ = post(oppURL+"/move", url.Values{"stage": {lost}}); res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("lost without reason: %d", res.StatusCode)
+	}
+	if res, _ = post(oppURL+"/move", url.Values{"stage": {lost}, "reason": {"precio"}}); res.StatusCode != http.StatusSeeOther {
+		t.Fatalf("move to lost: %d", res.StatusCode)
+	}
+	_, page = s.do("GET", oppURL, nil)
+	if !strings.Contains(page, "Perdida: precio") || !strings.Contains(page, "champion") {
+		t.Fatal("lost reason / linked contact not shown")
+	}
+	// Contact tags are editable from the contact page.
+	_, page = s.do("GET", "/contacts?q=bob", nil)
+	contactURL := regexp.MustCompile(`href="(/contacts/[0-9a-f-]{36})"`).FindStringSubmatch(page)[1]
+	post(contactURL, url.Values{"first_name": {"Bob"}, "email": {"bob@globex.com"}, "tags": {"Decisor, técnico"}})
+	if _, page = s.do("GET", "/contacts?tag=decisor", nil); !strings.Contains(page, contactURL) {
+		t.Fatal("contact tag not saved or not filterable")
+	}
+	if res, _ = post(oppURL+"/archive", url.Values{}); res.StatusCode != http.StatusSeeOther {
+		t.Fatalf("archive: %d", res.StatusCode)
+	}
+	if res, _ = s.do("GET", oppURL, nil); res.StatusCode != http.StatusNotFound {
+		t.Fatalf("archived opportunity page: %d", res.StatusCode)
+	}
+}
+
+func TestBranding(t *testing.T) {
+	s := start(t)
+	csrf := s.signIn()
+	multipart := func(path, field, filename string, data []byte) int {
+		var b strings.Builder
+		boundary := "hiloboundary"
+		b.WriteString("--" + boundary + "\r\nContent-Disposition: form-data; name=\"csrf\"\r\n\r\n" + csrf + "\r\n")
+		b.WriteString("--" + boundary + "\r\nContent-Disposition: form-data; name=\"" + field + "\"; filename=\"" + filename + "\"\r\nContent-Type: image/png\r\n\r\n")
+		b.Write(data)
+		b.WriteString("\r\n--" + boundary + "--\r\n")
+		req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, s.base+path, strings.NewReader(b.String()))
+		req.Header.Set("Content-Type", "multipart/form-data; boundary="+boundary)
+		res, err := s.web.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = res.Body.Close()
+		return res.StatusCode
+	}
+	if res, _ := s.do("POST", "/admin/brand-name", url.Values{"csrf": {csrf}, "name": {"Acme CRM"}}); res.StatusCode != http.StatusSeeOther {
+		t.Fatalf("set name: %d", res.StatusCode)
+	}
+	png := []byte("\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82")
+	if c := multipart("/admin/brand-logo", "logo", "logo.png", png); c != http.StatusSeeOther {
+		t.Fatalf("upload png: %d", c)
+	}
+	if c := multipart("/admin/brand-logo", "logo", "evil.png", []byte("<html><script>alert(1)</script></html>")); c != http.StatusBadRequest {
+		t.Fatalf("html disguised as png accepted: %d", c)
+	}
+	_, page := s.do("GET", "/board", nil)
+	if !strings.Contains(page, "<title>Funnel · Acme CRM</title>") || !strings.Contains(page, "/branding/logo?v=") {
+		t.Fatal("branding not applied to pages")
+	}
+	res, body := s.do("GET", "/branding/logo", nil)
+	if res.Header.Get("Content-Type") != "image/png" || !strings.HasPrefix(body, "\x89PNG") || !strings.Contains(res.Header.Get("Content-Security-Policy"), "sandbox") {
+		t.Fatalf("logo response: %v", res.Header)
+	}
+	// An SVG is accepted but always served sandboxed.
+	if c := multipart("/admin/brand-logo", "logo", "l.svg", []byte(`<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>`)); c != http.StatusSeeOther {
+		t.Fatalf("svg upload: %d", c)
+	}
+	res, _ = s.do("GET", "/branding/logo", nil)
+	if res.Header.Get("Content-Type") != "image/svg+xml" || !strings.Contains(res.Header.Get("Content-Security-Policy"), "sandbox") || res.Header.Get("X-Content-Type-Options") != "nosniff" {
+		t.Fatalf("svg must be sandboxed: %v", res.Header)
+	}
+	// The login page uses the brand too; non-superadmins cannot change it.
+	_, _ = s.do("POST", "/logout", url.Values{"csrf": {csrf}})
+	if _, page = s.do("GET", "/login", nil); !strings.Contains(page, "Entrar a Acme CRM") {
+		t.Fatal("login page without brand")
+	}
+	// Non-superadmins cannot change the brand: sign back in as root, invite a
+	// member, and try as them.
+	s.devLogin("root@acme.test", "/")
+	_, page = s.do("GET", "/settings/members", nil)
+	csrf = find(t, csrfRe, page)
+	_, _ = s.do("POST", "/settings/invite", url.Values{"csrf": {csrf}, "email": {"m@acme.test"}, "role": {"member"}})
+	_, _ = s.do("POST", "/logout", url.Values{"csrf": {csrf}})
+	s.devLogin("m@acme.test", "/")
+	_, page = s.do("GET", "/board", nil)
+	mcsrf := find(t, csrfRe, page)
+	if res, _ = s.do("POST", "/admin/brand-name", url.Values{"csrf": {mcsrf}, "name": {"pwned"}}); res.StatusCode != http.StatusForbidden {
+		t.Fatalf("member renamed the app: %d", res.StatusCode)
+	}
+}

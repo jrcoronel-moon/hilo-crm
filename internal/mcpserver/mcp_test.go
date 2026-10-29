@@ -140,7 +140,7 @@ func TestToolsFilteredByPermission(t *testing.T) {
 	member := toolNames(t, e.connect(e.token(ws, "m@x.com", "member", false)))
 	readOnly := toolNames(t, e.connect(e.token(ws, "a@x.com", "admin", true)))
 
-	if len(owner) != 19 || !slices.Contains(owner, "configure_pipeline") {
+	if len(owner) != 21 || !slices.Contains(owner, "configure_pipeline") || !slices.Contains(owner, "list_interactions") || !slices.Contains(owner, "list_tags") {
 		t.Fatalf("owner tools (%d): %v", len(owner), owner)
 	}
 	for _, list := range [][]string{viewer, readOnly} {

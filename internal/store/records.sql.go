@@ -825,6 +825,40 @@ func (q *Queries) InsertStageChange(ctx context.Context, arg InsertStageChangePa
 	return err
 }
 
+const listAllTags = `-- name: ListAllTags :many
+SELECT t::text AS tag, count(*)::int AS n FROM (
+    SELECT unnest(companies.tags) AS t FROM companies WHERE companies.workspace_id = $1 AND companies.archived_at IS NULL
+    UNION ALL SELECT unnest(contacts.tags) FROM contacts WHERE contacts.workspace_id = $1 AND contacts.archived_at IS NULL
+    UNION ALL SELECT unnest(opportunities.tags) FROM opportunities WHERE opportunities.workspace_id = $1 AND opportunities.archived_at IS NULL
+) x GROUP BY t ORDER BY n DESC, t LIMIT 200
+`
+
+type ListAllTagsRow struct {
+	Tag string `json:"tag"`
+	N   int32  `json:"n"`
+}
+
+// Every tag in use on companies, contacts and opportunities (suggestions).
+func (q *Queries) ListAllTags(ctx context.Context, workspaceID uuid.UUID) ([]ListAllTagsRow, error) {
+	rows, err := q.db.Query(ctx, listAllTags, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListAllTagsRow{}
+	for rows.Next() {
+		var i ListAllTagsRow
+		if err := rows.Scan(&i.Tag, &i.N); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listCompanies = `-- name: ListCompanies :many
 SELECT id, workspace_id, name, domain, industry, size_range, country, website, description, owner_id, source_channel_id, tags, custom, external_id, created_at, updated_at, archived_at FROM companies
 WHERE workspace_id = $1 AND archived_at IS NULL

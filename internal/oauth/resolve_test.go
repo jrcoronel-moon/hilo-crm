@@ -27,6 +27,10 @@ func TestResolveBearerReasons(t *testing.T) {
 		t.Fatal(err)
 	}
 	const res = "http://localhost/mcp"
+	tampered := tok[:len(tok)-1] + "A"
+	if strings.HasSuffix(tok, "A") {
+		tampered = tok[:len(tok)-1] + "B"
+	}
 	if p, err := oauth.ResolveBearer(ctx, d.Platform(), tok, res); err != nil || p.UserID != u.ID {
 		t.Fatalf("valid token: %v", err)
 	}
@@ -42,12 +46,12 @@ func TestResolveBearerReasons(t *testing.T) {
 		return it.Reason
 	}
 	cases := map[string]string{
-		"":                     "missing",
-		"Bearer " + tok:        "malformed",
-		"ghp_something":        "malformed",
-		tok + "%":              "malformed", // the copy-paste accident
-		tok[:len(tok)-1] + "A": "unknown",
-		"hilo_at_" + tok[9:]:   "unknown",
+		"":                   "missing",
+		"Bearer " + tok:      "malformed",
+		"ghp_something":      "malformed",
+		tok + "%":            "malformed", // the copy-paste accident
+		tampered:             "unknown",
+		"hilo_at_" + tok[9:]: "unknown",
 	}
 	for in, want := range cases {
 		if got := reason(in); got != want {
