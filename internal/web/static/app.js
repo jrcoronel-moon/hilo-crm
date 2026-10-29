@@ -194,3 +194,47 @@ function askReason(stage) {
     d.addEventListener("close", () => resolve(d.returnValue === "ok" && input.value.trim() ? input.value.trim() : null), { once: true });
   });
 }
+
+// ───── dialogs: <button data-open="#id">, <button data-close> ─────
+document.addEventListener("click", (e) => {
+  const opener = e.target instanceof Element ? e.target.closest("[data-open]") : null;
+  if (opener) {
+    const d = $(opener.dataset.open);
+    if (d instanceof HTMLDialogElement) { d.showModal(); $("input:not([type=hidden])", d)?.focus(); }
+    return;
+  }
+  const closer = e.target instanceof Element ? e.target.closest("[data-close]") : null;
+  if (closer) closer.closest("dialog")?.close();
+});
+
+// ───── bulk selection (opportunities list) ─────
+$$("form[data-bulk]").forEach((form) => {
+  const bar = $("[data-bulkbar]", form);
+  const boxes = () => $$("input[name=id]", form);
+  const update = () => {
+    const n = boxes().filter((b) => b.checked).length;
+    if (bar) { bar.hidden = n === 0; $("[data-count]", bar).textContent = String(n); }
+    boxes().forEach((b) => b.closest("tr")?.classList.toggle("sel", b.checked));
+  };
+  form.addEventListener("change", (e) => {
+    if (e.target instanceof HTMLInputElement && e.target.hasAttribute("data-select-all")) {
+      boxes().forEach((b) => { b.checked = e.target.checked; });
+    }
+    update();
+  });
+  form.addEventListener("submit", (e) => {
+    if (e.submitter?.value === "lost" && !$("input[name=reason]", form)?.value.trim()) {
+      e.preventDefault();
+      toast("Escribí el motivo de pérdida antes de marcar.", { error: true });
+      $("input[name=reason]", form)?.focus();
+    }
+  });
+});
+
+// ───── ⌘K / Ctrl+K focuses the search box ─────
+document.addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+    const s = $("input[data-hotkey=k]") || $(".search input");
+    if (s) { e.preventDefault(); s.focus(); s.select(); }
+  }
+});

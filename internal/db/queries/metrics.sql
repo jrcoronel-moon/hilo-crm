@@ -63,6 +63,27 @@ SELECT count(*)::int FROM opportunities
 WHERE workspace_id = $1 AND pipeline_id = $2 AND archived_at IS NULL AND status = 'open'
   AND COALESCE(last_interaction_at, stage_entered_at) < sqlc.arg(stale_before)::timestamptz;
 
+-- Won amount per calendar month (in the workspace timezone UTC) for the
+-- last `months` months, per currency.
+-- name: WonByMonth :many
+SELECT date_trunc('month', closed_at)::timestamptz AS month, currency,
+       COALESCE(sum(amount_minor), 0)::bigint AS amount_minor, count(*)::int AS count
+FROM opportunities
+WHERE workspace_id = $1 AND pipeline_id = $2 AND archived_at IS NULL AND status = 'won'
+  AND closed_at >= date_trunc('month', now()) - make_interval(months => sqlc.arg(months)::int - 1)
+GROUP BY 1, 2 ORDER BY 1;
+
+-- Who changed what in the period: people (session), agents (OAuth client),
+-- tokens (PAT name) and forms.
+-- name: ActivityByActor :many
+SELECT a.actor_kind, a.actor_client, COALESCE(u.email, '') AS email, COALESCE(u.name, '') AS name,
+       count(*)::int AS changes,
+       count(*) FILTER (WHERE a.action = 'opportunity.create')::int AS created
+FROM audit_log a LEFT JOIN users u ON u.id = a.actor_user_id
+WHERE a.workspace_id = $1 AND a.created_at >= sqlc.arg(since)::timestamptz
+GROUP BY a.actor_kind, a.actor_client, u.email, u.name
+ORDER BY changes DESC LIMIT 6;
+
 -- ───────────── lead forms ─────────────
 
 -- name: ListLeadForms :many

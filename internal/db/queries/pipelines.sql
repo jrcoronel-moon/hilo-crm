@@ -22,6 +22,9 @@ VALUES ($1, $2, $3, $4) RETURNING *;
 -- name: RenamePipeline :exec
 UPDATE pipelines SET name = $3, updated_at = now() WHERE workspace_id = $1 AND id = $2;
 
+-- name: SetPipelineTarget :exec
+UPDATE pipelines SET monthly_target_minor = $3, target_currency = $4, updated_at = now() WHERE workspace_id = $1 AND id = $2;
+
 -- name: ClearDefaultPipeline :exec
 UPDATE pipelines SET is_default = false WHERE workspace_id = $1 AND is_default;
 

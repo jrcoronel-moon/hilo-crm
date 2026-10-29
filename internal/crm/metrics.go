@@ -3,6 +3,7 @@ package crm
 import (
 	"context"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -48,6 +49,37 @@ type Metrics struct {
 	StaleCount   int            `json:"stale_count"`
 	LeadsByChan  []ChannelCount `json:"new_by_channel"`
 	Interactions []WeekCount    `json:"interactions_by_week"`
+	WonByMonth   []MonthAmount  `json:"won_by_month"`
+	Goal         *Goal          `json:"monthly_goal,omitempty"`
+	Activity     []ActorCount   `json:"activity_by_actor"`
+}
+
+// MonthAmount is the won amount of one calendar month, in the goal currency
+// (or the most common currency when no goal is set).
+type MonthAmount struct {
+	Month    string  `json:"month"` // YYYY-MM
+	Amount   float64 `json:"amount"`
+	Currency string  `json:"currency"`
+	Count    int     `json:"count"`
+}
+
+// Goal is this month's progress against the pipeline's monthly target.
+type Goal struct {
+	Target    float64 `json:"target"`
+	Currency  string  `json:"currency"`
+	Won       float64 `json:"won"`
+	Remaining float64 `json:"remaining"`
+	Pct       int     `json:"pct"` // 0..100+
+}
+
+// ActorCount is how much a person or agent changed in the period.
+type ActorCount struct {
+	Kind    string `json:"kind"` // session | oauth | pat | form | system
+	Client  string `json:"client,omitempty"`
+	Email   string `json:"email,omitempty"`
+	Name    string `json:"name,omitempty"`
+	Changes int    `json:"changes"`
+	Created int    `json:"opportunities_created"`
 }
 
 // ChannelCount is new opportunities per source channel.
@@ -129,6 +161,17 @@ func (s *Service) Metrics(ctx context.Context, a Actor, in MetricsInput) (Metric
 		for _, l := range leads {
 			out.LeadsByChan = append(out.LeadsByChan, ChannelCount{Channel: l.Channel, Count: int(l.Count)})
 		}
+		if err := fillMonthsAndGoal(ctx, q, ws, pipe, now, &out); err != nil {
+			return err
+		}
+		acts, err := q.ActivityByActor(ctx, store.ActivityByActorParams{WorkspaceID: &ws, Since: since})
+		if err != nil {
+			return err
+		}
+		out.Activity = make([]ActorCount, 0, len(acts))
+		for _, x := range acts {
+			out.Activity = append(out.Activity, ActorCount{Kind: x.ActorKind, Client: x.ActorClient, Email: x.Email, Name: x.Name, Changes: int(x.Changes), Created: int(x.Created)})
+		}
 		weeks, err := q.InteractionsByWeek(ctx, store.InteractionsByWeekParams{WorkspaceID: ws, Since: since})
 		if err != nil {
 			return err
@@ -176,6 +219,49 @@ func fillStages(ctx context.Context, q *store.Queries, ws, pipeID uuid.UUID, sin
 	return nil
 }
 
+const goalMonths = 6
+
+// fillMonthsAndGoal adds the last six months of won amounts (one currency:
+// the goal's, else the most used) and this month's goal progress.
+func fillMonthsAndGoal(ctx context.Context, q *store.Queries, ws uuid.UUID, pipe store.Pipeline, now time.Time, out *Metrics) error {
+	rows, err := q.WonByMonth(ctx, store.WonByMonthParams{WorkspaceID: ws, PipelineID: pipe.ID, Months: goalMonths})
+	if err != nil {
+		return err
+	}
+	cur := pipe.TargetCurrency
+	if pipe.MonthlyTargetMinor == 0 {
+		usage := map[string]int64{}
+		for _, r := range rows {
+			usage[r.Currency] += r.AmountMinor
+		}
+		cur = "USD"
+		var best int64 = -1
+		for c, v := range usage {
+			if v > best || (v == best && c < cur) {
+				cur, best = c, v
+			}
+		}
+	}
+	byMonth := map[string]store.WonByMonthRow{}
+	for _, r := range rows {
+		if r.Currency == cur {
+			byMonth[r.Month.UTC().Format("2006-01")] = r
+		}
+	}
+	first := time.Date(now.UTC().Year(), now.UTC().Month(), 1, 0, 0, 0, 0, time.UTC).AddDate(0, -(goalMonths - 1), 0)
+	for i := range goalMonths {
+		m := first.AddDate(0, i, 0).Format("2006-01")
+		r := byMonth[m]
+		out.WonByMonth = append(out.WonByMonth, MonthAmount{Month: m, Amount: MinorToAmount(r.AmountMinor), Currency: cur, Count: int(r.Count)})
+	}
+	if pipe.MonthlyTargetMinor > 0 {
+		won := out.WonByMonth[len(out.WonByMonth)-1].Amount
+		target := MinorToAmount(pipe.MonthlyTargetMinor)
+		out.Goal = &Goal{Target: target, Currency: cur, Won: won, Remaining: max(target-won, 0), Pct: int(won * 100 / target)}
+	}
+	return nil
+}
+
 func round1(f float64) float64 { return float64(int64(f*10+0.5)) / 10 }
 func round3(f float64) float64 { return float64(int64(f*1000+0.5)) / 1000 }
 
@@ -189,26 +275,54 @@ type BoardColumn struct {
 // BoardCard is one opportunity on the board.
 type BoardCard = store.BoardOpportunitiesRow
 
+// BoardFilter narrows the kanban board (web toolbar).
+type BoardFilter struct {
+	Pipeline   string
+	Query      string
+	Channel    string
+	Tag        string
+	Owner      string
+	ClosedDays int  // how long closed (won/lost) cards stay visible; default 30
+	OpenOnly   bool // hide closed cards entirely
+}
+
 // Board returns the kanban board of a pipeline: one column per stage, open
-// opportunities plus those closed in the last 30 days.
-func (s *Service) Board(ctx context.Context, a Actor, pipelineRef string) (PipelineView, []BoardColumn, error) {
+// opportunities plus those closed in the last ClosedDays days.
+func (s *Service) Board(ctx context.Context, a Actor, f BoardFilter) (PipelineView, []BoardColumn, error) {
 	var pv PipelineView
 	var cols []BoardColumn
 	err := s.tx(ctx, a, PermRead, func(q *store.Queries) error {
 		ws := a.WorkspaceID
-		pipe, err := resolvePipeline(ctx, q, ws, pipelineRef)
+		pipe, err := resolvePipeline(ctx, q, ws, f.Pipeline)
 		if err != nil {
 			return err
+		}
+		p := store.BoardOpportunitiesParams{WorkspaceID: ws, PipelineID: pipe.ID, OpenOnly: f.OpenOnly, ClosedDays: int32(min(max(f.ClosedDays, 1), 3650))}
+		if f.ClosedDays <= 0 {
+			p.ClosedDays = 30
+		}
+		if p.Query, err = likePattern(f.Query); err != nil {
+			return err
+		}
+		if t := strings.ToLower(strings.TrimSpace(f.Tag)); t != "" {
+			p.Tag = &t
+		}
+		r := resolvers{ctx, q, ws}
+		var pt patcher
+		pt.ref(&p.ChannelID, strPtrIf(f.Channel), r.channel)
+		pt.ref(&p.OwnerID, strPtrIf(f.Owner), r.owner)
+		if pt.err != nil {
+			return pt.err
 		}
 		stages, err := q.ListStages(ctx, store.ListStagesParams{WorkspaceID: ws, PipelineID: pipe.ID})
 		if err != nil {
 			return err
 		}
-		cards, err := q.BoardOpportunities(ctx, store.BoardOpportunitiesParams{WorkspaceID: ws, PipelineID: pipe.ID})
+		cards, err := q.BoardOpportunities(ctx, p)
 		if err != nil {
 			return err
 		}
-		pv = PipelineView{ID: pipe.ID, Name: pipe.Name, IsDefault: pipe.IsDefault}
+		pv = pipelineView(pipe, nil)
 		idx := map[uuid.UUID]int{}
 		for i, st := range stages {
 			pv.Stages = append(pv.Stages, stageView(st))

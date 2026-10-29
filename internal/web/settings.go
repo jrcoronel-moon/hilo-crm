@@ -100,6 +100,7 @@ var flashes = map[string]string{
 	"invited": "Invitación enviada. La persona entra con su cuenta de Google o Microsoft.",
 	"revoked": "Acceso revocado.",
 	"removed": "Eliminado.",
+	"created": "Oportunidad creada.",
 }
 
 func (h *Handler) settings(w http.ResponseWriter, r *http.Request, v view) {
@@ -217,6 +218,16 @@ func pipelineFromForm(r *http.Request) crm.PipelineInput {
 		if id, ok := strings.CutPrefix(k, "reassign_"); ok && len(vals) > 0 && vals[0] != "" {
 			in.Reassign[id] = vals[0]
 		}
+	}
+	if _, present := f["monthly_target"]; present {
+		target := 0.0 // empty field removes the goal
+		if t := strings.TrimSpace(f.Get("monthly_target")); t != "" {
+			var err error
+			if target, err = parseAmount(t); err != nil || target <= 0 {
+				target = -1 // rejected by validation with a clear message
+			}
+		}
+		in.MonthlyTarget, in.TargetCurrency = &target, f.Get("target_currency")
 	}
 	return in
 }

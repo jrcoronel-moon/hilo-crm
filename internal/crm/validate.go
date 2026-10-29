@@ -242,8 +242,8 @@ func parseID(field, s string) (uuid.UUID, error) {
 
 // likePattern escapes LIKE wildcards so a user-supplied query is matched
 // literally (the SQL wraps it in %…%).
-func likePattern(field, s string) (*string, error) {
-	s, err := cleanLine(field, s, 200)
+func likePattern(s string) (*string, error) {
+	s, err := cleanLine("query", s, 200)
 	if err != nil || s == "" {
 		return nil, err
 	}

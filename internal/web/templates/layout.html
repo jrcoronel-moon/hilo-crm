@@ -120,4 +120,5 @@
 </form></dialog>
 </body>
 </html>
-{{define "nav-data"}}<span class="soon"><svg class="i"><use href="#i-brief"/></svg>Oportunidades<em>pronto</em></span><span class="soon"><svg class="i"><use href="#i-msg"/></svg>Interacciones<em>pronto</em></span>{{end}}
+{{define "nav-data"}}{{template "nav-data-live" .}}{{end}}
+{{define "nav-data-live"}}<a href="/opportunities" {{if eq .Nav "opportunities"}}aria-current="page"{{end}}><svg class="i"><use href="#i-brief"/></svg>Oportunidades</a><a href="/interactions" {{if eq .Nav "interactions"}}aria-current="page"{{end}}><svg class="i"><use href="#i-msg"/></svg>Interacciones</a>{{end}}

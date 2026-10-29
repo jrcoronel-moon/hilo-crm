@@ -37,6 +37,9 @@ var funcs = template.FuncMap{
 	"stale":      func(t time.Time) bool { return time.Since(t) > staleAfter },
 	"fresh":      func(t time.Time) bool { return time.Since(t) < 2*time.Minute },
 	"agoT":       func(t time.Time) string { return ago(&t) },
+	"addf":       func(a, b float64) float64 { return a + b },
+	"divf":       func(a, b float64) float64 { return a / b },
+	"mulf":       func(a, b float64) float64 { return a * b },
 }
 
 // staleAfter matches the dashboard's "estancadas" KPI.

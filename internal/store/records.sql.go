@@ -96,14 +96,24 @@ FROM opportunities o
 LEFT JOIN companies c ON c.id = o.company_id
 LEFT JOIN users u ON u.id = o.owner_id
 WHERE o.workspace_id = $1 AND o.pipeline_id = $2 AND o.archived_at IS NULL
-  AND (o.status = 'open' OR o.closed_at > now() - interval '30 days')
+  AND (o.status = 'open' OR (NOT $3::boolean AND o.closed_at > now() - make_interval(days => $4::int)))
+  AND ($5::text IS NULL OR o.title ILIKE '%' || $5 || '%' OR c.name ILIKE '%' || $5 || '%')
+  AND ($6::uuid IS NULL OR o.source_channel_id = $6)
+  AND ($7::text IS NULL OR $7 = ANY (o.tags))
+  AND ($8::uuid IS NULL OR o.owner_id = $8)
 ORDER BY o.updated_at DESC
 LIMIT 1000
 `
 
 type BoardOpportunitiesParams struct {
-	WorkspaceID uuid.UUID `json:"workspace_id"`
-	PipelineID  uuid.UUID `json:"pipeline_id"`
+	WorkspaceID uuid.UUID  `json:"workspace_id"`
+	PipelineID  uuid.UUID  `json:"pipeline_id"`
+	OpenOnly    bool       `json:"open_only"`
+	ClosedDays  int32      `json:"closed_days"`
+	Query       *string    `json:"query"`
+	ChannelID   *uuid.UUID `json:"channel_id"`
+	Tag         *string    `json:"tag"`
+	OwnerID     *uuid.UUID `json:"owner_id"`
 }
 
 type BoardOpportunitiesRow struct {
@@ -125,10 +135,19 @@ type BoardOpportunitiesRow struct {
 	OwnerEmail        *string    `json:"owner_email"`
 }
 
-// Board: open opportunities plus those closed in the last 30 days, with
-// what the cards show (tags, owner, staleness).
+// Board: open opportunities plus those closed in the last closed_days, with
+// what the cards show (tags, owner, staleness) and the toolbar filters.
 func (q *Queries) BoardOpportunities(ctx context.Context, arg BoardOpportunitiesParams) ([]BoardOpportunitiesRow, error) {
-	rows, err := q.db.Query(ctx, boardOpportunities, arg.WorkspaceID, arg.PipelineID)
+	rows, err := q.db.Query(ctx, boardOpportunities,
+		arg.WorkspaceID,
+		arg.PipelineID,
+		arg.OpenOnly,
+		arg.ClosedDays,
+		arg.Query,
+		arg.ChannelID,
+		arg.Tag,
+		arg.OwnerID,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -276,6 +295,41 @@ type GetCompanyByExternalIDParams struct {
 
 func (q *Queries) GetCompanyByExternalID(ctx context.Context, arg GetCompanyByExternalIDParams) (Company, error) {
 	row := q.db.QueryRow(ctx, getCompanyByExternalID, arg.WorkspaceID, arg.ExternalID)
+	var i Company
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.Name,
+		&i.Domain,
+		&i.Industry,
+		&i.SizeRange,
+		&i.Country,
+		&i.Website,
+		&i.Description,
+		&i.OwnerID,
+		&i.SourceChannelID,
+		&i.Tags,
+		&i.Custom,
+		&i.ExternalID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ArchivedAt,
+	)
+	return i, err
+}
+
+const getCompanyByName = `-- name: GetCompanyByName :one
+SELECT id, workspace_id, name, domain, industry, size_range, country, website, description, owner_id, source_channel_id, tags, custom, external_id, created_at, updated_at, archived_at FROM companies WHERE workspace_id = $1 AND lower(name) = lower($2) AND archived_at IS NULL
+ORDER BY created_at LIMIT 1
+`
+
+type GetCompanyByNameParams struct {
+	WorkspaceID uuid.UUID `json:"workspace_id"`
+	Name        string    `json:"name"`
+}
+
+func (q *Queries) GetCompanyByName(ctx context.Context, arg GetCompanyByNameParams) (Company, error) {
+	row := q.db.QueryRow(ctx, getCompanyByName, arg.WorkspaceID, arg.Name)
 	var i Company
 	err := row.Scan(
 		&i.ID,
@@ -756,6 +810,98 @@ func (q *Queries) ListContacts(ctx context.Context, arg ListContactsParams) ([]C
 	return items, nil
 }
 
+const listInteractions = `-- name: ListInteractions :many
+SELECT i.id, i.type, i.direction, i.subject, i.summary, i.occurred_at, i.opportunity_id, i.contact_id, i.company_id,
+       ch.name AS channel_name, o.title AS opportunity_title, co.name AS company_name,
+       COALESCE(trim(ct.first_name || ' ' || ct.last_name), '')::text AS contact_name, ct.email AS contact_email
+FROM interactions i
+LEFT JOIN channels ch ON ch.id = i.channel_id
+LEFT JOIN opportunities o ON o.id = i.opportunity_id
+LEFT JOIN companies co ON co.id = i.company_id
+LEFT JOIN contacts ct ON ct.id = i.contact_id
+WHERE i.workspace_id = $1
+  AND ($2::text IS NULL OR i.type = $2)
+  AND ($3::text IS NULL OR i.direction = $3)
+  AND ($4::uuid IS NULL OR i.channel_id = $4)
+  AND ($5::text IS NULL OR i.subject ILIKE '%' || $5 || '%' OR i.summary ILIKE '%' || $5 || '%'
+       OR co.name ILIKE '%' || $5 || '%' OR o.title ILIKE '%' || $5 || '%')
+  AND ($6::timestamptz IS NULL OR (i.occurred_at, i.id) < ($6, $7::uuid))
+ORDER BY i.occurred_at DESC, i.id DESC
+LIMIT $8
+`
+
+type ListInteractionsParams struct {
+	WorkspaceID uuid.UUID  `json:"workspace_id"`
+	Type        *string    `json:"type"`
+	Direction   *string    `json:"direction"`
+	ChannelID   *uuid.UUID `json:"channel_id"`
+	Query       *string    `json:"query"`
+	CursorAt    *time.Time `json:"cursor_at"`
+	CursorID    *uuid.UUID `json:"cursor_id"`
+	Lim         int32      `json:"lim"`
+}
+
+type ListInteractionsRow struct {
+	ID               uuid.UUID  `json:"id"`
+	Type             string     `json:"type"`
+	Direction        string     `json:"direction"`
+	Subject          string     `json:"subject"`
+	Summary          string     `json:"summary"`
+	OccurredAt       time.Time  `json:"occurred_at"`
+	OpportunityID    *uuid.UUID `json:"opportunity_id"`
+	ContactID        *uuid.UUID `json:"contact_id"`
+	CompanyID        *uuid.UUID `json:"company_id"`
+	ChannelName      *string    `json:"channel_name"`
+	OpportunityTitle *string    `json:"opportunity_title"`
+	CompanyName      *string    `json:"company_name"`
+	ContactName      string     `json:"contact_name"`
+	ContactEmail     *string    `json:"contact_email"`
+}
+
+func (q *Queries) ListInteractions(ctx context.Context, arg ListInteractionsParams) ([]ListInteractionsRow, error) {
+	rows, err := q.db.Query(ctx, listInteractions,
+		arg.WorkspaceID,
+		arg.Type,
+		arg.Direction,
+		arg.ChannelID,
+		arg.Query,
+		arg.CursorAt,
+		arg.CursorID,
+		arg.Lim,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListInteractionsRow{}
+	for rows.Next() {
+		var i ListInteractionsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Type,
+			&i.Direction,
+			&i.Subject,
+			&i.Summary,
+			&i.OccurredAt,
+			&i.OpportunityID,
+			&i.ContactID,
+			&i.CompanyID,
+			&i.ChannelName,
+			&i.OpportunityTitle,
+			&i.CompanyName,
+			&i.ContactName,
+			&i.ContactEmail,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listOpportunities = `-- name: ListOpportunities :many
 SELECT o.id, o.workspace_id, o.title, o.kind, o.company_id, o.primary_contact_id, o.pipeline_id, o.stage_id, o.status, o.amount_minor, o.currency, o.probability, o.expected_close_date, o.closed_at, o.lost_reason, o.source_channel_id, o.owner_id, o.next_step, o.next_step_at, o.description, o.tags, o.custom, o.external_id, o.stage_entered_at, o.last_interaction_at, o.created_at, o.updated_at, o.archived_at, s.name AS stage_name, s.category AS stage_category, s.probability AS stage_probability,
        c.name AS company_name
@@ -771,12 +917,13 @@ WHERE o.workspace_id = $1 AND o.archived_at IS NULL
   AND ($7::uuid IS NULL OR o.company_id = $7)
   AND ($8::uuid IS NULL OR o.source_channel_id = $8)
   AND ($9::text IS NULL OR o.title ILIKE '%' || $9 || '%')
-  AND ($10::date IS NULL OR o.expected_close_date <= $10)
-  AND ($11::timestamptz IS NULL
-       OR (o.status = 'open' AND COALESCE(o.last_interaction_at, o.stage_entered_at) < $11))
-  AND ($12::uuid IS NULL OR o.id < $12)
+  AND ($10::text IS NULL OR $10 = ANY (o.tags))
+  AND ($11::date IS NULL OR o.expected_close_date <= $11)
+  AND ($12::timestamptz IS NULL
+       OR (o.status = 'open' AND COALESCE(o.last_interaction_at, o.stage_entered_at) < $12))
+  AND ($13::uuid IS NULL OR o.id < $13)
 ORDER BY o.id DESC
-LIMIT $13
+LIMIT $14
 `
 
 type ListOpportunitiesParams struct {
@@ -789,6 +936,7 @@ type ListOpportunitiesParams struct {
 	CompanyID   *uuid.UUID `json:"company_id"`
 	ChannelID   *uuid.UUID `json:"channel_id"`
 	Query       *string    `json:"query"`
+	Tag         *string    `json:"tag"`
 	CloseBefore *time.Time `json:"close_before"`
 	StaleBefore *time.Time `json:"stale_before"`
 	Cursor      *uuid.UUID `json:"cursor"`
@@ -841,6 +989,7 @@ func (q *Queries) ListOpportunities(ctx context.Context, arg ListOpportunitiesPa
 		arg.CompanyID,
 		arg.ChannelID,
 		arg.Query,
+		arg.Tag,
 		arg.CloseBefore,
 		arg.StaleBefore,
 		arg.Cursor,
@@ -935,6 +1084,38 @@ func (q *Queries) ListOpportunityContacts(ctx context.Context, arg ListOpportuni
 			&i.Title,
 			&i.Role,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTags = `-- name: ListTags :many
+SELECT t::text AS tag, count(*)::int AS n
+FROM opportunities o, unnest(o.tags) AS t
+WHERE o.workspace_id = $1 AND o.archived_at IS NULL
+GROUP BY t ORDER BY n DESC, t LIMIT 100
+`
+
+type ListTagsRow struct {
+	Tag string `json:"tag"`
+	N   int32  `json:"n"`
+}
+
+func (q *Queries) ListTags(ctx context.Context, workspaceID uuid.UUID) ([]ListTagsRow, error) {
+	rows, err := q.db.Query(ctx, listTags, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListTagsRow{}
+	for rows.Next() {
+		var i ListTagsRow
+		if err := rows.Scan(&i.Tag, &i.N); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

@@ -263,3 +263,21 @@ details.pipe > .inner { padding: 0 18px 18px; display: grid; gap: 14px; }
 svg .c-initial { fill: var(--warn); } svg .c-p1 { fill: var(--info); } svg .c-p2 { fill: var(--violet); } svg .c-p3 { fill: var(--teal); }
 svg .c-p4 { fill: #E36FA6; } svg .c-won { fill: var(--ok); } svg .c-lost { fill: #9AA3B2; } svg .teal-400 { fill: var(--teal-400); }
 svg .fill { fill: var(--teal); }
+/* popover filters, calendar select, wide dialog */
+details.pop { position: relative; } details.pop > summary { list-style: none; } details.pop > summary::-webkit-details-marker { display: none; }
+details.pop .pop-body { position: absolute; z-index: 20; top: 46px; left: 0; width: 260px; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 12px; box-shadow: var(--shadow-pop); padding: 14px; display: grid; gap: 10px; }
+label.cal { position: relative; display: inline-flex; } label.cal svg { position: absolute; left: 12px; top: 12px; color: var(--muted); pointer-events: none; }
+label.cal select { padding-left: 36px; }
+dialog.wide { max-width: 640px; width: calc(100vw - 32px); } dialog .stack .acts { display: flex; justify-content: flex-end; gap: 8px; }
+/* donut + goal */
+.donut svg { width: 150px; height: 150px; } .donut .ring-bg { stroke: var(--hover); }
+.donut .seg.c-p3 { stroke: var(--teal); } .donut .seg.c-p1 { stroke: var(--info); } .donut .seg.c-initial { stroke: var(--warn); }
+.donut .seg.c-p2 { stroke: var(--violet); } .donut .seg.c-p4 { stroke: #E36FA6; } .donut .seg.c-won { stroke: var(--ok); }
+.donut text.big { font-size: 8px; font-weight: 700; fill: var(--ink); } .donut text.sub { font-size: 3px; fill: var(--muted); }
+.legend .b-c-p3 { border-left-color: var(--teal); } .legend .b-c-p1 { border-left-color: var(--info); } .legend .b-c-initial { border-left-color: var(--warn); }
+.legend .b-c-p2 { border-left-color: var(--violet); } .legend .b-c-p4 { border-left-color: #E36FA6; } .legend .b-c-won { border-left-color: var(--ok); }
+strong.big { font-size: 32px; font-weight: 700; letter-spacing: -.02em; }
+.donut svg circle { fill: none; }
+.bulkbar[hidden] { display: none; }
+@media (max-height: 940px) { .agent-box { display: none; } }

@@ -10,6 +10,8 @@
   <form method="post" action="/settings/pipeline" class="stack" data-pipeline>
     <input type="hidden" name="csrf" value="{{$d.CSRF}}"><input type="hidden" name="id" value="{{$p.ID}}">
     <div class="row"><label class="field grow">Nombre<input name="name" value="{{$p.Name}}" required maxlength="100"></label>
+      <label class="field">Objetivo mensual<input name="monthly_target" inputmode="decimal" value="{{if $p.MonthlyTarget}}{{$p.MonthlyTarget}}{{end}}" placeholder="sin objetivo" size="12"></label>
+      <label class="field">Moneda<input name="target_currency" value="{{or $p.TargetCurrency "USD"}}" maxlength="3" size="4"></label>
       <label class="check"><input type="checkbox" name="is_default" value="1" {{if $p.IsDefault}}checked{{end}}> Pipeline por defecto</label></div>
     <div class="stage-head"><span></span><span></span><span>Etapa</span><span>Categoría</span><span>Prob. %</span><span>Si se elimina, mover a</span><span></span></div>
     <div class="stage-list" data-stages>

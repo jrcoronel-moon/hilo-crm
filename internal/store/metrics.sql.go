@@ -13,6 +13,59 @@ import (
 	"github.com/google/uuid"
 )
 
+const activityByActor = `-- name: ActivityByActor :many
+SELECT a.actor_kind, a.actor_client, COALESCE(u.email, '') AS email, COALESCE(u.name, '') AS name,
+       count(*)::int AS changes,
+       count(*) FILTER (WHERE a.action = 'opportunity.create')::int AS created
+FROM audit_log a LEFT JOIN users u ON u.id = a.actor_user_id
+WHERE a.workspace_id = $1 AND a.created_at >= $2::timestamptz
+GROUP BY a.actor_kind, a.actor_client, u.email, u.name
+ORDER BY changes DESC LIMIT 6
+`
+
+type ActivityByActorParams struct {
+	WorkspaceID *uuid.UUID `json:"workspace_id"`
+	Since       time.Time  `json:"since"`
+}
+
+type ActivityByActorRow struct {
+	ActorKind   string `json:"actor_kind"`
+	ActorClient string `json:"actor_client"`
+	Email       string `json:"email"`
+	Name        string `json:"name"`
+	Changes     int32  `json:"changes"`
+	Created     int32  `json:"created"`
+}
+
+// Who changed what in the period: people (session), agents (OAuth client),
+// tokens (PAT name) and forms.
+func (q *Queries) ActivityByActor(ctx context.Context, arg ActivityByActorParams) ([]ActivityByActorRow, error) {
+	rows, err := q.db.Query(ctx, activityByActor, arg.WorkspaceID, arg.Since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ActivityByActorRow{}
+	for rows.Next() {
+		var i ActivityByActorRow
+		if err := rows.Scan(
+			&i.ActorKind,
+			&i.ActorClient,
+			&i.Email,
+			&i.Name,
+			&i.Changes,
+			&i.Created,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const closedSummary = `-- name: ClosedSummary :many
 SELECT status, currency, count(*)::int AS count,
        COALESCE(sum(amount_minor), 0)::bigint AS amount_minor,
@@ -516,6 +569,55 @@ func (q *Queries) TimeInStage(ctx context.Context, arg TimeInStageParams) ([]Tim
 			&i.Name,
 			&i.AvgDays,
 			&i.Samples,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const wonByMonth = `-- name: WonByMonth :many
+SELECT date_trunc('month', closed_at)::timestamptz AS month, currency,
+       COALESCE(sum(amount_minor), 0)::bigint AS amount_minor, count(*)::int AS count
+FROM opportunities
+WHERE workspace_id = $1 AND pipeline_id = $2 AND archived_at IS NULL AND status = 'won'
+  AND closed_at >= date_trunc('month', now()) - make_interval(months => $3::int - 1)
+GROUP BY 1, 2 ORDER BY 1
+`
+
+type WonByMonthParams struct {
+	WorkspaceID uuid.UUID `json:"workspace_id"`
+	PipelineID  uuid.UUID `json:"pipeline_id"`
+	Months      int32     `json:"months"`
+}
+
+type WonByMonthRow struct {
+	Month       time.Time `json:"month"`
+	Currency    string    `json:"currency"`
+	AmountMinor int64     `json:"amount_minor"`
+	Count       int32     `json:"count"`
+}
+
+// Won amount per calendar month (in the workspace timezone UTC) for the
+// last `months` months, per currency.
+func (q *Queries) WonByMonth(ctx context.Context, arg WonByMonthParams) ([]WonByMonthRow, error) {
+	rows, err := q.db.Query(ctx, wonByMonth, arg.WorkspaceID, arg.PipelineID, arg.Months)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []WonByMonthRow{}
+	for rows.Next() {
+		var i WonByMonthRow
+		if err := rows.Scan(
+			&i.Month,
+			&i.Currency,
+			&i.AmountMinor,
+			&i.Count,
 		); err != nil {
 			return nil, err
 		}

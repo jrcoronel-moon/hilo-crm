@@ -1,15 +1,29 @@
 {{define "actions"}}
-{{if gt (len .Data.Pipelines) 1}}
-<form method="get" action="/board" class="inline">
-  <select name="pipeline" data-autosubmit aria-label="Pipeline">
-    {{range .Data.Pipelines}}<option value="{{.ID}}" {{if eq .ID $.Data.Pipeline.ID}}selected{{end}}>{{.Name}}</option>{{end}}
-  </select>
-</form>
-{{end}}
+{{if .View.CanWrite}}<button class="btn primary" type="button" data-open="#new-opp"><svg class="i sm"><use href="#i-plus"/></svg>Nueva oportunidad</button>{{end}}
 {{end}}
 
 {{define "content"}}
-{{$d := .Data}}{{$m := $d.Metrics}}
+{{$d := .Data}}{{$m := $d.Metrics}}{{$f := $d.F}}
+<form method="get" action="/board" class="toolbar">
+  {{if gt (len $d.Pipelines) 1}}<select name="pipeline" data-autosubmit aria-label="Pipeline">{{range $d.Pipelines}}<option value="{{.ID}}" {{if eq .ID $d.Pipeline.ID}}selected{{end}}>{{.Name}}</option>{{end}}</select>
+  {{else}}<input type="hidden" name="pipeline" value="{{$d.Pipeline.ID}}">{{end}}
+  <details class="pop">
+    <summary class="btn"><svg class="i sm"><use href="#i-filter"/></svg>Filtros</summary>
+    <div class="pop-body">
+      <label class="field">Canal<select name="channel"><option value="">Todos</option>{{range $d.Channels}}<option value="{{.Name}}" {{if eq .Name $f.Channel}}selected{{end}}>{{.Name}}</option>{{end}}</select></label>
+      <label class="field">Tag<select name="tag"><option value="">Todos</option>{{range $d.Tags}}<option value="{{.Tag}}" {{if eq .Tag $f.Tag}}selected{{end}}>{{.Tag}} ({{.Count}})</option>{{end}}</select></label>
+      <label class="check"><input type="checkbox" name="open" value="1" {{if $f.Open}}checked{{end}}> Solo abiertas</label>
+      <button class="btn primary sm">Aplicar</button>
+    </div>
+  </details>
+  <label class="cal"><svg class="i sm"><use href="#i-cal"/></svg><select name="days" data-autosubmit aria-label="Cerradas visibles"><option value="7" {{if eq $f.Days 7}}selected{{end}}>Cerradas: 7 días</option><option value="30" {{if eq $f.Days 30}}selected{{end}}>Cerradas: 30 días</option><option value="90" {{if eq $f.Days 90}}selected{{end}}>Cerradas: 90 días</option></select></label>
+  <div class="search"><svg class="i sm"><use href="#i-search"/></svg><input type="search" name="q" value="{{$f.Q}}" placeholder="Buscar oportunidad o empresa" aria-label="Buscar" data-hotkey="k"><kbd>⌘K</kbd></div>
+  {{if $f.Open}}<span class="chip">Etapa: abiertas <a href="/board{{$f.Without "open"}}" aria-label="Quitar filtro">×</a></span>{{end}}
+  {{with $f.Channel}}<span class="chip">Canal: {{.}} <a href="/board{{$f.Without "channel"}}" aria-label="Quitar filtro">×</a></span>{{end}}
+  {{with $f.Tag}}<span class="chip">Tag: {{.}} <a href="/board{{$f.Without "tag"}}" aria-label="Quitar filtro">×</a></span>{{end}}
+  {{with $f.Q}}<span class="chip">“{{.}}” <a href="/board{{$f.Without "q"}}" aria-label="Quitar búsqueda">×</a></span>{{end}}
+  <a class="btn" href="/opportunities.csv?{{$f.Encode}}"><svg class="i sm"><use href="#i-download"/></svg>Exportar</a>
+</form>
 <div class="kpis">
   <div class="kpi inline"><span>Abiertas</span><strong>{{$m.OpenCount}}</strong><small>{{moneyMap $m.OpenAmount}}</small></div>
   <div class="kpi inline"><span>Ponderado</span><strong>{{moneyMap $m.Weighted}}</strong></div>
@@ -54,6 +68,21 @@
   </section>
   {{end}}
 </div>
+
+{{if .View.CanWrite}}
+<dialog id="new-opp" class="wide"><form method="post" action="/opportunities" class="stack">
+  <input type="hidden" name="csrf" value="{{$d.CSRF}}"><input type="hidden" name="pipeline" value="{{$d.Pipeline.ID}}">
+  <h2>Nueva oportunidad</h2>
+  <label class="field">Título<input name="title" required maxlength="200" placeholder="Línea de crédito PyME"></label>
+  <div class="row"><label class="field grow">Empresa<input name="company" maxlength="200" placeholder="Globex"></label><label class="field grow">Dominio (opcional)<input name="domain" placeholder="globex.com"></label></div>
+  <div class="row"><label class="field grow">Monto<input name="amount" inputmode="decimal" placeholder="12000"></label><label class="field">Moneda<input name="currency" value="USD" maxlength="3" size="4"></label>
+    <label class="field grow">Etapa<select name="stage">{{range $d.Stages}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></label></div>
+  <div class="row"><label class="field grow">Canal de origen<select name="channel"><option value="">—</option>{{range $d.Channels}}<option value="{{.Name}}">{{.Name}}</option>{{end}}</select></label>
+    <label class="field grow">Tags (separados por coma)<input name="tags" placeholder="pyme, inbound"></label></div>
+  <label class="field">Próximo paso<input name="next_step" maxlength="500" placeholder="Llamar para calificar"></label>
+  <div class="acts"><button class="btn" type="button" data-close>Cancelar</button><button class="btn primary">Crear oportunidad</button></div>
+</form></dialog>
+{{end}}
 
 <dialog id="reason"><form method="dialog" class="dlg">
   <span class="ic"><svg class="i"><use href="#i-alert"/></svg></span>

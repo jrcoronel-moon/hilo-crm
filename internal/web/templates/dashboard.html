@@ -27,6 +27,16 @@
 <div class="grid2">
   <div class="gcol">
     <section class="card">
+      <div class="card-head"><h2>Monto ganado por mes</h2><span class="aside">{{with $m.Goal}}objetivo {{money .Target .Currency}}{{else}}{{with (index $m.WonByMonth 0)}}{{.Currency}}{{end}}{{end}}</span></div>
+      <svg class="chart" viewBox="-40 -6 650 128" role="img" aria-label="Monto ganado por mes">
+        <g class="grid"><line x1="0" y1="100" x2="600" y2="100"/><line x1="0" y1="50" x2="600" y2="50"/><line x1="0" y1="0" x2="600" y2="0"/></g>
+        <text x="-8" y="103" text-anchor="end">0</text><text x="-8" y="3" text-anchor="end">{{short (mulf $d.MonthPeak 1.15)}}</text>
+        {{if ge $d.GoalY 0.0}}<line class="goal" x1="0" y1="{{$d.GoalY}}" x2="600" y2="{{$d.GoalY}}"/>{{end}}
+        {{range $d.Months}}<rect x="{{.X}}" y="{{.Y}}" width="{{.W}}" height="{{.H}}" rx="4" class="{{if .Peak}}c-p3{{else}}teal-400{{end}}"><title>{{.Label}}: {{.Value}}</title></rect>
+        <text x="{{addf .X (divf .W 2)}}" y="116" text-anchor="middle">{{.Label}}</text>{{end}}
+      </svg>
+    </section>
+    <section class="card">
       <div class="card-head"><h2>Funnel abierto por etapa</h2><span class="aside">cantidad · monto · días promedio</span></div>
       <div class="bars">
         {{range $i, $s := $m.Stages}}{{if not (isClosing .Category)}}
@@ -35,9 +45,7 @@
           <b class="num">{{.Count}}</b><span class="v">{{moneyMap .Amount}} · {{.AvgDays}} d</span></div>
         {{end}}{{end}}
       </div>
-    </section>
-    <section class="card">
-      <div class="card-head"><h2>Interacciones por semana</h2><span class="aside">últimos {{$d.Days}} días</span></div>
+      <h3>Interacciones por semana</h3>
       {{if $d.Weeks}}
       <svg class="chart" viewBox="0 -4 600 120" role="img" aria-label="Interacciones por semana">
         {{range $d.Weeks}}<rect x="{{.X}}" y="{{.Y}}" width="{{.W}}" height="{{.H}}" rx="3" class="{{if .Peak}}c-p3{{else}}teal-400{{end}}"><title>{{.Label}}: {{.Value}}</title></rect>{{end}}
@@ -52,8 +60,30 @@
     <section class="card">
       <div class="card-head"><h2>Nuevas oportunidades por canal</h2></div>
       {{if $d.Channels}}
-      <div class="legend">{{range $d.Channels}}<div><span class="dot {{.Class}}"></span><span>{{.Name}}</span><span>{{.Pct}}% · {{.Count}}</span></div>{{end}}</div>
+      <div class="donut">
+        <svg viewBox="0 0 42 42" role="img" aria-label="Oportunidades por canal">
+          <circle cx="21" cy="21" r="15.915" fill="none" class="ring-bg" stroke-width="6"/>
+          {{range $d.Donut}}<circle cx="21" cy="21" r="15.915" fill="none" class="seg {{.Class}}" stroke-width="6" stroke-dasharray="{{.Dash}} {{.Gap}}" stroke-dashoffset="{{.Offset}}"/>{{end}}
+          <text x="21" y="21" text-anchor="middle" class="big">{{$d.NewTotal}}</text>
+          <text x="21" y="27" text-anchor="middle" class="sub">en {{$d.Days}} días</text>
+        </svg>
+        <div class="legend">{{range $d.Channels}}<div class="b-{{.Class}}"><span>{{.Name}}</span><span>{{.Pct}}% · {{.Count}}</span></div>{{end}}</div>
+      </div>
       {{else}}<p class="muted">Sin oportunidades nuevas en el período.</p>{{end}}
+    </section>
+    <section class="card">
+      <div class="card-head"><h2>Objetivo mensual</h2>{{if $.View.IsAdmin}}<a class="aside" href="/settings/pipelines">{{if $m.Goal}}Editar{{else}}Definir{{end}}</a>{{end}}</div>
+      {{with $m.Goal}}
+      <div class="row"><strong class="big">{{.Pct}}%</strong><span class="muted">{{money .Remaining .Currency}} restantes</span></div>
+      <div class="progress"><svg aria-hidden="true"><rect width="{{bar .Pct 100}}" height="12" rx="6" class="c-p3"/></svg></div>
+      <div class="row small"><span class="muted grow">Ganado este mes</span><b>{{money .Won ""}} / {{money .Target ""}}</b></div>
+      {{else}}<p class="muted">Definí un objetivo mensual para este pipeline en Ajustes → Pipelines y seguí el avance acá.</p>{{end}}
+    </section>
+    <section class="card">
+      <div class="card-head"><h2>Actividad por agente</h2>{{if $.View.IsAdmin}}<a class="aside" href="/settings/audit">Ver todo</a>{{end}}</div>
+      {{if $d.Actors}}
+      <div class="activity">{{range $d.Actors}}<div class="a"><span class="av md {{.Class}}">{{.Initials}}</span><div><b>{{.Title}}</b><small>{{.Sub}}</small></div><span class="tag teal">{{if .Created}}{{.Created}} creadas · {{end}}{{.Changes}} cambios</span></div>{{end}}</div>
+      {{else}}<p class="muted">Sin cambios en el período.</p>{{end}}
     </section>
   </div>
 </div>

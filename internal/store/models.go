@@ -212,14 +212,16 @@ type PersonalAccessToken struct {
 }
 
 type Pipeline struct {
-	ID          uuid.UUID  `json:"id"`
-	WorkspaceID uuid.UUID  `json:"workspace_id"`
-	Name        string     `json:"name"`
-	IsDefault   bool       `json:"is_default"`
-	Position    int32      `json:"position"`
-	ArchivedAt  *time.Time `json:"archived_at"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
+	ID                 uuid.UUID  `json:"id"`
+	WorkspaceID        uuid.UUID  `json:"workspace_id"`
+	Name               string     `json:"name"`
+	IsDefault          bool       `json:"is_default"`
+	Position           int32      `json:"position"`
+	ArchivedAt         *time.Time `json:"archived_at"`
+	CreatedAt          time.Time  `json:"created_at"`
+	UpdatedAt          time.Time  `json:"updated_at"`
+	MonthlyTargetMinor int64      `json:"monthly_target_minor"`
+	TargetCurrency     string     `json:"target_currency"`
 }
 
 type PipelineStage struct {

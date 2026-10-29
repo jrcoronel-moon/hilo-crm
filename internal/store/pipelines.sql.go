@@ -104,7 +104,7 @@ func (q *Queries) CreateChannel(ctx context.Context, arg CreateChannelParams) (C
 
 const createPipeline = `-- name: CreatePipeline :one
 INSERT INTO pipelines (workspace_id, name, is_default, position)
-VALUES ($1, $2, $3, $4) RETURNING id, workspace_id, name, is_default, position, archived_at, created_at, updated_at
+VALUES ($1, $2, $3, $4) RETURNING id, workspace_id, name, is_default, position, archived_at, created_at, updated_at, monthly_target_minor, target_currency
 `
 
 type CreatePipelineParams struct {
@@ -131,6 +131,8 @@ func (q *Queries) CreatePipeline(ctx context.Context, arg CreatePipelineParams) 
 		&i.ArchivedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.MonthlyTargetMinor,
+		&i.TargetCurrency,
 	)
 	return i, err
 }
@@ -196,7 +198,7 @@ func (q *Queries) GetChannelByName(ctx context.Context, arg GetChannelByNamePara
 }
 
 const getDefaultPipeline = `-- name: GetDefaultPipeline :one
-SELECT id, workspace_id, name, is_default, position, archived_at, created_at, updated_at FROM pipelines WHERE workspace_id = $1 AND is_default AND archived_at IS NULL
+SELECT id, workspace_id, name, is_default, position, archived_at, created_at, updated_at, monthly_target_minor, target_currency FROM pipelines WHERE workspace_id = $1 AND is_default AND archived_at IS NULL
 `
 
 func (q *Queries) GetDefaultPipeline(ctx context.Context, workspaceID uuid.UUID) (Pipeline, error) {
@@ -211,6 +213,8 @@ func (q *Queries) GetDefaultPipeline(ctx context.Context, workspaceID uuid.UUID)
 		&i.ArchivedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.MonthlyTargetMinor,
+		&i.TargetCurrency,
 	)
 	return i, err
 }
@@ -241,7 +245,7 @@ func (q *Queries) GetInitialStage(ctx context.Context, arg GetInitialStageParams
 }
 
 const getPipeline = `-- name: GetPipeline :one
-SELECT id, workspace_id, name, is_default, position, archived_at, created_at, updated_at FROM pipelines WHERE workspace_id = $1 AND id = $2 AND archived_at IS NULL
+SELECT id, workspace_id, name, is_default, position, archived_at, created_at, updated_at, monthly_target_minor, target_currency FROM pipelines WHERE workspace_id = $1 AND id = $2 AND archived_at IS NULL
 `
 
 type GetPipelineParams struct {
@@ -261,12 +265,14 @@ func (q *Queries) GetPipeline(ctx context.Context, arg GetPipelineParams) (Pipel
 		&i.ArchivedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.MonthlyTargetMinor,
+		&i.TargetCurrency,
 	)
 	return i, err
 }
 
 const getPipelineByName = `-- name: GetPipelineByName :one
-SELECT id, workspace_id, name, is_default, position, archived_at, created_at, updated_at FROM pipelines WHERE workspace_id = $1 AND lower(name) = lower($2) AND archived_at IS NULL
+SELECT id, workspace_id, name, is_default, position, archived_at, created_at, updated_at, monthly_target_minor, target_currency FROM pipelines WHERE workspace_id = $1 AND lower(name) = lower($2) AND archived_at IS NULL
 `
 
 type GetPipelineByNameParams struct {
@@ -286,6 +292,8 @@ func (q *Queries) GetPipelineByName(ctx context.Context, arg GetPipelineByNamePa
 		&i.ArchivedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.MonthlyTargetMinor,
+		&i.TargetCurrency,
 	)
 	return i, err
 }
@@ -421,7 +429,7 @@ func (q *Queries) ListChannels(ctx context.Context, workspaceID uuid.UUID) ([]Ch
 
 const listPipelines = `-- name: ListPipelines :many
 
-SELECT id, workspace_id, name, is_default, position, archived_at, created_at, updated_at FROM pipelines
+SELECT id, workspace_id, name, is_default, position, archived_at, created_at, updated_at, monthly_target_minor, target_currency FROM pipelines
 WHERE workspace_id = $1 AND archived_at IS NULL
 ORDER BY position, name
 `
@@ -446,6 +454,8 @@ func (q *Queries) ListPipelines(ctx context.Context, workspaceID uuid.UUID) ([]P
 			&i.ArchivedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.MonthlyTargetMinor,
+			&i.TargetCurrency,
 		); err != nil {
 			return nil, err
 		}
@@ -555,6 +565,27 @@ type SetDefaultPipelineParams struct {
 
 func (q *Queries) SetDefaultPipeline(ctx context.Context, arg SetDefaultPipelineParams) error {
 	_, err := q.db.Exec(ctx, setDefaultPipeline, arg.WorkspaceID, arg.ID)
+	return err
+}
+
+const setPipelineTarget = `-- name: SetPipelineTarget :exec
+UPDATE pipelines SET monthly_target_minor = $3, target_currency = $4, updated_at = now() WHERE workspace_id = $1 AND id = $2
+`
+
+type SetPipelineTargetParams struct {
+	WorkspaceID        uuid.UUID `json:"workspace_id"`
+	ID                 uuid.UUID `json:"id"`
+	MonthlyTargetMinor int64     `json:"monthly_target_minor"`
+	TargetCurrency     string    `json:"target_currency"`
+}
+
+func (q *Queries) SetPipelineTarget(ctx context.Context, arg SetPipelineTargetParams) error {
+	_, err := q.db.Exec(ctx, setPipelineTarget,
+		arg.WorkspaceID,
+		arg.ID,
+		arg.MonthlyTargetMinor,
+		arg.TargetCurrency,
+	)
 	return err
 }
 

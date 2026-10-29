@@ -33,10 +33,20 @@ type StageView struct {
 
 // PipelineView is a pipeline with its ordered stages.
 type PipelineView struct {
-	ID        uuid.UUID   `json:"id"`
-	Name      string      `json:"name"`
-	IsDefault bool        `json:"is_default"`
-	Stages    []StageView `json:"stages"`
+	ID             uuid.UUID   `json:"id"`
+	Name           string      `json:"name"`
+	IsDefault      bool        `json:"is_default"`
+	MonthlyTarget  float64     `json:"monthly_target,omitempty"`
+	TargetCurrency string      `json:"target_currency,omitempty"`
+	Stages         []StageView `json:"stages"`
+}
+
+func pipelineView(p store.Pipeline, stages []StageView) PipelineView {
+	v := PipelineView{ID: p.ID, Name: p.Name, IsDefault: p.IsDefault, Stages: stages}
+	if p.MonthlyTargetMinor > 0 {
+		v.MonthlyTarget, v.TargetCurrency = MinorToAmount(p.MonthlyTargetMinor), p.TargetCurrency
+	}
+	return v
 }
 
 func stageView(s store.PipelineStage) StageView {
@@ -73,7 +83,7 @@ func (s *Service) ListPipelines(ctx context.Context, a Actor) ([]PipelineView, e
 		}
 		out = make([]PipelineView, 0, len(ps))
 		for _, p := range ps {
-			out = append(out, PipelineView{ID: p.ID, Name: p.Name, IsDefault: p.IsDefault, Stages: byPipe[p.ID]})
+			out = append(out, pipelineView(p, byPipe[p.ID]))
 		}
 		return nil
 	})
@@ -127,11 +137,13 @@ type StageInput struct {
 // deleted, and if they still hold opportunities Reassign must say where those
 // go (old stage id → name or id of a stage in the new list).
 type PipelineInput struct {
-	ID        string            `json:"id,omitempty"`
-	Name      string            `json:"name"`
-	IsDefault bool              `json:"is_default,omitempty"`
-	Stages    []StageInput      `json:"stages"`
-	Reassign  map[string]string `json:"reassign,omitempty"`
+	ID             string            `json:"id,omitempty"`
+	Name           string            `json:"name"`
+	IsDefault      bool              `json:"is_default,omitempty"`
+	Stages         []StageInput      `json:"stages"`
+	Reassign       map[string]string `json:"reassign,omitempty"`
+	MonthlyTarget  *float64          `json:"monthly_target,omitempty" jsonschema:"amount to win per calendar month; 0 removes the goal"`
+	TargetCurrency string            `json:"target_currency,omitempty" jsonschema:"ISO 4217 currency of the goal, default USD"`
 }
 
 var defaultProbability = map[string]int{CatInitial: 10, CatInProgress: 50, CatWon: 100, CatLost: 0}
@@ -225,12 +237,33 @@ func (s *Service) ConfigurePipeline(ctx context.Context, a Actor, in PipelineInp
 		if err := q.SyncOpportunityStatuses(ctx, store.SyncOpportunityStatusesParams{WorkspaceID: ws, PipelineID: pipeID}); err != nil {
 			return err
 		}
+		if in.MonthlyTarget != nil {
+			target, cur, err := cleanTarget(*in.MonthlyTarget, in.TargetCurrency)
+			if err != nil {
+				return err
+			}
+			if err := q.SetPipelineTarget(ctx, store.SetPipelineTargetParams{WorkspaceID: ws, ID: pipeID, MonthlyTargetMinor: target, TargetCurrency: cur}); err != nil {
+				return err
+			}
+		}
 		return s.audit(ctx, q, a, "pipeline.configure", "pipeline", pipeID, map[string]any{"name": name, "stages": len(stages)})
 	})
 	if err != nil {
 		return PipelineView{}, err
 	}
 	return s.pipelineView(ctx, a, pipeID)
+}
+
+func cleanTarget(amount float64, currency string) (int64, string, error) {
+	minor, err := AmountToMinor("monthly_target", amount)
+	if err != nil {
+		return 0, "", err
+	}
+	if currency == "" {
+		currency = "USD"
+	}
+	cur, err := cleanCurrency("target_currency", currency)
+	return minor, cur, err
 }
 
 // applyStages reconciles the stored stages with the requested list.

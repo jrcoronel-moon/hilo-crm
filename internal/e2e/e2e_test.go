@@ -693,3 +693,81 @@ func TestBoardDragAndDrop(t *testing.T) {
 		t.Fatalf("viewer moved a card: %d", res.StatusCode)
 	}
 }
+
+func TestWebDataFeatures(t *testing.T) {
+	s := start(t)
+	csrf := s.signIn()
+	post := func(path string, v url.Values) (*http.Response, string) {
+		v.Set("csrf", csrf)
+		return s.do("POST", path, v)
+	}
+	// New opportunity from the web, with a company created by name.
+	_, page := s.do("GET", "/board", nil)
+	pipe := regexp.MustCompile(`name="pipeline" value="([0-9a-f-]{36})"`).FindStringSubmatch(page)[1]
+	lead := regexp.MustCompile(`data-stage="([0-9a-f-]{36})" data-stage-name="Lead"`).FindStringSubmatch(page)[1]
+	res, _ := post("/opportunities", url.Values{"pipeline": {pipe}, "title": {`=HYPERLINK("http://evil","x")`}, "company": {"Globex"},
+		"amount": {"1.500,50"}, "currency": {"usd"}, "stage": {lead}, "channel": {"Web"}, "tags": {"pyme, inbound"}, "next_step": {"Llamar"}})
+	if res.StatusCode != http.StatusSeeOther || !strings.Contains(res.Header.Get("Location"), "ok=created") {
+		t.Fatalf("create from web: %d %s", res.StatusCode, res.Header.Get("Location"))
+	}
+	if res, _ = post("/opportunities", url.Values{"pipeline": {pipe}, "title": {"Otra"}, "company": {"Globex"}, "amount": {"abc"}}); res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("bad amount accepted: %d", res.StatusCode)
+	}
+	post("/opportunities", url.Values{"pipeline": {pipe}, "title": {"Segunda"}, "company": {"globex"}, "amount": {"10"}})
+	_, page = s.do("GET", "/board?q=globex", nil)
+	if !strings.Contains(page, "Segunda") || strings.Count(page, "<span class=\"co\">Globex</span>") != 2 {
+		t.Fatalf("company should be reused by name and the search should find both:\n%s", page)
+	}
+	if _, page = s.do("GET", "/board?tag=pyme&open=1", nil); !strings.Contains(page, "HYPERLINK") || strings.Contains(page, "Segunda") || !strings.Contains(page, "Tag: pyme") {
+		t.Fatal("tag filter / chip")
+	}
+
+	// List + bulk: tag and move both, then a lost without reason is refused per row.
+	_, page = s.do("GET", "/opportunities", nil)
+	ids := regexp.MustCompile(`name="id" value="([0-9a-f-]{36})"`).FindAllStringSubmatch(page, -1)
+	if len(ids) != 2 {
+		t.Fatalf("list rows: %d", len(ids))
+	}
+	prop := regexp.MustCompile(`<option value="([0-9a-f-]{36})">Propuesta</option>`).FindStringSubmatch(page)[1]
+	_, page = post("/opportunities/bulk", url.Values{"id": {ids[0][1], ids[1][1]}, "action": {"move"}, "stage": {prop}})
+	if !strings.Contains(page, "2 oportunidades actualizadas") {
+		t.Fatal("bulk move summary missing")
+	}
+	_, page = post("/opportunities/bulk", url.Values{"id": {ids[0][1]}, "action": {"lost"}})
+	if !strings.Contains(page, "No se pudieron cambiar") {
+		t.Fatal("bulk lost without reason should report the failure")
+	}
+
+	// CSV export neutralises formula injection.
+	res, body := s.do("GET", "/opportunities.csv", nil)
+	if res.Header.Get("Content-Type") != "text/csv; charset=utf-8" || !strings.Contains(body, `'=HYPERLINK`) || strings.Contains(body, "\n=HYPERLINK") {
+		t.Fatalf("csv export: %s\n%s", res.Header.Get("Content-Type"), body)
+	}
+
+	// Interactions page and dashboard with a monthly goal set from the editor.
+	if res, page = s.do("GET", "/interactions", nil); res.StatusCode != http.StatusOK || !strings.Contains(page, "Sin interacciones") {
+		t.Fatalf("interactions page: %d", res.StatusCode)
+	}
+	_, page = s.do("GET", "/settings/pipelines", nil)
+	form := url.Values{"id": {regexp.MustCompile(`name="id" value="([0-9a-f-]{36})"`).FindStringSubmatch(page)[1]}, "name": {"Ventas"}, "is_default": {"1"},
+		"monthly_target": {"50000"}, "target_currency": {"USD"}}
+	for _, m := range regexp.MustCompile(`name="stage_id" value="([0-9a-f-]{36})">\s*<input type="text" name="stage_name" value="([^"]+)"`).FindAllStringSubmatch(page, -1) {
+		form.Add("stage_id", m[1])
+		form.Add("stage_name", m[2])
+	}
+	for _, c := range []string{"initial", "in_progress", "in_progress", "in_progress", "won", "lost"} {
+		form.Add("stage_category", c)
+		form.Add("stage_probability", "")
+	}
+	if res, _ = post("/settings/pipeline", form); res.StatusCode != http.StatusSeeOther {
+		t.Fatalf("save goal: %d", res.StatusCode)
+	}
+	form.Set("monthly_target", "mucho")
+	if res, _ = post("/settings/pipeline", form); res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("non-numeric goal: %d", res.StatusCode)
+	}
+	_, page = s.do("GET", "/dashboard", nil)
+	if !strings.Contains(page, "USD 50.000 restantes") || !strings.Contains(page, "Actividad por agente") || !strings.Contains(page, "Monto ganado por mes") {
+		t.Fatal("dashboard goal / activity / monthly chart missing")
+	}
+}

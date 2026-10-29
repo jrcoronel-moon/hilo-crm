@@ -123,6 +123,7 @@ WHERE o.workspace_id = $1 AND o.archived_at IS NULL
   AND (sqlc.narg(company_id)::uuid IS NULL OR o.company_id = sqlc.narg(company_id))
   AND (sqlc.narg(channel_id)::uuid IS NULL OR o.source_channel_id = sqlc.narg(channel_id))
   AND (sqlc.narg(query)::text IS NULL OR o.title ILIKE '%' || sqlc.narg(query) || '%')
+  AND (sqlc.narg(tag)::text IS NULL OR sqlc.narg(tag) = ANY (o.tags))
   AND (sqlc.narg(close_before)::date IS NULL OR o.expected_close_date <= sqlc.narg(close_before))
   AND (sqlc.narg(stale_before)::timestamptz IS NULL
        OR (o.status = 'open' AND COALESCE(o.last_interaction_at, o.stage_entered_at) < sqlc.narg(stale_before)))
@@ -130,8 +131,8 @@ WHERE o.workspace_id = $1 AND o.archived_at IS NULL
 ORDER BY o.id DESC
 LIMIT sqlc.arg(lim);
 
--- Board: open opportunities plus those closed in the last 30 days, with
--- what the cards show (tags, owner, staleness).
+-- Board: open opportunities plus those closed in the last closed_days, with
+-- what the cards show (tags, owner, staleness) and the toolbar filters.
 -- name: BoardOpportunities :many
 SELECT o.id, o.title, o.stage_id, o.status, o.amount_minor, o.currency, o.next_step, o.next_step_at,
        o.last_interaction_at, o.expected_close_date, o.tags, o.updated_at,
@@ -141,9 +142,23 @@ FROM opportunities o
 LEFT JOIN companies c ON c.id = o.company_id
 LEFT JOIN users u ON u.id = o.owner_id
 WHERE o.workspace_id = $1 AND o.pipeline_id = $2 AND o.archived_at IS NULL
-  AND (o.status = 'open' OR o.closed_at > now() - interval '30 days')
+  AND (o.status = 'open' OR (NOT sqlc.arg(open_only)::boolean AND o.closed_at > now() - make_interval(days => sqlc.arg(closed_days)::int)))
+  AND (sqlc.narg(query)::text IS NULL OR o.title ILIKE '%' || sqlc.narg(query) || '%' OR c.name ILIKE '%' || sqlc.narg(query) || '%')
+  AND (sqlc.narg(channel_id)::uuid IS NULL OR o.source_channel_id = sqlc.narg(channel_id))
+  AND (sqlc.narg(tag)::text IS NULL OR sqlc.narg(tag) = ANY (o.tags))
+  AND (sqlc.narg(owner_id)::uuid IS NULL OR o.owner_id = sqlc.narg(owner_id))
 ORDER BY o.updated_at DESC
 LIMIT 1000;
+
+-- name: ListTags :many
+SELECT t::text AS tag, count(*)::int AS n
+FROM opportunities o, unnest(o.tags) AS t
+WHERE o.workspace_id = $1 AND o.archived_at IS NULL
+GROUP BY t ORDER BY n DESC, t LIMIT 100;
+
+-- name: GetCompanyByName :one
+SELECT * FROM companies WHERE workspace_id = $1 AND lower(name) = lower(sqlc.arg(name)) AND archived_at IS NULL
+ORDER BY created_at LIMIT 1;
 
 -- name: AddOpportunityContact :exec
 INSERT INTO opportunity_contacts (workspace_id, opportunity_id, contact_id, role)
@@ -168,6 +183,25 @@ INSERT INTO interactions (workspace_id, type, direction, channel_id, subject, su
                           company_id, contact_id, opportunity_id, external_id, created_by)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 RETURNING *;
+
+-- name: ListInteractions :many
+SELECT i.id, i.type, i.direction, i.subject, i.summary, i.occurred_at, i.opportunity_id, i.contact_id, i.company_id,
+       ch.name AS channel_name, o.title AS opportunity_title, co.name AS company_name,
+       COALESCE(trim(ct.first_name || ' ' || ct.last_name), '')::text AS contact_name, ct.email AS contact_email
+FROM interactions i
+LEFT JOIN channels ch ON ch.id = i.channel_id
+LEFT JOIN opportunities o ON o.id = i.opportunity_id
+LEFT JOIN companies co ON co.id = i.company_id
+LEFT JOIN contacts ct ON ct.id = i.contact_id
+WHERE i.workspace_id = $1
+  AND (sqlc.narg(type)::text IS NULL OR i.type = sqlc.narg(type))
+  AND (sqlc.narg(direction)::text IS NULL OR i.direction = sqlc.narg(direction))
+  AND (sqlc.narg(channel_id)::uuid IS NULL OR i.channel_id = sqlc.narg(channel_id))
+  AND (sqlc.narg(query)::text IS NULL OR i.subject ILIKE '%' || sqlc.narg(query) || '%' OR i.summary ILIKE '%' || sqlc.narg(query) || '%'
+       OR co.name ILIKE '%' || sqlc.narg(query) || '%' OR o.title ILIKE '%' || sqlc.narg(query) || '%')
+  AND (sqlc.narg(cursor_at)::timestamptz IS NULL OR (i.occurred_at, i.id) < (sqlc.narg(cursor_at), sqlc.narg(cursor_id)::uuid))
+ORDER BY i.occurred_at DESC, i.id DESC
+LIMIT sqlc.arg(lim);
 
 -- name: GetInteractionByExternalID :one
 SELECT * FROM interactions WHERE workspace_id = $1 AND external_id = $2;

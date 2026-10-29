@@ -453,6 +453,7 @@ type OpportunityFilter struct {
 	Company     string `json:"company,omitempty" jsonschema:"company id or domain"`
 	Channel     string `json:"channel,omitempty" jsonschema:"source channel id or name"`
 	Query       string `json:"query,omitempty" jsonschema:"substring of the title"`
+	Tag         string `json:"tag,omitempty" jsonschema:"only opportunities with this tag"`
 	CloseBefore string `json:"close_before,omitempty" jsonschema:"expected close date on or before YYYY-MM-DD"`
 	StaleDays   int    `json:"stale_days,omitempty" jsonschema:"open opportunities with no interaction or stage change in this many days"`
 	Cursor      string `json:"cursor,omitempty"`
@@ -503,8 +504,11 @@ func (s *Service) ListOpportunities(ctx context.Context, a Actor, f OpportunityF
 			return pt.err
 		}
 		var err error
-		if p.Query, err = likePattern("query", f.Query); err != nil {
+		if p.Query, err = likePattern(f.Query); err != nil {
 			return err
+		}
+		if t := strings.ToLower(strings.TrimSpace(f.Tag)); t != "" {
+			p.Tag = &t
 		}
 		if p.CloseBefore, err = parseDate("close_before", f.CloseBefore); err != nil {
 			return err

@@ -369,7 +369,7 @@ func TestMetrics(t *testing.T) {
 	if m.StaleCount != 0 {
 		t.Fatalf("nothing should be stale yet: %d", m.StaleCount)
 	}
-	if _, cols, err := f.crm.Board(f.ctx, a, ""); err != nil || len(cols) != 6 || len(cols[2].Cards) != 1 {
+	if _, cols, err := f.crm.Board(f.ctx, a, crm.BoardFilter{}); err != nil || len(cols) != 6 || len(cols[2].Cards) != 1 {
 		t.Fatalf("board: %v %+v", err, cols)
 	}
 }
@@ -444,5 +444,144 @@ func TestValidation(t *testing.T) {
 	c := must2(f.crm.UpsertCompany(f.ctx, a, crm.CompanyInput{Name: s("Bad\x00\x07Name")}))
 	if c.Name != "BadName" {
 		t.Fatalf("control chars kept: %q", c.Name)
+	}
+}
+
+func TestBoardFiltersBulkAndGoal(t *testing.T) {
+	f := setup(t)
+	a, _ := f.workspace("Acme")
+	amt := func(v float64) *float64 { return &v }
+	tags := func(v ...string) *[]string { return &v }
+	o1 := must2(f.crm.UpsertOpportunity(f.ctx, a, crm.OpportunityInput{Title: s("Alpha"), Amount: amt(100), SourceChannel: s("Web"), Tags: tags("pyme")}))
+	o2 := must2(f.crm.UpsertOpportunity(f.ctx, a, crm.OpportunityInput{Title: s("Beta"), Amount: amt(200), SourceChannel: s("LinkedIn")}))
+	o3 := must2(f.crm.UpsertOpportunity(f.ctx, a, crm.OpportunityInput{Title: s("Gamma"), Amount: amt(300)}))
+	must(f.crm.MoveOpportunityStage(f.ctx, a, crm.MoveInput{Opportunity: o3.ID.String(), Stage: "Ganado"}))
+
+	count := func(cols []crm.BoardColumn) int {
+		n := 0
+		for _, c := range cols {
+			n += len(c.Cards)
+		}
+		return n
+	}
+	for name, tc := range map[string]struct {
+		f    crm.BoardFilter
+		want int
+	}{
+		"all":          {crm.BoardFilter{}, 3},
+		"open only":    {crm.BoardFilter{OpenOnly: true}, 2},
+		"by channel":   {crm.BoardFilter{Channel: "web"}, 1},
+		"by tag":       {crm.BoardFilter{Tag: "PYME"}, 1},
+		"by text":      {crm.BoardFilter{Query: "bet"}, 1},
+		"wildcard lit": {crm.BoardFilter{Query: "%"}, 0},
+	} {
+		_, cols, err := f.crm.Board(f.ctx, a, tc.f)
+		if err != nil || count(cols) != tc.want {
+			t.Errorf("%s: got %d (%v), want %d", name, count(cols), err, tc.want)
+		}
+	}
+
+	// Bulk: tag both open ones, move them, then mark one lost; a missing id
+	// is reported, not fatal.
+	ids := []string{o1.ID.String(), o2.ID.String()}
+	if r := must(f.crm.Bulk(f.ctx, a, crm.BulkInput{IDs: ids, Action: "tag", Tag: "Campaña"})); r.Done != 2 {
+		t.Fatalf("bulk tag: %+v", r)
+	}
+	if got := must(f.crm.GetOpportunity(f.ctx, a, o1.ID.String())); strings.Join(got.Tags, ",") != "pyme,campaña" {
+		t.Fatalf("tags after bulk: %v", got.Tags)
+	}
+	if r := must(f.crm.Bulk(f.ctx, a, crm.BulkInput{IDs: ids, Action: "move", Stage: "Propuesta"})); r.Done != 2 {
+		t.Fatalf("bulk move: %+v", r)
+	}
+	r := must(f.crm.Bulk(f.ctx, a, crm.BulkInput{IDs: []string{o1.ID.String(), uuid.NewString()}, Action: "lost", Reason: "precio"}))
+	if r.Done != 1 || len(r.Failed) != 1 {
+		t.Fatalf("bulk lost with a missing id: %+v", r)
+	}
+	if r := must(f.crm.Bulk(f.ctx, a, crm.BulkInput{IDs: []string{o2.ID.String()}, Action: "lost"})); r.Done != 0 || len(r.Failed) != 1 {
+		t.Fatalf("bulk lost without reason must fail per item: %+v", r)
+	}
+	if _, err := f.crm.Bulk(f.ctx, a, crm.BulkInput{IDs: ids, Action: "explode"}); !isValidation(err) {
+		t.Fatalf("unknown bulk action: %v", err)
+	}
+
+	// Monthly goal and won-by-month.
+	ps := must(f.crm.ListPipelines(f.ctx, a))
+	target := 1000.0
+	in := crm.PipelineInput{ID: ps[0].ID.String(), Name: ps[0].Name, MonthlyTarget: &target, TargetCurrency: "usd"}
+	for _, st := range ps[0].Stages {
+		in.Stages = append(in.Stages, crm.StageInput{ID: st.ID.String(), Name: st.Name, Category: st.Category})
+	}
+	pv := must(f.crm.ConfigurePipeline(f.ctx, a, in))
+	if pv.MonthlyTarget != 1000 || pv.TargetCurrency != "USD" {
+		t.Fatalf("goal not stored: %+v", pv)
+	}
+	m := must(f.crm.Metrics(f.ctx, a, crm.MetricsInput{}))
+	if m.Goal == nil || m.Goal.Won != 300 || m.Goal.Pct != 30 || m.Goal.Remaining != 700 {
+		t.Fatalf("goal progress: %+v", m.Goal)
+	}
+	if len(m.WonByMonth) != 6 || m.WonByMonth[5].Amount != 300 {
+		t.Fatalf("won by month: %+v", m.WonByMonth)
+	}
+	if len(m.Activity) == 0 || m.Activity[0].Kind != "session" || m.Activity[0].Created != 3 {
+		t.Fatalf("activity: %+v", m.Activity)
+	}
+	bad := -5.0
+	in.MonthlyTarget = &bad
+	if _, err := f.crm.ConfigurePipeline(f.ctx, a, in); !isValidation(err) {
+		t.Fatalf("negative goal accepted: %v", err)
+	}
+}
+
+func TestFindOrCreateCompanyAndInteractionList(t *testing.T) {
+	f := setup(t)
+	a, _ := f.workspace("Acme")
+	id1 := must(f.crm.FindOrCreateCompany(f.ctx, a, "Globex", ""))
+	id2 := must(f.crm.FindOrCreateCompany(f.ctx, a, "globex", ""))
+	id3 := must(f.crm.FindOrCreateCompany(f.ctx, a, "Globex Corp", "https://globex.com"))
+	id4 := must(f.crm.FindOrCreateCompany(f.ctx, a, "", "globex.com"))
+	if id1 != id2 || id3 == id1 || id3 != id4 {
+		t.Fatalf("find or create: %v %v %v %v", id1, id2, id3, id4)
+	}
+	if id := must(f.crm.FindOrCreateCompany(f.ctx, a, "", "")); id != uuid.Nil {
+		t.Fatal("empty input must not create a company")
+	}
+	must(f.crm.LogInteraction(f.ctx, a, crm.InteractionInput{Type: "call", Direction: "inbound", Company: "globex.com", Subject: "Llamada entrante"}))
+	must(f.crm.LogInteraction(f.ctx, a, crm.InteractionInput{Type: "note", Company: "globex.com", Summary: "nota interna"}))
+	if p := must(f.crm.ListInteractions(f.ctx, a, crm.InteractionFilter{Direction: "inbound"})); len(p.Items) != 1 || p.Items[0].Company != "Globex Corp" {
+		t.Fatalf("interactions by direction: %+v", p.Items)
+	}
+	if p := must(f.crm.ListInteractions(f.ctx, a, crm.InteractionFilter{Query: "interna"})); len(p.Items) != 1 || p.Items[0].Contact != "" {
+		t.Fatalf("interactions by text (no contact must not break): %+v", p.Items)
+	}
+	if _, err := f.crm.ListInteractions(f.ctx, a, crm.InteractionFilter{Type: "fax"}); !isValidation(err) {
+		t.Fatalf("bad type filter: %v", err)
+	}
+}
+
+func TestInteractionsOrderedByWhenTheyHappened(t *testing.T) {
+	f := setup(t)
+	a, _ := f.workspace("Acme")
+	must2(f.crm.UpsertCompany(f.ctx, a, crm.CompanyInput{Name: s("Globex"), Domain: s("globex.com")}))
+	// Logged in this order, but they happened in a different one.
+	for _, d := range []string{"2026-03-01T10:00:00Z", "2026-05-01T10:00:00Z", "2026-01-01T10:00:00Z", "2026-04-01T10:00:00Z"} {
+		must(f.crm.LogInteraction(f.ctx, a, crm.InteractionInput{Type: "email", Company: "globex.com", Subject: d, OccurredAt: d}))
+	}
+	var got []string
+	cursor := ""
+	for {
+		p := must(f.crm.ListInteractions(f.ctx, a, crm.InteractionFilter{Limit: 1, Cursor: cursor}))
+		for _, it := range p.Items {
+			got = append(got, it.Subject[:7])
+		}
+		if p.NextCursor == "" {
+			break
+		}
+		cursor = p.NextCursor
+	}
+	if strings.Join(got, ",") != "2026-05,2026-04,2026-03,2026-01" {
+		t.Fatalf("order/pagination: %v", got)
+	}
+	if _, err := f.crm.ListInteractions(f.ctx, a, crm.InteractionFilter{Cursor: "garbage"}); !isValidation(err) {
+		t.Fatalf("bad cursor: %v", err)
 	}
 }

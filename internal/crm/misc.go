@@ -133,7 +133,7 @@ type SearchResult struct {
 
 // Search looks for companies, contacts and opportunities matching query.
 func (s *Service) Search(ctx context.Context, a Actor, query string, limit int) ([]SearchResult, error) {
-	pat, err := likePattern("query", query)
+	pat, err := likePattern(query)
 	if err != nil {
 		return nil, err
 	}

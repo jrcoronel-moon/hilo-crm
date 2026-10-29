@@ -3,7 +3,9 @@ package web
 import (
 	"errors"
 	"net/http"
+	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/google/uuid"
 
@@ -17,26 +19,92 @@ type boardData struct {
 	Columns   []crm.BoardColumn
 	Metrics   crm.Metrics
 	CSRF      string
+	F         boardQuery
+	Channels  []crm.ChannelView
+	Tags      []crm.TagCount
+	Stages    []crm.StageView
+}
+
+// boardQuery is the toolbar state, kept in the URL so views can be shared.
+type boardQuery struct {
+	Pipeline, Q, Channel, Tag string
+	Days                      int
+	Open                      bool
+}
+
+// Active reports whether any filter narrows the board.
+func (q boardQuery) Active() bool { return q.Q != "" || q.Channel != "" || q.Tag != "" || q.Open }
+
+// Without returns the query string with one filter removed (chip "×").
+func (q boardQuery) Without(key string) string {
+	v := q.values()
+	v.Del(key)
+	return "?" + v.Encode()
+}
+
+// Encode returns the full query string (export link).
+func (q boardQuery) Encode() string { return q.values().Encode() }
+
+func (q boardQuery) values() url.Values {
+	v := url.Values{}
+	set := func(k, val string) {
+		if val != "" {
+			v.Set(k, val)
+		}
+	}
+	set("pipeline", q.Pipeline)
+	set("q", q.Q)
+	set("channel", q.Channel)
+	set("tag", q.Tag)
+	if q.Days != 30 {
+		v.Set("days", strconv.Itoa(q.Days))
+	}
+	if q.Open {
+		v.Set("open", "1")
+	}
+	return v
+}
+
+func readBoardQuery(r *http.Request) boardQuery {
+	g := r.URL.Query().Get
+	days, _ := strconv.Atoi(g("days"))
+	if days != 7 && days != 30 && days != 90 {
+		days = 30
+	}
+	return boardQuery{Pipeline: g("pipeline"), Q: strings.TrimSpace(g("q")), Channel: g("channel"), Tag: g("tag"), Days: days, Open: g("open") == "1"}
 }
 
 func (h *Handler) board(w http.ResponseWriter, r *http.Request, v view) {
-	pipes, err := h.crm.ListPipelines(r.Context(), v.Actor)
+	ctx, a := r.Context(), v.Actor
+	fq := readBoardQuery(r)
+	pipes, err := h.crm.ListPipelines(ctx, a)
 	if err != nil {
 		h.fail(w, r, err)
 		return
 	}
-	pv, cols, err := h.crm.Board(r.Context(), v.Actor, r.URL.Query().Get("pipeline"))
+	pv, cols, err := h.crm.Board(ctx, a, crm.BoardFilter{Pipeline: fq.Pipeline, Query: fq.Q, Channel: fq.Channel, Tag: fq.Tag, ClosedDays: fq.Days, OpenOnly: fq.Open})
 	if err != nil {
 		h.fail(w, r, err)
 		return
 	}
-	m, err := h.crm.Metrics(r.Context(), v.Actor, crm.MetricsInput{Pipeline: pv.ID.String(), Days: 90})
+	m, err := h.crm.Metrics(ctx, a, crm.MetricsInput{Pipeline: pv.ID.String(), Days: 90})
 	if err != nil {
 		h.fail(w, r, err)
 		return
 	}
-	h.render(w, http.StatusOK, "board", page{Title: "Funnel", Crumb: pv.Name, View: &v, Nav: "board",
-		Data: boardData{Pipelines: pipes, Pipeline: pv, Columns: cols, Metrics: m, CSRF: v.Sess.CSRFToken}})
+	d := boardData{Pipelines: pipes, Pipeline: pv, Columns: cols, Metrics: m, CSRF: v.Sess.CSRFToken, F: fq}
+	if d.Channels, err = h.crm.ListChannels(ctx, a); err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	if d.Tags, err = h.crm.ListTags(ctx, a); err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	for _, c := range cols {
+		d.Stages = append(d.Stages, c.Stage)
+	}
+	h.render(w, http.StatusOK, "board", page{Title: "Funnel", Crumb: pv.Name, View: &v, Nav: "board", Flash: flashes[r.URL.Query().Get("ok")], Data: d})
 }
 
 // boardMove handles a card dropped on another column (fetch from app.js).
@@ -74,6 +142,96 @@ type dashboardData struct {
 	WeekPeak  vbar
 	Channels  []slice
 	Share     string // this view's URL, for "Compartir"
+	Months    []vbar // won per month
+	GoalY     float64
+	MonthPeak float64
+	Donut     []arc
+	NewTotal  int // new opportunities in the period (donut centre)
+	Actors    []actorRow
+}
+
+// arc is a donut segment: an SVG circle of circumference 100 drawn with
+// stroke-dasharray (attributes only, so the strict CSP holds).
+type arc struct {
+	Dash, Gap, Offset float64
+	Class             string
+}
+
+type actorRow struct {
+	Initials, Title, Sub, Class string
+	Changes, Created            int
+}
+
+var monthNames = []string{"Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"}
+
+// monthBars draws the won-per-month chart; the goal line shares its scale.
+func monthBars(m crm.Metrics) ([]vbar, float64, float64) {
+	maxV := 0.0
+	for _, x := range m.WonByMonth {
+		maxV = max(maxV, x.Amount)
+	}
+	if m.Goal != nil {
+		maxV = max(maxV, m.Goal.Target)
+	}
+	scale := max(maxV*1.15, 1)
+	out := make([]vbar, 0, len(m.WonByMonth))
+	slot := 600 / float64(max(len(m.WonByMonth), 1))
+	for i, x := range m.WonByMonth {
+		mm, _ := strconv.Atoi(x.Month[5:])
+		b := vbar{W: slot * 0.62, Value: int(x.Amount), Label: monthNames[(mm+11)%12]}
+		b.X = float64(i)*slot + (slot-b.W)/2
+		b.H = 100 * x.Amount / scale
+		b.Y = 100 - b.H
+		b.Peak = i == len(m.WonByMonth)-1
+		out = append(out, b)
+	}
+	goalY := -1.0
+	if m.Goal != nil {
+		goalY = 100 - 100*m.Goal.Target/scale
+	}
+	return out, goalY, maxV
+}
+
+func donut(ch []slice) []arc {
+	out := make([]arc, 0, len(ch))
+	offset := 25.0 // start at 12 o'clock
+	total := 0
+	for _, c := range ch {
+		total += c.Count
+	}
+	for _, c := range ch {
+		dash := 100 * float64(c.Count) / float64(max(total, 1))
+		out = append(out, arc{Dash: dash, Gap: 100 - dash, Offset: offset, Class: c.Class})
+		offset -= dash
+	}
+	return out
+}
+
+func actorRows(acts []crm.ActorCount) []actorRow {
+	out := make([]actorRow, 0, len(acts))
+	for _, a := range acts {
+		r := actorRow{Changes: a.Changes, Created: a.Created}
+		switch a.Kind {
+		case "oauth":
+			r.Title, r.Sub, r.Class = a.Client, "agente · OAuth", "agent2"
+		case "pat":
+			r.Title, r.Sub, r.Class = strings.TrimPrefix(a.Client, "PAT: "), "token personal", "agent"
+		case "form":
+			r.Title, r.Sub = a.Client, "formulario público"
+		default:
+			r.Title, r.Sub = firstNonEmpty(a.Name, a.Email), "sesión web"
+		}
+		r.Initials = initials(r.Title, a.Email)
+		out = append(out, r)
+	}
+	return out
+}
+
+func firstNonEmpty(a, b string) string {
+	if a != "" {
+		return a
+	}
+	return b
 }
 
 // vbar is one bar of a vertical SVG chart (viewBox 0 0 600 100).
@@ -158,6 +316,12 @@ func (h *Handler) dashboard(w http.ResponseWriter, r *http.Request, v view) {
 		d.MaxStage = max(d.MaxStage, s.Count)
 	}
 	d.Weeks, d.WeekPeak = weekBars(m)
+	d.Months, d.GoalY, d.MonthPeak = monthBars(m)
+	d.Donut = donut(d.Channels)
+	for _, c := range d.Channels {
+		d.NewTotal += c.Count
+	}
+	d.Actors = actorRows(m.Activity)
 	h.render(w, http.StatusOK, "dashboard", page{Title: "Dashboard", Crumb: m.PipelineName, View: &v, Nav: "dashboard", Data: d})
 }
 

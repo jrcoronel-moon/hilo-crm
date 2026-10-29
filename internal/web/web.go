@@ -98,6 +98,11 @@ func (h *Handler) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /workspaces/switch", h.session(h.switchWorkspace))
 	mux.HandleFunc("GET /board", h.member(h.board))
 	mux.HandleFunc("POST /board/move", h.member(h.boardMove))
+	mux.HandleFunc("POST /opportunities", h.member(h.createOpportunity))
+	mux.HandleFunc("GET /opportunities", h.member(h.opportunities))
+	mux.HandleFunc("POST /opportunities/bulk", h.member(h.bulk))
+	mux.HandleFunc("GET /opportunities.csv", h.member(h.exportCSV))
+	mux.HandleFunc("GET /interactions", h.member(h.interactions))
 	mux.HandleFunc("GET /dashboard", h.member(h.dashboard))
 	mux.HandleFunc("GET /settings", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/settings/agents", http.StatusSeeOther)
@@ -153,6 +158,9 @@ type workspaceItem struct {
 func (v view) IsAdmin() bool {
 	return v.Current != nil && (v.Current.Role == "owner" || v.Current.Role == "admin")
 }
+
+// CanWrite reports whether the user may change CRM data here (templates).
+func (v view) CanWrite() bool { return v.Current != nil && v.Actor.Can(crm.PermWrite) }
 
 func (v view) caller() identity.Caller {
 	c := identity.Caller{UserID: v.Sess.UserID, IsSuperadmin: v.Sess.IsSuperadmin}

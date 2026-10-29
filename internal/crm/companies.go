@@ -212,7 +212,7 @@ type listArgs struct {
 func (f ListFilter) args(r resolvers) (listArgs, error) {
 	var la listArgs
 	var err error
-	if la.query, err = likePattern("query", f.Query); err != nil {
+	if la.query, err = likePattern(f.Query); err != nil {
 		return la, err
 	}
 	if f.Tag != "" {
