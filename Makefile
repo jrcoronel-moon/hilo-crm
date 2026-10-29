@@ -53,7 +53,7 @@ test-db-down: ## stop the test Postgres
 	docker compose -f deploy/compose.test.yml down -v
 
 test: test-db ## unit + integration tests with the race detector and coverage
-	$(GO) test -race -count=1 -coverprofile=coverage.out -covermode=atomic ./...
+	$(GO) test -race -count=1 -coverpkg=./internal/... -coverprofile=coverage.out -covermode=atomic ./...
 	@$(GO) tool cover -func=coverage.out | tail -1
 
 cover: test ## HTML coverage report
@@ -68,8 +68,9 @@ fuzz: ## run each fuzz target for 30s
 vuln: ## known vulnerabilities in dependencies and the Go toolchain
 	$(TOOL) govulncheck ./...
 
-secrets: ## scan the working tree and the whole git history for secrets
-	$(GITLEAKS) dir /repo --config .gitleaks.toml --redact --no-banner
+secrets: ## scan every file git would version (tracked + untracked, not ignored) and the whole history
+	git ls-files -co --exclude-standard -z | tar --null -T - -cf - | docker run --rm -i --entrypoint sh $(GITLEAKS_IMAGE) \
+	  -c 'mkdir /scan && tar -xf - -C /scan && gitleaks dir /scan --config /scan/.gitleaks.toml --redact --no-banner'
 	@if git rev-parse HEAD >/dev/null 2>&1; then \
 	  $(GITLEAKS) git /repo --config .gitleaks.toml --redact --no-banner; fi
 
@@ -105,10 +106,11 @@ down: ## stop the local stack
 logs: ## follow the local stack logs
 	docker compose logs -f
 
-dast: ## OWASP ZAP baseline scan against the local stack (make up first)
-	mkdir -p reports
-	docker run --rm --network host -v "$(CURDIR)/reports":/zap/wrk:rw -v "$(CURDIR)/deploy/zap":/zap/conf:ro $(ZAP_IMAGE) \
-	  zap-baseline.py -t http://localhost:8080 -c /zap/conf/baseline.conf -r zap-report.html -I
+dast: ## OWASP ZAP baseline scan against the running stack (make up first)
+	mkdir -p reports && chmod 777 reports
+	docker run --rm --network hilo_edge -v "$(CURDIR)/reports":/zap/wrk:rw \
+	  -v "$(CURDIR)/deploy/zap/baseline.conf":/zap/wrk/baseline.conf:ro $(ZAP_IMAGE) \
+	  zap-baseline.py -t http://caddy:8080/login -c baseline.conf -r zap-report.html -j -I
 
 hooks: ## install the git hooks
 	git config core.hooksPath .githooks

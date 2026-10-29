@@ -1,0 +1,85 @@
+# Quality & security gate. Runs the same Makefile targets as `make check`.
+# Third-party actions are pinned by commit SHA.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 6 * * 1" # weekly: catch newly published vulnerabilities
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # gitleaks scans the whole history
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.sum
+            tools/go.sum
+      - name: Format
+        run: make fmt-check
+      - name: Generated code is fresh
+        run: make gen-check
+      - name: Lint (gosec, errcheck, dupl, gocognit…)
+        run: make lint
+      - name: Secrets (working tree + full history)
+        run: make secrets
+      - name: Known vulnerabilities
+        run: make vuln
+      - name: Tests (race, coverage) against real Postgres
+        run: make test
+      - name: Dockerfile lint
+        run: make docker-lint
+      - name: Trivy (deps, misconfig, secrets)
+        run: make trivy-fs
+      - name: Build and scan images
+        run: make trivy-images GIT_SHA=ci
+      - name: Coverage report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage
+          path: coverage.out
+          retention-days: 14
+
+  dast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: check
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Start the stack with throw-away secrets
+        run: |
+          gen() { openssl rand -base64 48 | tr -d '/+=\n' | cut -c1-40; }
+          sed -e "s|^SESSION_SECRET=.*|SESSION_SECRET=$(gen)|" \
+              -e "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$(gen)|" \
+              -e "s|^HILO_MIGRATOR_PASSWORD=.*|HILO_MIGRATOR_PASSWORD=$(gen)|" \
+              -e "s|^HILO_APP_PASSWORD=.*|HILO_APP_PASSWORD=$(gen)|" \
+              -e "s|^DEV_LOGIN_ENABLED=.*|DEV_LOGIN_ENABLED=true|" .env.example > .env
+          GIT_SHA=ci docker compose up -d --build --wait
+      - name: OWASP ZAP baseline
+        run: make dast
+      - name: ZAP report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: zap-report
+          path: reports/
+          retention-days: 14

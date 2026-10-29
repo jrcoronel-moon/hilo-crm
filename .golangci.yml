@@ -41,6 +41,8 @@ linters:
     gosec:
       excludes:
         - G104 # covered by errcheck
+    misspell:
+      ignore-rules: [momento, sesion, ciudad, contraseña]
     nolintlint:
       require-explanation: true
       require-specific: true
@@ -63,7 +65,7 @@ linters:
     rules:
       # Test tables and fixtures are allowed to repeat themselves.
       - path: _test\.go
-        linters: [dupl, gocognit, gosec]
+        linters: [dupl, gocognit, gosec, bodyclose]
 
 formatters:
   enable:

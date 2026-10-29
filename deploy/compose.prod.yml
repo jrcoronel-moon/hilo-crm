@@ -1,0 +1,17 @@
+# Production overrides (AWS Lightsail instance):
+#   docker compose -f docker-compose.yml -f deploy/compose.prod.yml up -d --build
+services:
+  caddy:
+    ports: !override
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?set SITE_ADDRESS to the public hostname}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL}
+  web:
+    environment:
+      DEV_LOGIN_ENABLED: "false"
+      NO_COLOR: "1"
+  mcp:
+    environment:
+      NO_COLOR: "1"

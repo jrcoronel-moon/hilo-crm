@@ -1,0 +1,9 @@
+# Only cmd/, internal/ and go.mod/go.sum are needed to build. Everything else,
+# and above all secrets, stays out of the build context.
+*
+!go.mod
+!go.sum
+!cmd/
+!internal/
+internal/**/*_test.go
+internal/**/testdata/

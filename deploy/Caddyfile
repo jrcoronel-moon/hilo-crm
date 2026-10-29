@@ -1,0 +1,31 @@
+# Hilo CRM edge proxy. SITE_ADDRESS is ":8080" locally (plain HTTP) or the
+# public hostname in production (e.g. crm.example.com), where Caddy obtains
+# and renews the TLS certificate automatically.
+{
+	admin off
+	email {$ACME_EMAIL}
+	servers {
+		protocols h1 h2
+	}
+}
+
+{$SITE_ADDRESS} {
+	encode zstd gzip
+	request_body {
+		max_size 2MB
+	}
+	header -Server
+
+	# Access logs are intentionally off: request URIs carry OAuth codes and
+	# state. The services log every request without query strings.
+
+	@mcp path /mcp /mcp/*
+	handle @mcp {
+		reverse_proxy mcp:8080 {
+			flush_interval -1
+		}
+	}
+	handle {
+		reverse_proxy web:8080
+	}
+}
