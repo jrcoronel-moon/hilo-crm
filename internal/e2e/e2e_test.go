@@ -77,6 +77,10 @@ func (s *stack) do(method, path string, form url.Values, hdr ...string) (*http.R
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	}
 	for i := 0; i+1 < len(hdr); i += 2 {
+		if hdr[i] == "Host" {
+			req.Host = hdr[i+1]
+			continue
+		}
 		req.Header.Set(hdr[i], hdr[i+1])
 	}
 	res, err := s.web.Do(req)
@@ -300,6 +304,18 @@ func TestOAuthAgentFlow(t *testing.T) {
 func TestWebSecurity(t *testing.T) {
 	s := start(t)
 
+	// Through a tunnel (public Host or tunnel headers) the dev login does not
+	// exist: no form on the page, 404 on the endpoint.
+	_, page := s.do("GET", "/login", nil)
+	tok := find(t, loginCSRFRe, page)
+	for _, h := range [][]string{{"Host", "keys-kick.trycloudflare.com"}, {"Cf-Connecting-Ip", "203.0.113.7"}, {"X-Forwarded-Host", "evil.example"}} {
+		if _, p := s.do("GET", "/login", nil, h...); strings.Contains(p, `action="/auth/dev"`) {
+			t.Fatalf("dev form shown via %v", h)
+		}
+		if res, _ := s.do("POST", "/auth/dev", url.Values{"email": {"root@acme.test"}, "csrf": {tok}}, h...); res.StatusCode != http.StatusNotFound {
+			t.Fatalf("dev login via %v: %d", h, res.StatusCode)
+		}
+	}
 	// Login CSRF: the dev form needs the pre-login token.
 	if res, _ := s.do("POST", "/auth/dev", url.Values{"email": {"root@acme.test"}}); res.StatusCode != http.StatusForbidden {
 		t.Fatalf("dev login without token: %d", res.StatusCode)
@@ -319,7 +335,7 @@ func TestWebSecurity(t *testing.T) {
 	csrf := s.signIn()
 
 	// Security headers on every page.
-	res, page := s.do("GET", "/board", nil)
+	res, page = s.do("GET", "/board", nil)
 	if res.StatusCode != http.StatusOK || !strings.Contains(page, "Negociación") {
 		t.Fatalf("board: %d", res.StatusCode)
 	}

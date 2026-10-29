@@ -3,6 +3,7 @@ package web
 import (
 	"errors"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/jrcoronel-moon/hilo-crm/internal/identity"
@@ -37,7 +38,7 @@ func (h *Handler) loginPage(w http.ResponseWriter, r *http.Request) {
 	default:
 		msg = "No pudimos completar el inicio de sesión. Probá de nuevo."
 	}
-	d := loginData{Google: h.cfg.GoogleEnabled(), Microsoft: h.cfg.MicrosoftEnabled(), Dev: h.cfg.DevLogin,
+	d := loginData{Google: h.cfg.GoogleEnabled(), Microsoft: h.cfg.MicrosoftEnabled(), Dev: h.devLoginAllowed(r),
 		ReturnTo: safeReturn(r.URL.Query().Get("return_to"))}
 	if d.Dev {
 		d.CSRF = secure.Token("", 24)
@@ -86,10 +87,29 @@ func (h *Handler) authCallback(w http.ResponseWriter, r *http.Request) {
 	h.signIn(w, r, ext, returnTo)
 }
 
+// devLoginAllowed: the configuration enables it (localhost base URL only)
+// AND this request was addressed to that local host. A tunnel (cloudflared,
+// ngrok…) forwards requests with its own public Host, so the password-less
+// form can never be reached from outside even if a tunnel is left open.
+func (h *Handler) devLoginAllowed(r *http.Request) bool {
+	if !h.cfg.DevLogin || r.Header.Get("Cf-Connecting-Ip") != "" || r.Header.Get("Ngrok-Trace-Id") != "" {
+		return false
+	}
+	u, err := url.Parse(h.cfg.BaseURL)
+	if err != nil || !strings.EqualFold(r.Host, u.Host) {
+		return false
+	}
+	fh := r.Header.Get("X-Forwarded-Host")
+	return fh == "" || strings.EqualFold(fh, u.Host)
+}
+
 // devLogin is a password-less login for local development only (config
 // refuses DEV_LOGIN_ENABLED unless the base URL is localhost).
 func (h *Handler) devLogin(w http.ResponseWriter, r *http.Request) {
-	if !h.cfg.DevLogin {
+	if !h.devLoginAllowed(r) {
+		if h.cfg.DevLogin {
+			h.log.Warn("dev login refused: request did not come through the local base URL", "host", r.Host, "ip", h.ips.Of(r))
+		}
 		http.NotFound(w, r)
 		return
 	}
