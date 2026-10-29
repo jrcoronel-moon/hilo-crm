@@ -19,10 +19,12 @@ Only the Python standard library is used.
 import getpass
 import json
 import os
+import queue
 import re
 import shutil
 import subprocess
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -103,14 +105,24 @@ def start_tunnel(target):
     exe = shutil.which("cloudflared")
     if not exe:
         fail("cloudflared no está instalado", "brew install cloudflared   (o definí HILO_MCP_URL con tu propio túnel)")
+    # 127.0.0.1, not "localhost": the stack publishes on IPv4 only and
+    # "localhost" may resolve to ::1 first.
+    target = target.replace("://localhost", "://127.0.0.1")
     proc = subprocess.Popen([exe, "tunnel", "--no-autoupdate", "--url", target],
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-    deadline = time.time() + 40
-    while time.time() < deadline:
-        line = proc.stdout.readline()
-        m = re.search(r"https://[a-z0-9-]+\.trycloudflare\.com", line or "")
-        if m:
-            return proc, m.group(0)
+    found = queue.Queue()
+
+    def reader():  # readline() blocks; read in a thread so the deadline holds
+        for line in proc.stdout:
+            m = re.search(r"https://[a-z0-9-]+\.trycloudflare\.com", line)
+            if m:
+                found.put(m.group(0))
+
+    threading.Thread(target=reader, daemon=True).start()
+    try:
+        return proc, found.get(timeout=60)
+    except queue.Empty:
+        pass
     proc.terminate()
     fail("cloudflared no devolvió una URL a tiempo", "probá de nuevo; las URLs rápidas a veces tardan")
     return None, ""
@@ -192,14 +204,21 @@ def main():
         proc, public = start_tunnel(local)
     try:
         st = 0
-        for _ in range(15):  # DNS of a fresh quick tunnel takes a few seconds
+        for _ in range(30):  # a fresh quick-tunnel name takes a while to exist in DNS
             st = mcp_initialize(f"{public}/mcp", pat)
             if st == 200:
                 break
-            time.sleep(2)
-        if st != 200:
-            fail(f"el túnel {public} no llega a Hilo (HTTP {st})", "si lo abriste vos, apuntalo a " + local)
-        ok(f"{public}/mcp responde")
+            time.sleep(3)
+        if st == 0:
+            # Typically this Mac cached "name not found" from asking too early.
+            # xAI resolves the name from its own servers, so go on and let the
+            # Grok call be the real test.
+            print(f"  ! tu DNS local todavía no resuelve {public}; sigo igual (xAI lo resuelve desde sus servidores)")
+        elif st != 200:
+            fail(f"el túnel {public} responde HTTP {st} en vez de llegar a Hilo",
+                 "502/530 = cloudflared no alcanza " + local + " (¿está levantado el stack?)")
+        else:
+            ok(f"{public}/mcp responde")
 
         print("4. Grok con Hilo como herramienta MCP (puede tardar un minuto)")
         for authorization in (pat, f"Bearer {pat}"):  # xAI's docs do not say whether it adds "Bearer"
