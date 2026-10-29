@@ -1,30 +1,113 @@
-# Hilo CRM
+# Hilo Headless CRM
 
-**El CRM headless para que tus agentes de IA sigan cada oportunidad.**
+**El CRM agentic-first: los agentes de IA operan el pipeline, las personas miran.**
 
-Hilo es un CRM mínimo pensado para ser operado por agentes (Claude, ChatGPT, Grok, Cursor y cualquier cliente
-[MCP](https://modelcontextprotocol.io)). Los agentes cargan empresas, contactos y oportunidades, registran cada
-interacción y mueven el funnel; las personas entran con Google o Microsoft para ver el tablero, un dashboard liviano
-y administrar el workspace.
+Los CRM se diseñaron para que una persona haga clic en un tablero. Hilo está diseñado al revés: la vía principal es
+un servidor [MCP](https://modelcontextprotocol.io) remoto y la web es una ventana para ver lo que los agentes hicieron.
 
-- **MCP remoto** (Streamable HTTP) con **OAuth 2.1**: registro dinámico de clientes, Client ID Metadata Documents,
-  PKCE obligatorio, rotación de refresh tokens y tokens personales para clientes sin OAuth.
-- **Multi-workspace**, con dominios de email habilitados, invitaciones, roles y superadmins.
-- **Pipelines configurables por workspace**: cada etapa es `initial` (exactamente una), `in_progress` (al menos una),
-  `won` o `lost` (al menos una de cada). El estado de una oportunidad sigue a la categoría de su etapa.
-- **Canales** y **interacciones** (email, llamada, reunión, nota, mensaje, social, formulario; entrante, saliente, interna).
-- **Formularios de leads** públicos que crean contacto + oportunidad + interacción sin poder sobrescribir datos.
-- **Métricas**: volumen y valor ponderado por etapa, win rate, ciclo, tiempo en etapa, estancadas, leads por canal,
-  interacciones por semana, monto ganado por mes, **objetivo mensual por pipeline** y actividad por agente.
-- **Web para las personas**: funnel con arrastre entre etapas (con deshacer y motivo de pérdida), búsqueda, filtros,
-  nueva oportunidad, exportación CSV, empresas, contactos y oportunidades (listas, fichas con timeline, edición
-  y tags editables con sugerencias), acciones en lote, interacciones, dashboard, ajustes y marca de la aplicación
-  (nombre y logo, configurables por el superadmin). Todo pasa por las mismas reglas y la misma auditoría que los agentes.
-- **Seguridad primero**: Postgres con Row-Level Security y FKs compuestas por workspace, roles de base de datos
-  de mínimo privilegio, CSP estricta, contenedores sin root y de solo lectura, y un harness que corre lint de
-  seguridad, secretos, vulnerabilidades, tests de aislamiento entre tenants y DAST en cada cambio.
+Conectás Claude, ChatGPT, Grok o Cursor, y el agente carga empresas, contactos y oportunidades, registra cada
+interacción y mueve el funnel. Entrás con Google o Microsoft cuando querés mirar.
 
-Licencia [Apache-2.0](LICENSE): uso libre, comercial y privado.
+Código libre, [Apache-2.0](LICENSE). Un `docker compose up` y anda.
+
+## El problema
+
+Darle un CRM a un agente suele terminar de dos maneras: un agente que scrapea una interfaz pensada para dedos, o una
+persona copiando datos de un chat a un formulario.
+
+Hilo expone el CRM como herramientas MCP tipadas, y los `upsert` son idempotentes, así que el agente puede reintentar
+sin duplicar nada. Cada llamada pasa por las mismas reglas de permisos y la misma auditoría que si la hubiera hecho
+una persona: no hay un camino "de agente" con menos control.
+
+## Cómo se ve, en la práctica
+
+Ejemplo ilustrativo.
+
+```text
+Vos:    Llegó un mail de Laura Méndez, de Acme, pidiendo una propuesta por 20 licencias.
+        Cargala y movela a Propuesta.
+
+Agente: (search_crm "Acme")         → la empresa existe, el contacto Laura Méndez no
+        (upsert_contact)            → Laura Méndez, Acme, laura@acme.com
+        (upsert_opportunity)        → "Acme / 20 licencias", external_id mail-83921
+        (move_opportunity_stage)    → Propuesta
+        (log_interaction)           → email entrante, con el resumen del pedido
+
+        Listo: un contacto, una oportunidad en Propuesta y la interacción registrada.
+```
+
+Nada de eso necesitó abrir el navegador. Y si el agente se corta a la mitad y reintenta, los `upsert` resuelven por
+`id`, `external_id`, dominio o email: no se duplica nada.
+
+## Qué ve la persona
+
+La web es deliberadamente chica y hace solo lo que un agente no debería hacer: que un humano mire y decida.
+
+- **Funnel** con arrastre entre etapas, deshacer y motivo de pérdida.
+- **Dashboard** con volumen y valor ponderado por etapa, win rate, ciclo, tiempo en etapa, oportunidades estancadas,
+  leads por canal, interacciones por semana, monto ganado por mes y objetivo mensual por pipeline.
+- **Empresas, contactos y oportunidades**: listas, fichas con timeline, edición, tags con sugerencias, búsqueda,
+  filtros, acciones en lote y exportación CSV.
+- **Interacciones y auditoría** de todo lo que pasó, venga de un agente o de una persona.
+- **Ajustes**: pipelines, canales, formularios, miembros, dominios habilitados y marca de la aplicación (nombre y
+  logo, configurables por el superadmin).
+
+## Empezar en local
+
+Requisitos: Docker y Go 1.27+ (solo para desarrollar).
+
+```sh
+cp .env.example .env
+# completá los secretos (el archivo explica cómo generarlos) y, para probar sin Google/Microsoft:
+#   DEV_LOGIN_ENABLED=true   SUPERADMIN_EMAILS=vos@tuempresa.com
+make up          # http://localhost:8080
+```
+
+Entrás con tu email (modo desarrollo), creás un workspace y en **Ajustes → Agentes** está la URL MCP.
+
+## Conectar un agente
+
+URL del servidor MCP: `https://<tu-dominio>/mcp`
+
+- **Claude (web/desktop)**: Ajustes → Conectores → *Agregar conector personalizado* → pegá la URL. Se abre Hilo para
+  iniciar sesión y autorizar; elegís el workspace y, si querés, acceso de solo lectura.
+- **Claude Code**: `claude mcp add --transport http hilo https://<tu-dominio>/mcp`
+- **Grok (API de xAI)**: herramienta `{"type": "mcp", "server_url": "https://<tu-dominio>/mcp", "authorization":
+  "hilo_pat_…"}` en `/v1/responses` (el token solo: xAI agrega `Bearer`). Para probarlo contra tu stack local, con
+  túnel incluido: `./scripts/try-grok.py`.
+- **ChatGPT, Cursor y otros**: agregá la URL como servidor MCP remoto. Si el cliente no soporta OAuth, creá un
+  token personal en *Ajustes → Agentes* y mandalo como `Authorization: Bearer hilo_pat_…`.
+
+### Herramientas MCP
+
+| Lectura | Escritura | Administración |
+|---|---|---|
+| `search_crm`, `list_pipelines`, `list_channels`, `get_company`, `get_contact`, `get_opportunity`, `list_companies`, `list_contacts`, `list_opportunities`, `get_timeline`, `list_interactions`, `list_tags`, `get_metrics` | `upsert_company`, `upsert_contact`, `upsert_opportunity`, `move_opportunity_stage`, `log_interaction`, `archive_record` | `configure_pipeline`, `upsert_channel` |
+
+Cada agente ve solo las herramientas que su rol y su token permiten. Un token OAuth o personal puede restringirse a
+solo lectura; nunca puede ampliar lo que permite el rol.
+
+### Pipelines
+
+Cada etapa es `initial` (exactamente una), `in_progress` (al menos una), `won` o `lost` (al menos una de cada). El
+estado de una oportunidad sigue a la categoría de su etapa, así que las métricas no dependen de cómo nombraste las
+columnas.
+
+Los formularios públicos de leads crean contacto + oportunidad + interacción, sin poder sobrescribir datos existentes.
+
+## Quién puede entrar
+
+Un email verificado por Google o Microsoft cuyo dominio esté habilitado por un superadmin, o con una invitación
+pendiente. Sin dominios configurados, solo superadmins e invitados. Los superadmins se definen con
+`SUPERADMIN_EMAILS` o con `hiloctl superadmin grant <email>`.
+
+| Rol | Puede |
+|---|---|
+| Lector | leer |
+| Miembro | leer y escribir datos del CRM |
+| Admin | además, configurar pipelines, canales, formularios, miembros y dominios |
+| Propietario | además, gestionar propietarios |
+| Superadmin (plataforma) | dominios habilitados para entrar, marca de la aplicación y vista de todos los workspaces |
 
 ## Arquitectura
 
@@ -48,56 +131,15 @@ Licencia [Apache-2.0](LICENSE): uso libre, comercial y privado.
 Stack: Go 1.27, `net/http`, pgx + sqlc (SQL tipado, sin SQL dinámico), el SDK oficial de MCP para Go,
 `html/template`, Postgres 18, Caddy 2.
 
-## Empezar en local
+## Seguridad
 
-Requisitos: Docker y Go 1.27+ (solo para desarrollar).
+Está pensado para correr expuesto a internet, porque un servidor MCP remoto tiene que estarlo.
 
-```sh
-cp .env.example .env
-# completá los secretos (el archivo explica cómo generarlos) y, para probar sin Google/Microsoft:
-#   DEV_LOGIN_ENABLED=true   SUPERADMIN_EMAILS=vos@tuempresa.com
-make up          # http://localhost:8080
-```
-
-Entrá con tu email (modo desarrollo), creá un workspace y en **Ajustes → Agentes** vas a ver la URL MCP.
-
-## Conectar un agente
-
-URL del servidor MCP: `https://<tu-dominio>/mcp`
-
-- **Claude (web/desktop)**: Ajustes → Conectores → *Agregar conector personalizado* → pegá la URL. Se abre Hilo para
-  iniciar sesión y autorizar; elegís el workspace y, si querés, acceso de solo lectura.
-- **Claude Code**: `claude mcp add --transport http hilo https://<tu-dominio>/mcp`
-- **Grok (API de xAI)**: herramienta `{"type": "mcp", "server_url": "https://<tu-dominio>/mcp", "authorization":
-  "hilo_pat_…"}` en `/v1/responses` (el token solo: xAI agrega `Bearer`). Para probarlo contra tu stack local, con
-  túnel incluido: `./scripts/try-grok.py`.
-- **ChatGPT, Cursor y otros**: agregá la URL como servidor MCP remoto. Si el cliente no soporta OAuth, creá un
-  token personal en *Ajustes → Agentes* y envialo como `Authorization: Bearer hilo_pat_…`.
-
-### Herramientas MCP
-
-| Lectura | Escritura | Administración |
-|---|---|---|
-| `search_crm`, `list_pipelines`, `list_channels`, `get_company`, `get_contact`, `get_opportunity`, `list_companies`, `list_contacts`, `list_opportunities`, `get_timeline`, `list_interactions`, `list_tags`, `get_metrics` | `upsert_company`, `upsert_contact`, `upsert_opportunity`, `move_opportunity_stage`, `log_interaction`, `archive_record` | `configure_pipeline`, `upsert_channel` |
-
-Cada agente ve solo las herramientas que su rol y su token permiten. Los `upsert_*` son idempotentes (por `id`,
-`external_id`, dominio o email), así que un agente puede reintentar sin duplicar.
-
-## Permisos
-
-| Rol | Puede |
-|---|---|
-| Lector | leer |
-| Miembro | leer y escribir datos del CRM |
-| Admin | además, configurar pipelines, canales, formularios, miembros y dominios |
-| Propietario | además, gestionar propietarios |
-| Superadmin (plataforma) | dominios habilitados para entrar y vista de todos los workspaces |
-
-Un token OAuth o personal puede restringirse a solo lectura; nunca puede ampliar lo que permite el rol.
-
-**Quién puede entrar**: un email verificado por Google o Microsoft cuyo dominio esté habilitado por un superadmin, o
-con una invitación pendiente. Sin dominios configurados, solo superadmins e invitados. Los superadmins se definen con
-`SUPERADMIN_EMAILS` o con `hiloctl superadmin grant <email>`.
+- MCP remoto (Streamable HTTP) con **OAuth 2.1**: registro dinámico de clientes, Client ID Metadata Documents, PKCE
+  obligatorio, rotación de refresh tokens y tokens personales para clientes sin OAuth.
+- **Multi-workspace** con Postgres Row-Level Security y FKs compuestas por workspace.
+- Roles de base de datos de mínimo privilegio, contenedores sin root y de solo lectura.
+- CSP estricta.
 
 ## Desarrollo y harness de calidad
 
@@ -117,5 +159,10 @@ make dast      # OWASP ZAP baseline contra el stack levantado (make up)
 | Tests | aislamiento entre tenants, matriz de permisos, flujo OAuth completo con ataques, CSRF, XSS, open redirect, fuzzing |
 | DAST | OWASP ZAP baseline |
 
+## Licencia
+
+[Apache-2.0](LICENSE): uso libre, comercial y privado.
+
 Documentación: [despliegue en AWS Lightsail](docs/DEPLOY_LIGHTSAIL.md) · [seguridad y modelo de amenazas](SECURITY.md) ·
-[banner de arranque](docs/STARTUP_BANNER.md) · [cómo contribuir](CONTRIBUTING.md).
+[banner de arranque](docs/STARTUP_BANNER.md) · [cómo contribuir](CONTRIBUTING.md) ·
+[plan de próximos features](docs/PLAN_FEATURES.md).
