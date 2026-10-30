@@ -92,19 +92,31 @@ func (h *Handler) parseTemplates() error {
 func (h *Handler) Routes(mux *http.ServeMux) {
 	static, _ := fs.Sub(staticFS, "static")
 	mux.Handle("GET /static/", http.StripPrefix("/static/", cacheStatic(http.FileServerFS(static))))
-	mux.HandleFunc("GET /{$}", h.home)
 	mux.HandleFunc("GET /branding/logo", h.logo)
+	mux.HandleFunc("POST /f/{key}", h.submitForm)
+	mux.HandleFunc("OPTIONS /f/{key}", h.formPreflight)
+	if h.cfg.UIMode() != config.UIFull {
+		mux.HandleFunc("GET /{$}", h.headless)
+	}
+	if h.cfg.UIMode() == config.UIOff {
+		return // no sign-in at all: agents use personal access tokens
+	}
+	// Sign-in and the agents' OAuth consent: every mode with a UI.
 	mux.HandleFunc("GET /login", h.loginPage)
 	mux.HandleFunc("GET /auth/{provider}", h.authStart)
 	mux.HandleFunc("GET /auth/{provider}/callback", h.authCallback)
 	mux.HandleFunc("POST /auth/dev", h.devLogin)
 	mux.HandleFunc("POST /logout", h.session(h.logout))
-	mux.HandleFunc("GET /events", h.session(h.live))
 	mux.HandleFunc("GET /oauth/authorize", h.authorize)
 	mux.HandleFunc("POST /oauth/authorize", h.session(h.consent))
 	mux.HandleFunc("GET /workspaces/new", h.session(h.newWorkspacePage))
 	mux.HandleFunc("POST /workspaces", h.session(h.createWorkspace))
 	mux.HandleFunc("POST /workspaces/switch", h.session(h.switchWorkspace))
+	if h.cfg.UIMode() == config.UIMinimal {
+		return
+	}
+	mux.HandleFunc("GET /{$}", h.home)
+	mux.HandleFunc("GET /events", h.session(h.live))
 	mux.HandleFunc("GET /board", h.member(h.board))
 	mux.HandleFunc("POST /board/move", h.member(h.boardMove))
 	mux.HandleFunc("POST /opportunities", h.member(h.createOpportunity))
@@ -135,8 +147,6 @@ func (h *Handler) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /settings/{action}", h.member(h.settingsAction))
 	mux.HandleFunc("GET /admin", h.session(h.adminPage))
 	mux.HandleFunc("POST /admin/{action}", h.session(h.adminAction))
-	mux.HandleFunc("POST /f/{key}", h.submitForm)
-	mux.HandleFunc("OPTIONS /f/{key}", h.formPreflight)
 }
 
 func cacheStatic(next http.Handler) http.Handler {
@@ -328,6 +338,15 @@ func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 		h.log.Error("web", "path", r.URL.Path, "err", err)
 	}
 	h.render(w, status, "error", page{Title: "Error", Error: msg})
+}
+
+// headless is the home page when the UI is minimal or off: where to point an
+// agent, and how it authenticates.
+func (h *Handler) headless(w http.ResponseWriter, _ *http.Request) {
+	h.render(w, http.StatusOK, "headless", page{Title: "Modo headless", Data: struct {
+		MCP   string
+		OAuth bool
+	}{h.cfg.MCPResource(), h.cfg.UIMode() != config.UIOff}})
 }
 
 func (h *Handler) home(w http.ResponseWriter, r *http.Request) {

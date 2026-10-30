@@ -22,7 +22,7 @@ func TestLoadValid(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !c.SecureCookies() || c.MCPResource() != "https://crm.example.com/mcp" {
+	if !c.SecureCookies() || c.MCPResource() != "https://crm.example.com/mcp" || c.UI != UIFull {
 		t.Fatalf("unexpected derived values: %+v", c)
 	}
 }
@@ -39,6 +39,7 @@ func TestLoadRejectsUnsafe(t *testing.T) {
 		"missing database":    {"DATABASE_URL": ""},
 		"bad proxy cidr":      {"TRUSTED_PROXY_CIDRS": "not-a-cidr"},
 		"localhost lookalike": {"APP_BASE_URL": "http://localhost.evil.com", "DEV_LOGIN_ENABLED": "true"},
+		"unknown ui mode":     {"HILO_UI": "none"},
 	}
 	for name, override := range cases {
 		t.Run(name, func(t *testing.T) {

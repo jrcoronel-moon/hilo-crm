@@ -124,10 +124,12 @@ El flujo OAuth que usan Claude, ChatGPT, Duet, etc. **siempre** abre un navegado
 
 Descartado por ahora: delegar todo en un proveedor externo (Google/Entra como servidor de autorización), porque no soportan DCR ni CIMD, que es lo que esperan los clientes MCP.
 
-### Decisiones abiertas
+### Estado
 
-- ¿`minimal` es el modo por defecto en producción, o se elige al desplegar?
-- ¿La API de administración remota es necesaria, o alcanza con SSH?
+Hecho: `hiloctl` cubre workspaces, miembros, tokens, agentes pre-aprobados, pipelines, canales, auditoría, marca y
+`watch`; `HILO_UI=full|minimal|off` (por defecto `full`); redirección directa al proveedor.
+
+Pendiente, si hace falta: API de administración remota (hoy alcanza con SSH al servidor).
 
 ---
 
@@ -214,17 +216,17 @@ Pendiente, si hace falta:
 | A.2 ✅ | Redirección directa al proveedor + agentes pre-aprobados (`hiloctl client …`) | 2026-10-30 | `b7d015e` |
 | R ✅ | Tiempo real: la web y `hiloctl watch` muestran al instante lo que hacen los agentes | 2026-10-30 | `b1d58be` |
 | B.1 ✅ | Fechas históricas (`created_at`/`closed_at`, solo admin, solo al crear), referencias por `external_id` en todas las herramientas, `bulk_upsert` con `dry_run` exacto (savepoints) | 2026-10-30 | `5543313` |
-| C ✅ | `list_changes` (cursor) y `needs_attention` para agentes proactivos; anotaciones ya declaradas; guía y matriz de compatibilidad en `docs/AGENTS.md` | 2026-10-30 | ver `git log` |
+| C ✅ | `list_changes` (cursor) y `needs_attention` para agentes proactivos; anotaciones ya declaradas; guía y matriz de compatibilidad en `docs/AGENTS.md` | 2026-10-30 | `d672484` |
+| A.3 ✅ | `hiloctl` completo (pipelines, canales, auditoría, marca) + `HILO_UI=full/minimal/off` (por defecto `full`) | 2026-10-30 | ver `git log` |
 
 ### Pendiente (en el orden recomendado)
 
 | Fase | Contenido | Tamaño |
 |---|---|---|
-| A.3 ⏳ | Resto de `hiloctl` (pipelines, canales, auditoría, marca) + `HILO_UI=minimal/off` | M |
 | B ⏳ | Importador por terminal para volúmenes grandes: paquete Hilo, cargador, CSV genérico, `export`, `--dry-run` | M |
 | D ⏳ | Adaptadores HubSpot y Pipedrive para el importador | M |
 | E ⏳ | UI de importación CSV; cola de aprobaciones (si se decide) | M |
 | — | Lightsail y publicación en directorios de conectores, cuando se decida | — |
 
-Decisiones abiertas que frenan alguna fase: si `HILO_UI=minimal` es el modo por defecto en producción (A.3) y qué
-orígenes importa primero el importador por terminal (B).
+Decisión tomada por defecto (cambiable): `HILO_UI` es `full` salvo que lo configures; para producción headless,
+`minimal`.

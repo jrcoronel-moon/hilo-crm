@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/jrcoronel-moon/hilo-crm/internal/app"
+	"github.com/jrcoronel-moon/hilo-crm/internal/config"
 	"github.com/jrcoronel-moon/hilo-crm/internal/web"
 )
 
@@ -19,6 +20,10 @@ var (
 func main() {
 	app.Run(app.Build{Service: "web", Commit: gitSHA, Time: buildTime}, func(env app.Env) (http.Handler, []string, error) {
 		mux, err := web.Mount(env.Ctx, env.Cfg, env.DB, env.Log)
-		return mux, append(env.Cfg.Providers(), "oauth 2.1", "lead forms"), err
+		integrations := append(env.Cfg.Providers(), "lead forms", "ui: "+env.Cfg.UIMode())
+		if env.Cfg.UIMode() != config.UIOff {
+			integrations = append(integrations, "oauth 2.1")
+		}
+		return mux, integrations, err
 	})
 }

@@ -22,10 +22,14 @@ func Mount(ctx context.Context, cfg *config.Config, d *db.DB, log *slog.Logger) 
 	if err != nil {
 		return nil, err
 	}
-	h.hub, h.done = events.NewHub(), ctx.Done()
-	go events.Listen(ctx, d, log, h.hub.Publish)
 	mux := http.NewServeMux()
-	oa.Routes(mux)
+	if cfg.UIMode() != config.UIOff { // without sign-in there is no OAuth: personal access tokens only
+		oa.Routes(mux)
+	}
+	if cfg.UIMode() == config.UIFull { // live updates feed the full UI only
+		h.hub, h.done = events.NewHub(), ctx.Done()
+		go events.Listen(ctx, d, log, h.hub.Publish)
+	}
 	h.Routes(mux)
 	return mux, nil
 }

@@ -108,7 +108,7 @@ func (s *Service) SetName(ctx context.Context, superadmin bool, by uuid.UUID, na
 		return ErrName
 	}
 	defer s.invalidate()
-	return s.db.Platform().SetAppName(ctx, store.SetAppNameParams{AppName: name, UpdatedBy: &by})
+	return s.db.Platform().SetAppName(ctx, store.SetAppNameParams{AppName: name, UpdatedBy: author(by)})
 }
 
 // SetLogo stores a logo after checking its real type from its bytes.
@@ -121,7 +121,7 @@ func (s *Service) SetLogo(ctx context.Context, superadmin bool, by uuid.UUID, da
 		return ErrLogo
 	}
 	defer s.invalidate()
-	return s.db.Platform().SetLogo(ctx, store.SetLogoParams{Logo: data, LogoMime: mime, UpdatedBy: &by})
+	return s.db.Platform().SetLogo(ctx, store.SetLogoParams{Logo: data, LogoMime: mime, UpdatedBy: author(by)})
 }
 
 // ClearLogo goes back to the default logo (superadmin).
@@ -130,7 +130,15 @@ func (s *Service) ClearLogo(ctx context.Context, superadmin bool, by uuid.UUID) 
 		return ErrForbidden
 	}
 	defer s.invalidate()
-	return s.db.Platform().ClearLogo(ctx, &by)
+	return s.db.Platform().ClearLogo(ctx, author(by))
+}
+
+// author is who made a change, nil for the operator CLI (no user).
+func author(by uuid.UUID) *uuid.UUID {
+	if by == uuid.Nil {
+		return nil
+	}
+	return &by
 }
 
 // sniff identifies the image by content, never by the declared type.

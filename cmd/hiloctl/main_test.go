@@ -20,16 +20,17 @@ import (
 )
 
 type harness struct {
-	t   *testing.T
-	ctx context.Context
-	d   *db.DB
+	t     *testing.T
+	ctx   context.Context
+	d     *db.DB
+	stdin string
 }
 
 // ok runs a command that must succeed and returns its output.
 func (h harness) ok(args ...string) string {
 	h.t.Helper()
 	var out bytes.Buffer
-	if err := run(h.ctx, h.d, &out, args); err != nil {
+	if err := run(h.ctx, h.d, strings.NewReader(h.stdin), &out, args); err != nil {
 		h.t.Fatalf("hiloctl %s: %v", strings.Join(args, " "), err)
 	}
 	return out.String()
@@ -39,7 +40,7 @@ func (h harness) ok(args ...string) string {
 func (h harness) fails(args ...string) string {
 	h.t.Helper()
 	var out bytes.Buffer
-	err := run(h.ctx, h.d, &out, args)
+	err := run(h.ctx, h.d, strings.NewReader(h.stdin), &out, args)
 	if err == nil {
 		h.t.Fatalf("hiloctl %s: expected an error, got %q", strings.Join(args, " "), out.String())
 	}
@@ -164,7 +165,7 @@ func TestWatchPrintsChangesLive(t *testing.T) {
 	ctx, cancel := context.WithCancel(h.ctx)
 	out := &syncBuffer{}
 	done := make(chan error, 1)
-	go func() { done <- run(ctx, h.d, out, []string{"watch", "acme"}) }()
+	go func() { done <- run(ctx, h.d, strings.NewReader(""), out, []string{"watch", "acme"}) }()
 
 	id := identity.New(h.d, slog.New(slog.DiscardHandler), nil)
 	ana, err := id.MemberCaller(h.ctx, uuid.MustParse(ws.ID), "ana@acme.test")
@@ -194,3 +195,56 @@ func TestWatchPrintsChangesLive(t *testing.T) {
 }
 
 func strPtr(s string) *string { return &s }
+
+func TestSettingsAndBrandingCommands(t *testing.T) {
+	h := harness{t: t, ctx: context.Background(), d: testdb.New(t)}
+	h.ok("workspace", "create", "Acme", "--owner", "ana@acme.test")
+	if out := h.ok("pipeline", "list", "acme"); !strings.Contains(out, "Lead (initial)") {
+		t.Fatalf("pipeline list: %s", out)
+	}
+	h.stdin = `{"name":"Partners","stages":[{"name":"Nuevo","category":"initial"},{"name":"Activo","category":"in_progress"},
+		{"name":"Firmado","category":"won"},{"name":"Caído","category":"lost"}],"monthly_target":5000,"target_currency":"USD"}`
+	if out := h.ok("pipeline", "apply", "acme"); !strings.Contains(out, "Partners saved with 4 stages") {
+		t.Fatalf("pipeline apply: %s", out)
+	}
+	h.stdin = `{"name":"Malo","stages":[{"name":"Solo","category":"won"}]}`
+	if msg := h.fails("pipeline", "apply", "acme"); !strings.Contains(msg, "stages") {
+		t.Fatalf("invalid pipeline: %s", msg)
+	}
+	h.stdin = `{"name":"X","bogus":1}`
+	if msg := h.fails("pipeline", "apply", "acme"); !strings.Contains(msg, "unknown field") {
+		t.Fatalf("unknown field: %s", msg)
+	}
+	h.stdin = ""
+	h.ok("channel", "add", "acme", "Webinar", "event")
+	if out := h.ok("channel", "list", "acme"); !strings.Contains(out, "Webinar") {
+		t.Fatalf("channel list: %s", out)
+	}
+	if out := h.ok("audit", "list", "acme", "--limit", "5"); !strings.Contains(out, "hiloctl") || !strings.Contains(out, "configuró el pipeline «Partners»") {
+		t.Fatalf("audit list: %s", out)
+	}
+	if msg := h.fails("audit", "list", "acme", "--limit", "x"); !strings.Contains(msg, "--limit") {
+		t.Fatalf("bad limit: %s", msg)
+	}
+
+	h.ok("branding", "name", "Acme CRM")
+	var b struct {
+		Name       string
+		CustomLogo bool `json:"custom_logo"`
+	}
+	h.json(&b, "branding", "show")
+	if b.Name != "Acme CRM" || b.CustomLogo {
+		t.Fatalf("branding: %+v", b)
+	}
+	h.stdin = "not an image"
+	h.fails("branding", "logo")
+	h.stdin = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"><rect width="1" height="1"/></svg>`
+	h.ok("branding", "logo")
+	if h.json(&b, "branding", "show"); !b.CustomLogo {
+		t.Fatal("logo not stored")
+	}
+	h.ok("branding", "reset-logo")
+	if msg := h.fails("branding", "name", strings.Repeat("x", 61)); msg == "" {
+		t.Fatal("long name accepted")
+	}
+}

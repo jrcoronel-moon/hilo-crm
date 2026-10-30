@@ -22,6 +22,7 @@ import (
 	"syscall"
 	"text/tabwriter"
 
+	"github.com/jrcoronel-moon/hilo-crm/internal/crm"
 	"github.com/jrcoronel-moon/hilo-crm/internal/db"
 	"github.com/jrcoronel-moon/hilo-crm/internal/identity"
 )
@@ -49,7 +50,7 @@ func start(ctx context.Context, args []string) error {
 		return err
 	}
 	defer d.Close()
-	return run(ctx, d, os.Stdout, args)
+	return run(ctx, d, os.Stdin, os.Stdout, args)
 }
 
 // command is one command, e.g. "token create" or "watch".
@@ -80,6 +81,15 @@ var commands = []command{
 	{"domain allow", []string{"<domain>"}, nil, domainAllow},
 	{"domain deny", []string{"<domain>"}, nil, domainDeny},
 	{"domain list", nil, nil, domainList},
+	{"pipeline list", []string{"<workspace>"}, nil, pipelineList},
+	{"pipeline apply", []string{"<workspace>"}, []string{"< pipeline.json"}, pipelineApply},
+	{"channel list", []string{"<workspace>"}, nil, channelList},
+	{"channel add", []string{"<workspace>", "<name>", "<kind>"}, nil, channelAdd},
+	{"audit list", []string{"<workspace>"}, []string{"[--limit <n>]"}, auditList},
+	{"branding show", nil, nil, brandingShow},
+	{"branding name", []string{"<name>"}, nil, brandingName},
+	{"branding logo", nil, []string{"< logo.png|jpg|webp|svg"}, brandingLogo},
+	{"branding reset-logo", nil, nil, brandingResetLogo},
 	{"watch", []string{"<workspace>"}, nil, watch},
 }
 
@@ -95,7 +105,7 @@ func usage() string {
 }
 
 // valueFlags take the next argument as their value; the rest are booleans.
-var valueFlags = map[string]bool{"owner": true, "ttl": true}
+var valueFlags = map[string]bool{"owner": true, "ttl": true, "limit": true}
 
 type input struct {
 	pos   []string          // positional arguments after the command name
@@ -131,7 +141,7 @@ func (in input) has(flag string) bool {
 	return ok
 }
 
-func run(ctx context.Context, d *db.DB, out io.Writer, args []string) error {
+func run(ctx context.Context, d *db.DB, stdin io.Reader, out io.Writer, args []string) error {
 	words, in, err := parse(args)
 	if err != nil {
 		return err
@@ -151,7 +161,8 @@ func run(ctx context.Context, d *db.DB, out io.Writer, args []string) error {
 				return fmt.Errorf("%s does not take --%s", name, f)
 			}
 		}
-		c := &cli{ctx: ctx, d: d, id: identity.New(d, slog.New(slog.DiscardHandler), nil), out: out, json: in.has("json")}
+		log := slog.New(slog.DiscardHandler)
+		c := &cli{ctx: ctx, d: d, id: identity.New(d, log, nil), crm: crm.New(d, log), in: stdin, out: out, json: in.has("json")}
 		return cmd.run(c, in)
 	}
 	return errUsage
@@ -170,6 +181,8 @@ type cli struct {
 	ctx  context.Context
 	d    *db.DB
 	id   *identity.Service
+	crm  *crm.Service
+	in   io.Reader
 	out  io.Writer
 	json bool
 }

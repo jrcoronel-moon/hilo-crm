@@ -1,0 +1,20 @@
+{{define "bare"}}
+<div class="split">
+  <div class="l">
+    <div class="login">
+      <img class="logo" src="{{.Brand.LogoURL}}" alt="">
+      <h1>{{.Brand.Name}} trabaja sin interfaz</h1>
+      <p class="lead">Este servidor está en modo headless: los agentes operan el CRM por MCP y la administración se hace
+        desde la terminal con <code>hiloctl</code>.</p>
+      {{with .Data}}
+      <div class="copybox"><code class="grow">{{.MCP}}</code><button class="btn" type="button" data-copy="{{.MCP}}"><svg class="i sm"><use href="#i-copy"/></svg>Copiar</button></div>
+      {{if .OAuth}}<p>Agregá esa URL como servidor MCP en tu agente (Claude, ChatGPT, Cursor…): te va a pedir iniciar sesión y
+        autorizarlo.</p>
+      {{else}}<p>Agregá esa URL como servidor MCP en tu agente, con un token personal como
+        <code>Authorization: Bearer hilo_pat_…</code>. Pedíselo a quien administra el servidor
+        (<code>hiloctl token create</code>).</p>{{end}}
+      {{end}}
+    </div>
+  </div>
+</div>
+{{end}}

@@ -128,10 +128,15 @@ docker compose exec web hiloctl token create acme ana@acme.com grok --read-only 
 docker compose exec web hiloctl --json member list acme
 docker compose exec web hiloctl client preapprove acme <client-id-url>     # copiado de Ajustes → Agentes
 docker compose exec web hiloctl watch acme                                # lo que hacen los agentes, en vivo
+docker compose exec -T web hiloctl pipeline apply acme < pipeline.json    # pipelines, canales, auditoría, marca…
 ```
 
 `hiloctl` sin argumentos lista todos los comandos. Actúa como operador del servidor, con las mismas reglas que la
 web (por ejemplo, ningún workspace se queda sin propietario). El token se muestra una sola vez.
+
+Con `HILO_UI=minimal` la web queda reducida a lo que necesita el OAuth de los agentes (iniciar sesión y
+consentimiento) y todo lo demás se administra con `hiloctl`; con `HILO_UI=off` no hay páginas ni OAuth, y los agentes
+entran con tokens personales emitidos por `hiloctl`.
 
 Un agente pre-aprobado se conecta sin pantalla de consentimiento: la persona solo elige su cuenta de Google o
 Microsoft (si hay un único proveedor configurado, Hilo la lleva directo). Se pre-aprueba con la URL que identifica al

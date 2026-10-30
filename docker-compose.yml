@@ -79,6 +79,7 @@ services:
       MICROSOFT_TENANT: ${MICROSOFT_TENANT:-common}
       SUPERADMIN_EMAILS: ${SUPERADMIN_EMAILS:-}
       DEV_LOGIN_ENABLED: ${DEV_LOGIN_ENABLED:-false}
+      HILO_UI: ${HILO_UI:-full}
     depends_on:
       migrate: { condition: service_completed_successfully }
     networks: [edge, data]

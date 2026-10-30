@@ -40,7 +40,19 @@ type Config struct {
 	// DevLogin enables a password-less login form for local development. It is
 	// refused unless BaseURL is a localhost URL.
 	DevLogin bool
+
+	// UI is how much web interface to serve: UIFull (default), UIMinimal (only
+	// what agents' OAuth needs: sign-in and consent) or UIOff (no web pages; agents
+	// use personal access tokens issued with hiloctl).
+	UI string
 }
+
+// Web interface modes (HILO_UI).
+const (
+	UIFull    = "full"
+	UIMinimal = "minimal"
+	UIOff     = "off"
+)
 
 const minSecretLen = 32
 
@@ -61,6 +73,7 @@ func Load(getenv func(string) string) (*Config, error) {
 		MicrosoftTenant:       orDefault(getenv("MICROSOFT_TENANT"), "common"),
 		SuperadminEmails:      map[string]bool{},
 		DevLogin:              getenv("DEV_LOGIN_ENABLED") == "true",
+		UI:                    orDefault(getenv("HILO_UI"), UIFull),
 	}
 	for _, e := range strings.Split(getenv("SUPERADMIN_EMAILS"), ",") {
 		if e = strings.ToLower(strings.TrimSpace(e)); e != "" {
@@ -107,7 +120,18 @@ func (c *Config) validate() error {
 	if c.DevLogin && !c.IsLocalhost() {
 		errs = append(errs, errors.New("DEV_LOGIN_ENABLED is only allowed when APP_BASE_URL points to localhost"))
 	}
+	if c.UI != UIFull && c.UI != UIMinimal && c.UI != UIOff {
+		errs = append(errs, errors.New("HILO_UI must be full, minimal or off"))
+	}
 	return errors.Join(errs...)
+}
+
+// UIMode is the web interface mode; unset means full.
+func (c *Config) UIMode() string {
+	if c.UI == "" {
+		return UIFull
+	}
+	return c.UI
 }
 
 // IsLocalhost reports whether BaseURL points at the local machine.
