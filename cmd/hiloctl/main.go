@@ -1,44 +1,39 @@
 // Command hiloctl is the operator CLI, run inside the web container:
 //
-//	docker compose exec web hiloctl superadmin grant ana@example.com
-//	docker compose exec web hiloctl superadmin revoke ana@example.com
-//	docker compose exec web hiloctl superadmin list
-//	docker compose exec web hiloctl domain allow example.com
-//	docker compose exec web hiloctl domain deny example.com
-//	docker compose exec web hiloctl domain list
+//	docker compose exec web hiloctl workspace create "Acme" --owner ana@acme.com
+//	docker compose exec web hiloctl token create acme ana@acme.com claude --read-only
+//	docker compose exec web hiloctl --json member list acme
 //
-// It uses the same DATABASE_URL (app role) as the service.
+// Run it without arguments for the full command list. It uses the same
+// DATABASE_URL (app role) as the service and acts as the operator: owner
+// rights on any workspace, through the same rules as the web.
 package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
-
-	"github.com/google/uuid"
+	"strings"
+	"text/tabwriter"
 
 	"github.com/jrcoronel-moon/hilo-crm/internal/db"
 	"github.com/jrcoronel-moon/hilo-crm/internal/identity"
 )
 
-const usage = `usage:
-  hiloctl superadmin grant|revoke <email>
-  hiloctl superadmin list
-  hiloctl domain allow|deny <domain>
-  hiloctl domain list`
-
 func main() {
-	if err := run(context.Background(), os.Args[1:]); err != nil {
+	if err := start(context.Background(), os.Args[1:]); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
 }
 
-func run(ctx context.Context, args []string) error {
-	if len(args) < 2 {
-		return errors.New(usage)
+func start(ctx context.Context, args []string) error {
+	if len(args) == 0 {
+		return errUsage
 	}
 	url := os.Getenv("DATABASE_URL")
 	if url == "" {
@@ -49,59 +44,155 @@ func run(ctx context.Context, args []string) error {
 		return err
 	}
 	defer d.Close()
-	id := identity.New(d, slog.New(slog.DiscardHandler), nil)
-	arg := func() (string, error) {
-		if len(args) < 3 {
-			return "", errors.New(usage)
-		}
-		return args[2], nil
+	return run(ctx, d, os.Stdout, args)
+}
+
+// command is one "group verb" pair, e.g. "token create".
+type command struct {
+	name  string
+	args  []string // positional arguments, for usage and arity
+	flags []string // accepted flags besides --json; optional ones in brackets
+	run   func(c *cli, in input) error
+}
+
+// commands is the whole CLI, in the order the usage lists it.
+var commands = []command{
+	{"workspace create", []string{"<name>"}, []string{"--owner <email>"}, workspaceCreate},
+	{"workspace list", nil, nil, workspaceList},
+	{"member list", []string{"<workspace>"}, nil, memberList},
+	{"member add", []string{"<workspace>", "<email>", "<admin|member|viewer>"}, nil, memberAdd},
+	{"member role", []string{"<workspace>", "<email>", "<owner|admin|member|viewer>"}, nil, memberRole},
+	{"member remove", []string{"<workspace>", "<email>"}, nil, memberRemove},
+	{"token create", []string{"<workspace>", "<email>", "<name>"}, []string{"[--read-only]", "[--ttl <days>d]"}, tokenCreate},
+	{"token list", []string{"<workspace>", "<email>"}, nil, tokenList},
+	{"token revoke", []string{"<workspace>", "<email>", "<token-id>"}, nil, tokenRevoke},
+	{"superadmin grant", []string{"<email>"}, nil, superadminSet(true)},
+	{"superadmin revoke", []string{"<email>"}, nil, superadminSet(false)},
+	{"superadmin list", nil, nil, superadminList},
+	{"domain allow", []string{"<domain>"}, nil, domainAllow},
+	{"domain deny", []string{"<domain>"}, nil, domainDeny},
+	{"domain list", nil, nil, domainList},
+}
+
+var errUsage = errors.New(usage())
+
+func usage() string {
+	var b strings.Builder
+	b.WriteString("usage: hiloctl [--json] <command>\n\n<workspace> is a slug or id.\n")
+	for _, c := range commands {
+		b.WriteString("\n  hiloctl " + strings.Join(append(append([]string{c.name}, c.args...), c.flags...), " "))
 	}
-	switch args[0] + " " + args[1] {
-	case "superadmin grant", "superadmin revoke":
-		email, err := arg()
-		if err != nil {
-			return err
+	return b.String()
+}
+
+// valueFlags take the next argument as their value; the rest are booleans.
+var valueFlags = map[string]bool{"owner": true, "ttl": true}
+
+type input struct {
+	pos   []string          // positional arguments after the command name
+	flags map[string]string // name without dashes → value ("" for booleans)
+}
+
+func parse(args []string) (string, input, error) {
+	in := input{flags: map[string]string{}}
+	var words []string
+	for i := 0; i < len(args); i++ {
+		name, ok := strings.CutPrefix(args[i], "--")
+		if !ok {
+			words = append(words, args[i])
+			continue
 		}
-		if err := id.SetSuperadmin(ctx, email, args[1] == "grant"); err != nil {
-			return err
+		if valueFlags[name] {
+			if i+1 >= len(args) {
+				return "", in, fmt.Errorf("--%s needs a value", name)
+			}
+			i++
+			in.flags[name] = args[i]
+		} else {
+			in.flags[name] = ""
 		}
-		fmt.Printf("superadmin %s: %s\n", args[1], email)
-	case "superadmin list":
-		users, err := d.Platform().ListSuperadmins(ctx)
-		if err != nil {
-			return err
-		}
-		for _, u := range users {
-			fmt.Println(u.Email)
-		}
-	case "domain allow":
-		dom, err := arg()
-		if err != nil {
-			return err
-		}
-		if err := id.AddPlatformDomain(ctx, true, uuid.Nil, dom); err != nil {
-			return err
-		}
-		fmt.Println("allowed:", dom)
-	case "domain deny":
-		dom, err := arg()
-		if err != nil {
-			return err
-		}
-		if err := id.RemovePlatformDomain(ctx, true, dom); err != nil {
-			return err
-		}
-		fmt.Println("removed:", dom)
-	case "domain list":
-		doms, err := id.PlatformDomains(ctx, true)
-		if err != nil {
-			return err
-		}
-		for _, x := range doms {
-			fmt.Println(x.Domain)
-		}
-	default:
-		return errors.New(usage)
 	}
-	return nil
+	if len(words) < 2 {
+		return "", in, errUsage
+	}
+	in.pos = words[2:]
+	return words[0] + " " + words[1], in, nil
+}
+
+func (in input) has(flag string) bool {
+	_, ok := in.flags[flag]
+	return ok
+}
+
+func run(ctx context.Context, d *db.DB, out io.Writer, args []string) error {
+	name, in, err := parse(args)
+	if err != nil {
+		return err
+	}
+	for _, cmd := range commands {
+		if cmd.name != name {
+			continue
+		}
+		if len(in.pos) != len(cmd.args) {
+			return errUsage
+		}
+		for f := range in.flags {
+			if f != "json" && !accepts(cmd, f) {
+				return fmt.Errorf("%s does not take --%s", name, f)
+			}
+		}
+		c := &cli{ctx: ctx, d: d, id: identity.New(d, slog.New(slog.DiscardHandler), nil), out: out, json: in.has("json")}
+		return cmd.run(c, in)
+	}
+	return errUsage
+}
+
+func accepts(cmd command, flag string) bool {
+	for _, f := range cmd.flags {
+		if strings.Trim(strings.Fields(f)[0], "[]") == "--"+flag {
+			return true
+		}
+	}
+	return false
+}
+
+type cli struct {
+	ctx  context.Context
+	d    *db.DB
+	id   *identity.Service
+	out  io.Writer
+	json bool
+}
+
+// emit prints v as indented JSON with --json, or as a table otherwise: one
+// header row and one row per record, tab-separated cells.
+func (c *cli) emit(v any, header string, rows [][]string) error {
+	if c.json {
+		e := json.NewEncoder(c.out)
+		e.SetIndent("", "  ")
+		return e.Encode(v)
+	}
+	var b strings.Builder
+	b.WriteString(header + "\n")
+	for _, r := range rows {
+		b.WriteString(strings.Join(r, "\t") + "\n")
+	}
+	w := tabwriter.NewWriter(c.out, 0, 0, 2, ' ', 0)
+	if _, err := io.WriteString(w, b.String()); err != nil {
+		return err
+	}
+	return w.Flush()
+}
+
+// done reports a completed action: a sentence, or {"ok": true, ...} with --json.
+func (c *cli) done(msg string, fields map[string]any) error {
+	if !c.json {
+		_, err := fmt.Fprintln(c.out, msg)
+		return err
+	}
+	if fields == nil {
+		fields = map[string]any{}
+	}
+	fields["ok"] = true
+	return c.emit(fields, "", nil)
 }

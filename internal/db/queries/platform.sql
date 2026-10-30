@@ -54,6 +54,9 @@ INSERT INTO workspaces (name, slug, created_by) VALUES ($1, $2, $3) RETURNING *;
 -- name: GetWorkspace :one
 SELECT * FROM workspaces WHERE id = $1 AND archived_at IS NULL;
 
+-- name: GetWorkspaceBySlug :one
+SELECT * FROM workspaces WHERE slug = $1 AND archived_at IS NULL;
+
 -- name: ListAllWorkspaces :many
 SELECT w.*, (SELECT count(*) FROM workspace_members m WHERE m.workspace_id = w.id)::int AS member_count
 FROM workspaces w ORDER BY w.created_at DESC;

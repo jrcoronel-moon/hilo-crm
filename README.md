@@ -109,6 +109,21 @@ pendiente. Sin dominios configurados, solo superadmins e invitados. Los superadm
 | Propietario | además, gestionar propietarios |
 | Superadmin (plataforma) | dominios habilitados para entrar, marca de la aplicación y vista de todos los workspaces |
 
+## Administrar desde la terminal
+
+Todo lo de workspaces, miembros y tokens se puede hacer sin abrir la web, con `hiloctl` dentro del contenedor
+`web` (en el servidor, por SSH):
+
+```sh
+docker compose exec web hiloctl workspace create "Acme" --owner ana@acme.com
+docker compose exec web hiloctl member add acme bob@acme.com member      # si nunca entró, queda invitado
+docker compose exec web hiloctl token create acme ana@acme.com grok --read-only --ttl 90d
+docker compose exec web hiloctl --json member list acme
+```
+
+`hiloctl` sin argumentos lista todos los comandos. Actúa como operador del servidor, con las mismas reglas que la
+web (por ejemplo, ningún workspace se queda sin propietario). El token se muestra una sola vez.
+
 ## Arquitectura
 
 ```

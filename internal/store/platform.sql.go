@@ -419,6 +419,24 @@ func (q *Queries) GetWorkspace(ctx context.Context, id uuid.UUID) (Workspace, er
 	return i, err
 }
 
+const getWorkspaceBySlug = `-- name: GetWorkspaceBySlug :one
+SELECT id, name, slug, created_by, created_at, archived_at FROM workspaces WHERE slug = $1 AND archived_at IS NULL
+`
+
+func (q *Queries) GetWorkspaceBySlug(ctx context.Context, slug string) (Workspace, error) {
+	row := q.db.QueryRow(ctx, getWorkspaceBySlug, slug)
+	var i Workspace
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Slug,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.ArchivedAt,
+	)
+	return i, err
+}
+
 const hasPendingInvitation = `-- name: HasPendingInvitation :one
 SELECT EXISTS (
   SELECT 1 FROM invitations

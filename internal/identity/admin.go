@@ -66,7 +66,7 @@ func (s *Service) Invite(ctx context.Context, c Caller, email, role string) erro
 			return err
 		}
 		_, err := q.CreateInvitation(ctx, store.CreateInvitationParams{
-			WorkspaceID: c.WorkspaceID, Email: email, Role: role, InvitedBy: &c.UserID, ExpiresAt: s.now().Add(invitationTTL),
+			WorkspaceID: c.WorkspaceID, Email: email, Role: role, InvitedBy: c.by(), ExpiresAt: s.now().Add(invitationTTL),
 		})
 		return err
 	})

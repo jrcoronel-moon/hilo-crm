@@ -1,6 +1,6 @@
 # Plan de nuevos features
 
-Estado: borrador para discutir. Nada de esto está implementado todavía.
+Estado: en curso. Hecho: fase A, parte 1 (`hiloctl` para workspaces, miembros y tokens, con `--json`).
 
 Punto de partida (lo que ya existe y se reutiliza):
 
@@ -21,7 +21,28 @@ Principios que se mantienen en los tres features:
 
 **Deseo:** traer datos de otros CRMs. Prioridad: script de terminal, después por SSH, por último UI.
 
-### Diseño
+### Primero: guías de migración para agentes
+
+Cada vez más gente va a migrar pidiéndoselo a un agente (Claude Code, Cursor, Claude, Duet…) en lugar de correr un
+importador. Hilo ya tiene todo lo que ese agente necesita (los `upsert_*` idempotentes por `external_id`), así que lo
+primero es escribirle las instrucciones:
+
+- `docs/migrate/README.md`: el método común. Leer el origen con su API, export o conector; mapear etapas y dueños;
+  usar `external_id = "<origen>:<id>"` para poder reintentar; cargar en orden empresas → contactos → oportunidades
+  → interacciones; empezar con una muestra y verificar con `get_metrics` y `list_*`.
+- Una guía por plataforma (`docs/migrate/hubspot.md`, `salesforce.md`, `pipedrive.md`, `zoho.md`,
+  `dynamics.md`, `monday.md`, `close.md`, `freshsales.md`, `odoo.md`, `notion-airtable.md`, `csv.md`): cómo
+  exportar o leer cada objeto, tabla de mapeo de campos a Hilo, cómo mapear sus etapas a las categorías
+  `initial`/`in_progress`/`won`/`lost`, y sus trampas (límites de API, campos personalizados, duplicados).
+- Escritas para que un agente las siga paso a paso: el usuario dice "migrá desde HubSpot siguiendo
+  `docs/migrate/hubspot.md`" y listo.
+
+Herramientas que lo harían más rápido, en este orden: `bulk_upsert` (lotes de hasta N registros por llamada) y un
+modo `dry_run` en los upserts para que el agente muestre el plan antes de escribir.
+
+El importador de abajo sigue teniendo sentido para volúmenes grandes o migraciones sin agente.
+
+### Importador (volúmenes grandes)
 
 Tres piezas separadas, para que cada origen nuevo solo agregue un adaptador:
 
@@ -150,7 +171,9 @@ Publicar en directorios (conectores de Claude, revisión de conectores de Meta) 
 
 | Fase | Contenido | Tamaño |
 |---|---|---|
-| A | `hiloctl` completo (tokens, miembros, pipelines, auditoría, `--json`) + `HILO_UI` + redirect directo al proveedor + clientes pre-aprobados | M |
+| A.1 ✅ | `hiloctl` para workspaces, miembros y tokens, con `--json` | S |
+| B.0 | Guías de migración para agentes (`docs/migrate/`) + `bulk_upsert` | S–M |
+| A | Resto de `hiloctl` (pipelines, canales, auditoría, marca) + `HILO_UI` + redirect directo al proveedor + clientes pre-aprobados | M |
 | B | Importador: paquete Hilo, cargador, CSV genérico, `export`, `--dry-run` | M |
 | C | Herramientas para agentes proactivos (`list_changes`, `needs_attention`, anotaciones destructivas) + matriz de compatibilidad | S–M |
 | D | Adaptadores HubSpot y Pipedrive | M |
