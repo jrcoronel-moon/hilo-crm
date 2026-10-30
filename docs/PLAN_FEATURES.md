@@ -40,16 +40,8 @@ primero es escribirle las instrucciones:
 Hecho: [docs/migrate/](migrate/README.md) con el método común y guías para HubSpot, Salesforce, Pipedrive, Zoho,
 Dynamics 365, Close, Odoo y CSV/Excel (que cubre Monday, Freshsales, Notion, Airtable y Sheets por export).
 
-Mejoras a Hilo que salieron al escribirlas, en orden de impacto:
-
-1. **Fechas históricas**: hoy la fecha de creación, la de cierre y la de entrada a etapa son las de la carga, así que
-   el dashboard muestra lo migrado como cerrado el día de la migración. Permitir `created_at` y `closed_at` al crear
-   (solo admin, solo en el pasado) para que las métricas reflejen la historia.
-2. **Referencias por `external_id`**: hoy las herramientas referencian empresas por id o dominio, contactos por id o
-   email y oportunidades solo por id, así que el agente tiene que guardar un mapa de ids. Aceptar `external_id`
-   en esas referencias simplifica la migración y cualquier sincronización.
-3. `bulk_upsert` (lotes por llamada) y `dry_run` en los upserts, para que el agente muestre el plan antes de
-   escribir.
+Mejoras a Hilo que salieron al escribirlas, ya hechas (B.1): fechas históricas al crear oportunidades,
+referencias por `external_id` en todas las herramientas y `bulk_upsert` con `dry_run`. Las guías ya las usan.
 
 El importador de abajo sigue teniendo sentido para volúmenes grandes o migraciones sin agente.
 
@@ -217,12 +209,12 @@ Pendiente, si hace falta:
 | B.0 ✅ | Guías de migración para agentes (`docs/migrate/`) | 2026-10-30 | `295b326` |
 | A.2 ✅ | Redirección directa al proveedor + agentes pre-aprobados (`hiloctl client …`) | 2026-10-30 | `b7d015e` |
 | R ✅ | Tiempo real: la web y `hiloctl watch` muestran al instante lo que hacen los agentes | 2026-10-30 | `b1d58be` |
+| B.1 ✅ | Fechas históricas (`created_at`/`closed_at`, solo admin, solo al crear), referencias por `external_id` en todas las herramientas, `bulk_upsert` con `dry_run` exacto (savepoints) | 2026-10-30 | ver `git log` |
 
 ### Pendiente (en el orden recomendado)
 
 | Fase | Contenido | Tamaño |
 |---|---|---|
-| B.1 ⏳ | Fechas históricas, referencias por `external_id`, `bulk_upsert` / `dry_run` (mejoran la migración y la sincronización) | M |
 | C ⏳ | Herramientas para agentes proactivos (`list_changes`, `needs_attention`, anotaciones destructivas) + matriz de compatibilidad | S–M |
 | A.3 ⏳ | Resto de `hiloctl` (pipelines, canales, auditoría, marca) + `HILO_UI=minimal/off` | M |
 | B ⏳ | Importador por terminal para volúmenes grandes: paquete Hilo, cargador, CSV genérico, `export`, `--dry-run` | M |

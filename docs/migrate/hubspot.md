@@ -31,14 +31,14 @@ Paginá con `after`. Para volúmenes grandes, usá los endpoints `batch/read`.
 | company `name`, `domain`, `industry`, `country`, `website`, `description` | `upsert_company` con los mismos nombres |
 | company `numberofemployees` | `size_range` (agrupá: 1-10, 11-50, 51-200, 201-1000, 1001-5000, 5000+) |
 | contact `firstname`, `lastname`, `email`, `phone`, `jobtitle` | `first_name`, `last_name`, `email`, `phone`, `title` |
-| contact asociado a empresa | `company` (dominio o id de Hilo) |
+| contact asociado a empresa | `company` (`hubspot:<id>` de la empresa) |
 | deal `dealname`, `amount`, `deal_currency_code`, `closedate` | `title`, `amount`, `currency`, `expected_close_date` (solo la fecha) |
 | deal `pipeline`, `dealstage` | `pipeline`, `stage` según el mapeo aprobado |
 | deal `closed_lost_reason` | `lost_reason` |
 | deal asociado a contactos | `primary_contact` (el primero) y `contacts` |
 | `hubspot_owner_id` (en cualquier objeto) | `owner` = email del propietario |
 | `hs_lead_status`, `lifecyclestage` | `tags` (si la persona lo quiere) |
-| `createdate`, `closedate` de deals cerrados | `custom` (`origen_creado`, `origen_cerrado`) |
+| deal `createdate`; `closedate` de los cerrados | `created_at`; `closed_at` |
 
 ## Etapas
 
@@ -58,7 +58,7 @@ Cada etapa de `/crm/v3/pipelines/deals` trae `metadata.isClosed` y `metadata.pro
 | notes | `note` | `internal` | `hs_timestamp`, `hs_note_body` |
 | communications (WhatsApp, SMS, LinkedIn) | `message` o `social` | según el caso | `hs_timestamp`, `hs_communication_body` |
 
-Vinculá cada interacción con la empresa, el contacto y la oportunidad asociados (ids de Hilo del mapa).
+Vinculá cada interacción con la empresa, el contacto y la oportunidad asociados (por su `external_id`, por ejemplo `"opportunity": "hubspot:456"`).
 
 ## Trampas
 

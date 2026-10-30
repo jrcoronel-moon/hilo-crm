@@ -37,10 +37,12 @@ en la documentación oficial del origen la versión vigente de la API, los permi
 1. **`external_id = "<origen>:<id>"`** en todo lo que se carga (`hubspot:12345`, `sf:0065g00000AbCdE`). Es lo que
    hace que reintentar sea seguro: el mismo `external_id` actualiza, nunca duplica.
 2. **Orden de carga**: pipelines y canales → empresas → contactos → oportunidades → interacciones. Cada paso
-   referencia lo anterior: empresas por id de Hilo o dominio, contactos por id o email, oportunidades por id.
-3. **Guardá un mapa `id del origen → id de Hilo`**: cada `upsert_*` devuelve el registro con su `id`. Hace falta
-   para vincular empresas sin dominio, contactos sin email y todas las interacciones con su oportunidad. Si se
-   pierde (por ejemplo, al reanudar), repetir el `upsert_*` con el mismo `external_id` devuelve el mismo registro.
+   referencia lo anterior **por su `external_id`** (`"company": "hubspot:123"`, `"opportunity": "hubspot:456"`),
+   así que no hace falta guardar ningún mapa de ids. También valen el id de Hilo, el dominio de la empresa o el
+   email del contacto.
+3. **En lotes**: `bulk_upsert` carga hasta 200 registros por llamada, en ese mismo orden (un lote puede traer la
+   empresa, sus contactos y sus oportunidades juntos). Cada registro sale bien o mal por su cuenta y la respuesta
+   dice cuál falló y por qué. Con `"dry_run": true` valida todo sin guardar nada: usalo con la muestra.
 4. **Omitir, no vaciar**: en los `upsert_*`, un campo omitido queda como está y un string vacío lo borra. Si el
    origen no tiene un valor, no mandes el campo.
 5. **Etapas perdidas necesitan motivo** (`lost_reason`). Usá el del origen; si no hay, `"Migrado: sin motivo"`.
@@ -82,16 +84,19 @@ Mostrá el mapeo a la persona y esperá su aprobación antes de seguir.
 
 ### 3. Muestra
 
-Cargá unas 10 empresas con sus contactos, oportunidades e interacciones. Verificalas con `get_company`,
-`get_opportunity` y `get_timeline`, y mostrale el resultado a la persona antes de seguir.
+Mandá unas 10 empresas con sus contactos, oportunidades e interacciones en un `bulk_upsert` con `"dry_run": true`
+y corregí lo que falle. Después cargalas de verdad, verificalas con `get_company`, `get_opportunity` y
+`get_timeline`, y mostrale el resultado a la persona antes de seguir.
 
 ### 4. Carga completa
+
+Con `bulk_upsert` (lotes de hasta 200) o, registro por registro, con:
 
 | Paso | Herramienta | Claves |
 |---|---|---|
 | Empresas | `upsert_company` | `external_id`, `name`, `domain`, `industry`, `size_range`, `country`, `website`, `description`, `owner`, `tags`, `custom` |
 | Contactos | `upsert_contact` | `external_id`, `email`, `first_name`, `last_name`, `phone`, `title`, `linkedin_url`, `company` (dominio o id), `owner`, `tags`, `custom` |
-| Oportunidades | `upsert_opportunity` | `external_id`, `title`, `kind` (`deal`/`project`), `company`, `primary_contact`, `contacts` (con `role`), `pipeline`, `stage`, `lost_reason`, `amount`, `currency`, `probability`, `expected_close_date`, `source_channel`, `owner`, `next_step`, `next_step_at`, `description`, `tags`, `custom` |
+| Oportunidades | `upsert_opportunity` | `external_id`, `title`, `kind` (`deal`/`project`), `company`, `primary_contact`, `contacts` (con `role`), `pipeline`, `stage`, `lost_reason`, `amount`, `currency`, `probability`, `expected_close_date`, `source_channel`, `owner`, `next_step`, `next_step_at`, `description`, `tags`, `custom`, `created_at`, `closed_at` |
 | Interacciones | `log_interaction` | `external_id`, `type`, `direction`, `occurred_at` (fecha original), `subject`, `summary`, `duration_minutes`, `channel`, `company`, `contact`, `opportunity` |
 
 Tipos de interacción: `email`, `call`, `meeting`, `note`, `message`, `social`, `form`. Dirección: `inbound`,
@@ -107,11 +112,15 @@ Las tareas pendientes del origen no son interacciones: la próxima de cada oport
 - Revisá al azar algunos registros contra el origen.
 - Entregá un informe: cuánto se cargó por tipo, qué se omitió y por qué, dueños sin mapear, errores.
 
-## Limitación conocida: fechas históricas
+## Fechas históricas
 
-Hilo registra la fecha de creación, la de cierre y la de entrada a la etapa actual en el momento de la carga. Las
-interacciones sí conservan su fecha original (`occurred_at`). Por eso, después de migrar, el dashboard muestra lo
-cerrado en el origen como cerrado el día de la migración, y el ciclo y el tiempo en etapa cuentan desde ese día.
+Para que el dashboard refleje la historia real (ganado por mes, ciclo de venta, tiempo en etapa), mandá al crear
+cada oportunidad su fecha original de creación (`created_at`) y, si está ganada o perdida, la de cierre
+(`closed_at`). Formato `AAAA-MM-DD` o RFC 3339, siempre en el pasado.
 
-Mientras eso no cambie, guardá las fechas originales en `custom` para no perderlas:
-`{"origen_creado": "2024-03-01", "origen_cerrado": "2024-06-15"}`.
+- Requiere permiso de administración (`crm:admin`): cambia las métricas. Si el agente no lo tiene, la persona puede
+  conectarlo con ese permiso solo para la migración.
+- Solo al crear: en una oportunidad existente se rechaza.
+- Si solo se conoce una de las dos fechas, Hilo usa esa para ambas.
+- Las interacciones conservan su fecha con `occurred_at`. Las empresas y los contactos no tienen fecha histórica:
+  si importa, guardala en `custom` (`{"origen_creado": "2024-03-01"}`).

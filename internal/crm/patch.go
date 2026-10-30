@@ -212,36 +212,47 @@ func (r resolvers) channel(ref string) (uuid.UUID, error) {
 		})
 }
 
-// company accepts a company id or domain.
-func (r resolvers) company(ref string) (uuid.UUID, error) {
-	return byIDOr("company", ref,
-		func(id uuid.UUID) error {
-			_, err := r.q.GetCompany(r.ctx, store.GetCompanyParams{WorkspaceID: r.ws, ID: id})
-			return err
-		},
-		func(key string) (uuid.UUID, error) {
-			d, err := NormalizeDomain("company", key)
-			if err != nil || d == "" {
-				return uuid.Nil, invalid("company", "must be a company id or domain")
-			}
-			c, err := r.q.GetCompanyByDomain(r.ctx, store.GetCompanyByDomainParams{WorkspaceID: r.ws, Domain: &d})
-			return c.ID, err
-		})
+// refKey splits a reference into the one column it can match: an id, a
+// natural key (when normalize accepts it: a domain, an email) or an external_id.
+type refKey struct {
+	id            *uuid.UUID
+	key, external *string
 }
 
-// contact accepts a contact id or email.
+func splitRef(field, ref string, normalize func(string, string) (string, error)) refKey {
+	ref = strings.TrimSpace(ref)
+	if id, err := uuid.Parse(ref); err == nil {
+		return refKey{id: &id}
+	}
+	if n, err := normalize(field, ref); err == nil && n != "" {
+		return refKey{key: &n}
+	}
+	return refKey{external: &ref}
+}
+
+// company accepts a company id, domain or external_id ("hubspot:123").
+func (r resolvers) company(ref string) (uuid.UUID, error) {
+	k := splitRef("company", ref, NormalizeDomain)
+	id, err := r.q.ResolveCompanyRef(r.ctx, store.ResolveCompanyRefParams{WorkspaceID: r.ws, RefID: k.id, RefKey: k.key, RefExternal: k.external})
+	return id, notFound("company", err)
+}
+
+// contact accepts a contact id, email or external_id.
 func (r resolvers) contact(ref string) (uuid.UUID, error) {
-	return byIDOr("contact", ref,
+	k := splitRef("contact", ref, NormalizeEmail)
+	id, err := r.q.ResolveContactRef(r.ctx, store.ResolveContactRefParams{WorkspaceID: r.ws, RefID: k.id, RefKey: k.key, RefExternal: k.external})
+	return id, notFound("contact", err)
+}
+
+// opportunity accepts an opportunity id or external_id.
+func (r resolvers) opportunity(ref string) (uuid.UUID, error) {
+	return byIDOr("opportunity", ref,
 		func(id uuid.UUID) error {
-			_, err := r.q.GetContact(r.ctx, store.GetContactParams{WorkspaceID: r.ws, ID: id})
+			_, err := r.q.GetOpportunity(r.ctx, store.GetOpportunityParams{WorkspaceID: r.ws, ID: id})
 			return err
 		},
 		func(key string) (uuid.UUID, error) {
-			e, err := NormalizeEmail("contact", key)
-			if err != nil || e == "" {
-				return uuid.Nil, invalid("contact", "must be a contact id or email")
-			}
-			c, err := r.q.GetContactByEmail(r.ctx, store.GetContactByEmailParams{WorkspaceID: r.ws, Email: &e})
-			return c.ID, err
+			o, err := r.q.GetOpportunityByExternalID(r.ctx, store.GetOpportunityByExternalIDParams{WorkspaceID: r.ws, ExternalID: &key})
+			return o.ID, err
 		})
 }

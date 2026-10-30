@@ -42,7 +42,7 @@ Con multimoneda activada, sumá `CurrencyIsoCode` a Opportunity. Los campos pers
 | Opportunity `LeadSource` | `source_channel` |
 | OpportunityContactRole | `contacts` (`role` = `Role`); el de `IsPrimary` → `primary_contact` |
 | `OwnerId` → User `Email` | `owner` |
-| `CreatedDate`, `CloseDate` de cerradas | `custom` (`origen_creado`, `origen_cerrado`) |
+| Opportunity `CreatedDate`; `CloseDate` de las cerradas | `created_at`; `closed_at` |
 
 ## Etapas
 

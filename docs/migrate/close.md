@@ -29,7 +29,7 @@ Una API key (Settings → Developer → API Keys), por HTTP Basic: la key como u
 | contact `name`, `title`, `emails[0].email`, `phones[0].phone` | `first_name` + `last_name` (separá el nombre), `title`, `email`, `phone` |
 | opportunity `note`, `value`, `value_currency`, `confidence`, `contact_id`, `user_id` | `title`/`description`, `amount`, `currency`, `probability`, `primary_contact`, `owner` |
 | opportunity `status_id` | `stage` según el mapeo |
-| `date_created`, `date_won` | `custom` (`origen_creado`, `origen_cerrado`) |
+| opportunity `date_created`; `date_won` (o `date_lost`) | `created_at`; `closed_at` |
 
 Las oportunidades de Close no tienen título propio: usá `"<lead> – <nota corta>"` como `title`.
 

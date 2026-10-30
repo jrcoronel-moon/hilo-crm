@@ -191,7 +191,7 @@ type ListFilter struct {
 	Query   string `json:"query,omitempty" jsonschema:"case-insensitive substring match"`
 	Owner   string `json:"owner,omitempty" jsonschema:"member id or email"`
 	Tag     string `json:"tag,omitempty"`
-	Company string `json:"company,omitempty" jsonschema:"company id or domain (contacts only)"`
+	Company string `json:"company,omitempty" jsonschema:"company id, domain or external_id (contacts only)"`
 	Cursor  string `json:"cursor,omitempty" jsonschema:"next_cursor from a previous page"`
 	Limit   int    `json:"limit,omitempty" jsonschema:"page size, default 25, max 100"`
 }

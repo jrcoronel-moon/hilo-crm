@@ -37,7 +37,7 @@ parámetro `api_token`. Base: `https://<empresa>.pipedrive.com/api/`.
 | deal `person_id` + participantes | `primary_contact`, `contacts` |
 | `owner_id` / `user_id` → email | `owner` |
 | deal `label`s | `tags` |
-| `add_time`, `won_time`, `lost_time` | `custom` (`origen_creado`, `origen_cerrado`) |
+| deal `add_time`; `won_time` o `lost_time` | `created_at`; `closed_at` |
 
 Los campos personalizados vienen con claves de 40 caracteres (hash): traducilas con `/…Fields` y guardalas en
 `custom` con su nombre legible.

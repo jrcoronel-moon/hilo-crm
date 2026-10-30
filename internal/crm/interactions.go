@@ -35,9 +35,9 @@ type InteractionInput struct {
 	Summary         string `json:"summary,omitempty" jsonschema:"what happened; keep it a summary, max 10000 chars"`
 	OccurredAt      string `json:"occurred_at,omitempty" jsonschema:"RFC 3339; default now"`
 	DurationMinutes *int   `json:"duration_minutes,omitempty"`
-	Company         string `json:"company,omitempty" jsonschema:"company id or domain"`
-	Contact         string `json:"contact,omitempty" jsonschema:"contact id or email"`
-	Opportunity     string `json:"opportunity,omitempty" jsonschema:"opportunity id"`
+	Company         string `json:"company,omitempty" jsonschema:"company id, domain or external_id"`
+	Contact         string `json:"contact,omitempty" jsonschema:"contact id, email or external_id"`
+	Opportunity     string `json:"opportunity,omitempty" jsonschema:"opportunity id or external_id"`
 	ExternalID      string `json:"external_id,omitempty" jsonschema:"your id (e.g. email message id) so retries do not duplicate"`
 }
 
@@ -115,14 +115,7 @@ func (s *Service) logInteraction(ctx context.Context, q *store.Queries, a Actor,
 	pt.ref(&p.ChannelID, strPtrIf(in.Channel), r.channel)
 	pt.ref(&p.CompanyID, strPtrIf(in.Company), r.company)
 	pt.ref(&p.ContactID, strPtrIf(in.Contact), r.contact)
-	pt.ref(&p.OpportunityID, strPtrIf(in.Opportunity), func(v string) (uuid.UUID, error) {
-		id, err := parseID("opportunity", v)
-		if err != nil {
-			return id, err
-		}
-		_, err = q.GetOpportunity(ctx, store.GetOpportunityParams{WorkspaceID: ws, ID: id})
-		return id, notFound("opportunity", err)
-	})
+	pt.ref(&p.OpportunityID, strPtrIf(in.Opportunity), r.opportunity)
 	pt.line(&p.Subject, "subject", &in.Subject, 300)
 	pt.text(&p.Summary, "summary", &in.Summary, 10000)
 	pt.externalID(&p.ExternalID, &in.ExternalID)
@@ -167,9 +160,9 @@ func (s *Service) logInteraction(ctx context.Context, q *store.Queries, a Actor,
 
 // TimelineInput selects whose timeline to read (exactly one).
 type TimelineInput struct {
-	Opportunity string `json:"opportunity,omitempty" jsonschema:"opportunity id"`
-	Contact     string `json:"contact,omitempty" jsonschema:"contact id or email"`
-	Company     string `json:"company,omitempty" jsonschema:"company id or domain"`
+	Opportunity string `json:"opportunity,omitempty" jsonschema:"opportunity id or external_id"`
+	Contact     string `json:"contact,omitempty" jsonschema:"contact id, email or external_id"`
+	Company     string `json:"company,omitempty" jsonschema:"company id, domain or external_id"`
 	Limit       int    `json:"limit,omitempty" jsonschema:"default 30, max 200"`
 }
 
@@ -203,7 +196,7 @@ func (s *Service) Timeline(ctx context.Context, a Actor, in TimelineInput) ([]Ti
 		var pt patcher
 		pt.ref(&p.CompanyID, strPtrIf(in.Company), r.company)
 		pt.ref(&p.ContactID, strPtrIf(in.Contact), r.contact)
-		pt.ref(&p.OpportunityID, strPtrIf(in.Opportunity), func(v string) (uuid.UUID, error) { return parseID("opportunity", v) })
+		pt.ref(&p.OpportunityID, strPtrIf(in.Opportunity), r.opportunity)
 		if pt.err != nil {
 			return pt.err
 		}

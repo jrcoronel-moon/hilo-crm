@@ -290,10 +290,11 @@ func TestTenantIsolation(t *testing.T) {
 	if ob.ID == oa.ID {
 		t.Fatal("external_id matched across workspaces")
 	}
-	if _, err := f.crm.Timeline(f.ctx, b, crm.TimelineInput{Opportunity: oa.ID.String()}); err != nil {
-		t.Fatal(err)
-	} else if tl := must(f.crm.Timeline(f.ctx, b, crm.TimelineInput{Opportunity: oa.ID.String()})); len(tl) != 0 {
-		t.Fatalf("B saw A's timeline: %+v", tl)
+	if tl, err := f.crm.Timeline(f.ctx, b, crm.TimelineInput{Opportunity: oa.ID.String()}); !errors.Is(err, crm.ErrNotFound) {
+		t.Fatalf("B asked for A's timeline: %+v %v", tl, err)
+	}
+	if _, err := f.crm.Timeline(f.ctx, b, crm.TimelineInput{Opportunity: "shared-ext"}); err != nil {
+		t.Fatal(err) // B's own record with that external_id
 	}
 	if r := must(f.crm.Search(f.ctx, b, "secret", 10)); len(r) != 0 {
 		t.Fatalf("B found A's data: %+v", r)

@@ -794,8 +794,8 @@ func (q *Queries) InsertInteraction(ctx context.Context, arg InsertInteractionPa
 
 const insertStageChange = `-- name: InsertStageChange :exec
 INSERT INTO stage_changes (workspace_id, opportunity_id, from_stage_id, from_stage_name, to_stage_id, to_stage_name,
-                           to_category, reason, changed_by)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                           to_category, reason, changed_by, changed_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 `
 
 type InsertStageChangeParams struct {
@@ -808,6 +808,7 @@ type InsertStageChangeParams struct {
 	ToCategory    string     `json:"to_category"`
 	Reason        string     `json:"reason"`
 	ChangedBy     *uuid.UUID `json:"changed_by"`
+	ChangedAt     time.Time  `json:"changed_at"`
 }
 
 func (q *Queries) InsertStageChange(ctx context.Context, arg InsertStageChangeParams) error {
@@ -821,6 +822,7 @@ func (q *Queries) InsertStageChange(ctx context.Context, arg InsertStageChangePa
 		arg.ToCategory,
 		arg.Reason,
 		arg.ChangedBy,
+		arg.ChangedAt,
 	)
 	return err
 }
@@ -1313,6 +1315,58 @@ func (q *Queries) ListTags(ctx context.Context, workspaceID uuid.UUID) ([]ListTa
 	return items, nil
 }
 
+const resolveCompanyRef = `-- name: ResolveCompanyRef :one
+
+SELECT id FROM companies
+WHERE workspace_id = $1 AND archived_at IS NULL
+  AND (id = $2 OR domain = $3 OR external_id = $4)
+`
+
+type ResolveCompanyRefParams struct {
+	WorkspaceID uuid.UUID  `json:"workspace_id"`
+	RefID       *uuid.UUID `json:"ref_id"`
+	RefKey      *string    `json:"ref_key"`
+	RefExternal *string    `json:"ref_external"`
+}
+
+// ───────────── references (id | natural key | external_id) ─────────────
+func (q *Queries) ResolveCompanyRef(ctx context.Context, arg ResolveCompanyRefParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, resolveCompanyRef,
+		arg.WorkspaceID,
+		arg.RefID,
+		arg.RefKey,
+		arg.RefExternal,
+	)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const resolveContactRef = `-- name: ResolveContactRef :one
+SELECT id FROM contacts
+WHERE workspace_id = $1 AND archived_at IS NULL
+  AND (id = $2 OR email = $3 OR external_id = $4)
+`
+
+type ResolveContactRefParams struct {
+	WorkspaceID uuid.UUID  `json:"workspace_id"`
+	RefID       *uuid.UUID `json:"ref_id"`
+	RefKey      *string    `json:"ref_key"`
+	RefExternal *string    `json:"ref_external"`
+}
+
+func (q *Queries) ResolveContactRef(ctx context.Context, arg ResolveContactRefParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, resolveContactRef,
+		arg.WorkspaceID,
+		arg.RefID,
+		arg.RefKey,
+		arg.RefExternal,
+	)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
 const saveCompany = `-- name: SaveCompany :one
 INSERT INTO companies (id, workspace_id, name, domain, industry, size_range, country, website, description,
                        owner_id, source_channel_id, tags, custom, external_id)
@@ -1457,8 +1511,8 @@ func (q *Queries) SaveContact(ctx context.Context, arg SaveContactParams) (Conta
 const saveOpportunity = `-- name: SaveOpportunity :one
 INSERT INTO opportunities (id, workspace_id, title, kind, company_id, primary_contact_id, pipeline_id, stage_id, status,
     amount_minor, currency, probability, expected_close_date, closed_at, lost_reason, source_channel_id, owner_id,
-    next_step, next_step_at, description, tags, custom, external_id, stage_entered_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
+    next_step, next_step_at, description, tags, custom, external_id, stage_entered_at, created_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
 ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, kind = EXCLUDED.kind, company_id = EXCLUDED.company_id,
     primary_contact_id = EXCLUDED.primary_contact_id, pipeline_id = EXCLUDED.pipeline_id, stage_id = EXCLUDED.stage_id,
     status = EXCLUDED.status, amount_minor = EXCLUDED.amount_minor, currency = EXCLUDED.currency,
@@ -1496,6 +1550,7 @@ type SaveOpportunityParams struct {
 	Custom            json.RawMessage `json:"custom"`
 	ExternalID        *string         `json:"external_id"`
 	StageEnteredAt    time.Time       `json:"stage_entered_at"`
+	CreatedAt         time.Time       `json:"created_at"`
 }
 
 func (q *Queries) SaveOpportunity(ctx context.Context, arg SaveOpportunityParams) (Opportunity, error) {
@@ -1524,6 +1579,7 @@ func (q *Queries) SaveOpportunity(ctx context.Context, arg SaveOpportunityParams
 		arg.Custom,
 		arg.ExternalID,
 		arg.StageEnteredAt,
+		arg.CreatedAt,
 	)
 	var i Opportunity
 	err := row.Scan(

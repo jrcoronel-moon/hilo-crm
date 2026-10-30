@@ -117,8 +117,8 @@ SELECT * FROM opportunities WHERE workspace_id = $1 AND external_id = $2 AND arc
 -- name: SaveOpportunity :one
 INSERT INTO opportunities (id, workspace_id, title, kind, company_id, primary_contact_id, pipeline_id, stage_id, status,
     amount_minor, currency, probability, expected_close_date, closed_at, lost_reason, source_channel_id, owner_id,
-    next_step, next_step_at, description, tags, custom, external_id, stage_entered_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
+    next_step, next_step_at, description, tags, custom, external_id, stage_entered_at, created_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
 ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, kind = EXCLUDED.kind, company_id = EXCLUDED.company_id,
     primary_contact_id = EXCLUDED.primary_contact_id, pipeline_id = EXCLUDED.pipeline_id, stage_id = EXCLUDED.stage_id,
     status = EXCLUDED.status, amount_minor = EXCLUDED.amount_minor, currency = EXCLUDED.currency,
@@ -204,8 +204,8 @@ ORDER BY c.last_name, c.first_name;
 
 -- name: InsertStageChange :exec
 INSERT INTO stage_changes (workspace_id, opportunity_id, from_stage_id, from_stage_name, to_stage_id, to_stage_name,
-                           to_category, reason, changed_by)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
+                           to_category, reason, changed_by, changed_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
 
 -- ───────────── interactions ─────────────
 
@@ -293,3 +293,15 @@ SELECT t::text AS tag, count(*)::int AS n FROM (
     UNION ALL SELECT unnest(contacts.tags) FROM contacts WHERE contacts.workspace_id = sqlc.arg(workspace_id) AND contacts.archived_at IS NULL
     UNION ALL SELECT unnest(opportunities.tags) FROM opportunities WHERE opportunities.workspace_id = sqlc.arg(workspace_id) AND opportunities.archived_at IS NULL
 ) x GROUP BY t ORDER BY n DESC, t LIMIT 200;
+
+-- ───────────── references (id | natural key | external_id) ─────────────
+
+-- name: ResolveCompanyRef :one
+SELECT id FROM companies
+WHERE workspace_id = $1 AND archived_at IS NULL
+  AND (id = sqlc.narg(ref_id) OR domain = sqlc.narg(ref_key) OR external_id = sqlc.narg(ref_external));
+
+-- name: ResolveContactRef :one
+SELECT id FROM contacts
+WHERE workspace_id = $1 AND archived_at IS NULL
+  AND (id = sqlc.narg(ref_id) OR email = sqlc.narg(ref_key) OR external_id = sqlc.narg(ref_external));

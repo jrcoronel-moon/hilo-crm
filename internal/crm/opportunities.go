@@ -20,8 +20,8 @@ type OpportunityInput struct {
 	ExternalID        *string         `json:"external_id,omitempty" jsonschema:"your own stable id for idempotent upserts"`
 	Title             *string         `json:"title,omitempty"`
 	Kind              *string         `json:"kind,omitempty" jsonschema:"deal (default) or project"`
-	Company           *string         `json:"company,omitempty" jsonschema:"company id or domain; empty string clears"`
-	PrimaryContact    *string         `json:"primary_contact,omitempty" jsonschema:"contact id or email; empty string clears"`
+	Company           *string         `json:"company,omitempty" jsonschema:"company id, domain or external_id; empty string clears"`
+	PrimaryContact    *string         `json:"primary_contact,omitempty" jsonschema:"contact id, email or external_id; empty string clears"`
 	Pipeline          *string         `json:"pipeline,omitempty" jsonschema:"pipeline id or name; only on create (default pipeline if omitted)"`
 	Stage             *string         `json:"stage,omitempty" jsonschema:"stage id or name; omitted on create = the initial stage"`
 	LostReason        *string         `json:"lost_reason,omitempty" jsonschema:"required when moving to a lost stage"`
@@ -36,12 +36,14 @@ type OpportunityInput struct {
 	Description       *string         `json:"description,omitempty"`
 	Tags              *[]string       `json:"tags,omitempty" jsonschema:"replaces all tags"`
 	Custom            *map[string]any `json:"custom,omitempty" jsonschema:"free-form fields; replaces the whole object"`
+	CreatedAt         *string         `json:"created_at,omitempty" jsonschema:"only on create, for migrations (needs crm:admin): original creation date, RFC 3339 or YYYY-MM-DD, in the past"`
+	ClosedAt          *string         `json:"closed_at,omitempty" jsonschema:"only on create in a won or lost stage, for migrations (needs crm:admin): original close date, in the past"`
 	Contacts          []ContactRole   `json:"contacts,omitempty" jsonschema:"contacts to link (added, never removed)"`
 }
 
 // ContactRole links a contact to an opportunity.
 type ContactRole struct {
-	Contact string `json:"contact" jsonschema:"contact id or email"`
+	Contact string `json:"contact" jsonschema:"contact id, email or external_id"`
 	Role    string `json:"role,omitempty" jsonschema:"e.g. decision maker, champion"`
 }
 
@@ -113,6 +115,7 @@ type stageMove struct {
 	from   *store.PipelineStage
 	to     store.PipelineStage
 	reason string
+	at     time.Time
 }
 
 // enterStage puts o into stage st, keeping status, closed_at and the lost
@@ -196,9 +199,14 @@ func (s *Service) upsertOpportunity(ctx context.Context, q *store.Queries, a Act
 		return oppWrite{}, err
 	}
 	w := oppWrite{created: cur == nil}
+	hist, err := historicDates(a, in, w.created, s.now())
+	if err != nil {
+		return oppWrite{}, err
+	}
 	var curStage store.PipelineStage
 	if w.created {
-		w.o = store.Opportunity{ID: newID(), WorkspaceID: ws, Kind: "deal", Currency: "USD", Tags: []string{}, Custom: json.RawMessage(`{}`), Status: "open"}
+		w.o = store.Opportunity{ID: newID(), WorkspaceID: ws, Kind: "deal", Currency: "USD", Tags: []string{}, Custom: json.RawMessage(`{}`),
+			Status: "open", CreatedAt: hist.created}
 		pipe, err := resolvePipeline(ctx, q, ws, deref(in.Pipeline))
 		if err != nil {
 			return oppWrite{}, err
@@ -218,7 +226,7 @@ func (s *Service) upsertOpportunity(ctx context.Context, q *store.Queries, a Act
 	if err != nil {
 		return oppWrite{}, err
 	}
-	if err := s.applyStage(ctx, q, &w, in, curStage, reason); err != nil {
+	if err := s.applyStage(ctx, q, &w, in, curStage, reason, hist); err != nil {
 		return oppWrite{}, err
 	}
 	if w.o, err = saveOpportunity(ctx, q, w.o); err != nil {
@@ -230,6 +238,67 @@ func (s *Service) upsertOpportunity(ctx context.Context, q *store.Queries, a Act
 		}
 	}
 	return w, nil
+}
+
+// history holds the dates of an opportunity being created: now, or the
+// original ones of a migrated record.
+type history struct {
+	created, closed time.Time
+	closedGiven     bool
+}
+
+// earliest is the oldest date a migrated record may carry.
+var earliest = time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC)
+
+// historicDates validates created_at / closed_at: only when creating, only
+// for admins (they change the metrics), in the past, and closed after created.
+func historicDates(a Actor, in OpportunityInput, creating bool, now time.Time) (history, error) {
+	h := history{created: now, closed: now}
+	if in.CreatedAt == nil && in.ClosedAt == nil {
+		return h, nil
+	}
+	if !creating {
+		return h, invalid("created_at", "created_at and closed_at can only be set when creating an opportunity")
+	}
+	if err := a.require(PermAdmin); err != nil {
+		return h, invalid("created_at", "setting historical dates needs crm:admin")
+	}
+	parse := func(field string, v *string, into *time.Time) error {
+		if v == nil {
+			return nil
+		}
+		t, err := parseTime(field, *v)
+		if err != nil {
+			d, derr := parseDate(field, *v)
+			if derr != nil || d == nil {
+				return err
+			}
+			t = d
+		}
+		if t == nil || t.After(now) || t.Before(earliest) {
+			return invalid(field, "must be a past date after 1990")
+		}
+		*into = *t
+		return nil
+	}
+	if err := parse("created_at", in.CreatedAt, &h.created); err != nil {
+		return h, err
+	}
+	if in.ClosedAt != nil {
+		h.closedGiven = true
+		if err := parse("closed_at", in.ClosedAt, &h.closed); err != nil {
+			return h, err
+		}
+	} else if in.CreatedAt != nil {
+		h.closed = h.created // closed without a known date: as old as the record
+	}
+	if in.CreatedAt == nil {
+		h.created = h.closed // only the close date is known
+	}
+	if h.closed.Before(h.created) {
+		return h, invalid("closed_at", "must not be before created_at")
+	}
+	return h, nil
 }
 
 // switchPipeline handles an explicit pipeline on update: moving to another
@@ -300,7 +369,7 @@ func applyOpportunityFields(o *store.Opportunity, in OpportunityInput, r resolve
 
 // applyStage resolves the target stage (explicit, or the initial stage on
 // create) and, if it changes, enters it and prepares the history entry.
-func (s *Service) applyStage(ctx context.Context, q *store.Queries, w *oppWrite, in OpportunityInput, curStage store.PipelineStage, reason string) error {
+func (s *Service) applyStage(ctx context.Context, q *store.Queries, w *oppWrite, in OpportunityInput, curStage store.PipelineStage, reason string, hist history) error {
 	ws := w.o.WorkspaceID
 	w.stage = curStage
 	var err error
@@ -319,10 +388,20 @@ func (s *Service) applyStage(ctx context.Context, q *store.Queries, w *oppWrite,
 		}
 		return nil
 	}
-	if err := enterStage(&w.o, w.stage, reason, s.now()); err != nil {
+	at := s.now()
+	if w.created {
+		at = hist.created
+		if w.stage.Category == CatWon || w.stage.Category == CatLost {
+			at = hist.closed
+		}
+	}
+	if hist.closedGiven && statusFor(w.stage.Category) == "open" {
+		return invalid("closed_at", "only applies to an opportunity created in a won or lost stage")
+	}
+	if err := enterStage(&w.o, w.stage, reason, at); err != nil {
 		return err
 	}
-	w.move = &stageMove{to: w.stage, reason: reason}
+	w.move = &stageMove{to: w.stage, reason: reason, at: at}
 	if !w.created {
 		w.move.from = &curStage
 	}
@@ -337,7 +416,7 @@ func saveOpportunity(ctx context.Context, q *store.Queries, o store.Opportunity)
 		ExpectedCloseDate: o.ExpectedCloseDate, ClosedAt: o.ClosedAt, LostReason: o.LostReason,
 		SourceChannelID: o.SourceChannelID, OwnerID: o.OwnerID, NextStep: o.NextStep, NextStepAt: o.NextStepAt,
 		Description: o.Description, Tags: o.Tags, Custom: o.Custom, ExternalID: o.ExternalID,
-		StageEnteredAt: o.StageEnteredAt,
+		StageEnteredAt: o.StageEnteredAt, CreatedAt: o.CreatedAt, // created_at is only written on insert
 	})
 }
 
@@ -359,7 +438,7 @@ func (s *Service) recordMove(ctx context.Context, q *store.Queries, a Actor, opp
 	}
 	p := store.InsertStageChangeParams{
 		WorkspaceID: a.WorkspaceID, OpportunityID: oppID, ToStageID: &m.to.ID, ToStageName: m.to.Name,
-		ToCategory: m.to.Category, Reason: m.reason, ChangedBy: a.userPtr(),
+		ToCategory: m.to.Category, Reason: m.reason, ChangedBy: a.userPtr(), ChangedAt: m.at,
 	}
 	if m.from != nil {
 		p.FromStageID, p.FromStageName = &m.from.ID, m.from.Name
@@ -453,8 +532,8 @@ type OpportunityFilter struct {
 	Category    string `json:"category,omitempty" jsonschema:"initial, in_progress, won or lost"`
 	Status      string `json:"status,omitempty" jsonschema:"open, won or lost"`
 	Owner       string `json:"owner,omitempty" jsonschema:"member id or email"`
-	Company     string `json:"company,omitempty" jsonschema:"company id or domain"`
-	Contact     string `json:"contact,omitempty" jsonschema:"contact id or email (primary or linked)"`
+	Company     string `json:"company,omitempty" jsonschema:"company id, domain or external_id"`
+	Contact     string `json:"contact,omitempty" jsonschema:"contact id, email or external_id (primary or linked)"`
 	Channel     string `json:"channel,omitempty" jsonschema:"source channel id or name"`
 	Query       string `json:"query,omitempty" jsonschema:"substring of the title"`
 	Tag         string `json:"tag,omitempty" jsonschema:"only opportunities with this tag"`

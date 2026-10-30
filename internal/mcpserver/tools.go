@@ -131,6 +131,11 @@ func (s *Server) tools() []tool {
 			crm.PermWrite, additiveTool, func(ctx context.Context, a crm.Actor, s *Server, in crm.InteractionInput) (any, error) {
 				return s.crm.LogInteraction(ctx, a, in)
 			}),
+		def("bulk_upsert", "Create or update many records",
+			"Up to 200 companies, contacts, opportunities and interactions in one call, processed in that order, so later items can reference earlier ones by external_id. Each record succeeds or fails on its own; the result lists every one. Use dry_run first to validate a migration batch without saving. Same rules as the single upserts.",
+			crm.PermWrite, overwritingTool, func(ctx context.Context, a crm.Actor, s *Server, in crm.ImportInput) (any, error) {
+				return s.crm.Import(ctx, a, in)
+			}),
 		def("archive_record", "Archive a record",
 			"Archives a company, contact or opportunity: it disappears from lists and lookups but is kept in the history and audit log.",
 			crm.PermWrite, overwritingTool, func(ctx context.Context, a crm.Actor, s *Server, in crm.ArchiveInput) (any, error) {

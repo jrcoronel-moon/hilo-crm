@@ -35,7 +35,7 @@ API externa: autenticá contra `/xmlrpc/2/common` y leé con `execute_kw` sobre 
 | lead `stage_id`, `lost_reason_id` | `stage`, `lost_reason` |
 | lead `user_id` → email | `owner` |
 | lead `tag_ids`, `source_id`, `medium_id` | `tags`, `source_channel` |
-| lead `create_date`, `date_closed` | `custom` (`origen_creado`, `origen_cerrado`) |
+| lead `create_date`; `date_closed` | `created_at`; `closed_at` |
 
 ## Etapas
 

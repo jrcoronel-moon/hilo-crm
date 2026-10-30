@@ -84,7 +84,11 @@ URL del servidor MCP: `https://<tu-dominio>/mcp`
 
 | Lectura | Escritura | Administración |
 |---|---|---|
-| `search_crm`, `list_pipelines`, `list_channels`, `get_company`, `get_contact`, `get_opportunity`, `list_companies`, `list_contacts`, `list_opportunities`, `get_timeline`, `list_interactions`, `list_tags`, `get_metrics` | `upsert_company`, `upsert_contact`, `upsert_opportunity`, `move_opportunity_stage`, `log_interaction`, `archive_record` | `configure_pipeline`, `upsert_channel` |
+| `search_crm`, `list_pipelines`, `list_channels`, `get_company`, `get_contact`, `get_opportunity`, `list_companies`, `list_contacts`, `list_opportunities`, `get_timeline`, `list_interactions`, `list_tags`, `get_metrics` | `upsert_company`, `upsert_contact`, `upsert_opportunity`, `move_opportunity_stage`, `log_interaction`, `bulk_upsert`, `archive_record` | `configure_pipeline`, `upsert_channel` |
+
+Las referencias entre registros aceptan el id de Hilo, la clave natural (dominio de la empresa, email del contacto) o
+el `external_id` del sistema de origen, así que un agente que sincroniza o migra no necesita guardar ids.
+`bulk_upsert` carga hasta 200 registros por llamada y tiene modo `dry_run` para validar sin guardar.
 
 Cada agente ve solo las herramientas que su rol y su token permiten. Un token OAuth o personal puede restringirse a
 solo lectura; nunca puede ampliar lo que permite el rol.

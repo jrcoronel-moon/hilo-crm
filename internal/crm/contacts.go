@@ -16,7 +16,7 @@ import (
 type ContactInput struct {
 	ID            *string         `json:"id,omitempty" jsonschema:"existing contact id to update"`
 	ExternalID    *string         `json:"external_id,omitempty" jsonschema:"your own stable id for idempotent upserts"`
-	Company       *string         `json:"company,omitempty" jsonschema:"company id or domain; empty string clears"`
+	Company       *string         `json:"company,omitempty" jsonschema:"company id, domain or external_id; empty string clears"`
 	FirstName     *string         `json:"first_name,omitempty"`
 	LastName      *string         `json:"last_name,omitempty"`
 	Email         *string         `json:"email,omitempty" jsonschema:"unique per workspace"`

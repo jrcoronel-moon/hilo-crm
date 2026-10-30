@@ -140,7 +140,7 @@ func TestToolsFilteredByPermission(t *testing.T) {
 	member := toolNames(t, e.connect(e.token(ws, "m@x.com", "member", false)))
 	readOnly := toolNames(t, e.connect(e.token(ws, "a@x.com", "admin", true)))
 
-	if len(owner) != 21 || !slices.Contains(owner, "configure_pipeline") || !slices.Contains(owner, "list_interactions") || !slices.Contains(owner, "list_tags") {
+	if len(owner) != 22 || !slices.Contains(owner, "bulk_upsert") || !slices.Contains(owner, "configure_pipeline") || !slices.Contains(owner, "list_interactions") || !slices.Contains(owner, "list_tags") {
 		t.Fatalf("owner tools (%d): %v", len(owner), owner)
 	}
 	for _, list := range [][]string{viewer, readOnly} {
@@ -195,6 +195,15 @@ func TestAgentFlow(t *testing.T) {
 	}
 	if out, isErr = call(t, cs, "search_crm", map[string]any{"query": "glob"}); isErr || !strings.Contains(out, "Globex") {
 		t.Fatalf("search: %s", out)
+	}
+	batch := map[string]any{"dry_run": true,
+		"companies": []any{map[string]any{"name": "Initech", "external_id": "x:1"}},
+		"contacts":  []any{map[string]any{"email": "peter@initech.test", "company": "x:1"}}}
+	if out, isErr = call(t, cs, "bulk_upsert", batch); isErr || !strings.Contains(out, `"ok":2`) || !strings.Contains(out, `"dry_run":true`) {
+		t.Fatalf("bulk_upsert dry run: %s", out)
+	}
+	if out, _ = call(t, cs, "search_crm", map[string]any{"query": "initech"}); strings.Contains(out, "Initech") {
+		t.Fatalf("dry run saved: %s", out)
 	}
 	// Input-schema validation rejects ill-typed arguments before the service.
 	res, err := cs.CallTool(e.ctx, &mcp.CallToolParams{Name: "log_interaction", Arguments: map[string]any{"type": 5}})
