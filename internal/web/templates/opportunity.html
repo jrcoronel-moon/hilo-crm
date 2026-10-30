@@ -1,7 +1,7 @@
 {{define "actions"}}{{if .View.CanWrite}}<form method="post" action="/opportunities/{{.Data.O.ID}}/archive" data-confirm="¿Archivar esta oportunidad?|Deja de aparecer en el funnel, listas y métricas. Su historial se conserva."><input type="hidden" name="csrf" value="{{.Data.CSRF}}"><button class="btn ghost danger"><svg class="i sm"><use href="#i-trash"/></svg>Archivar</button></form>{{end}}{{end}}
 {{define "content"}}
 {{$d := .Data}}{{$o := $d.O}}
-<div class="record-head">
+<div class="record-head" data-live="head">
   <span class="av lg agent2">{{initials $o.Title ""}}</span>
   <div class="grow"><h1>{{$o.Title}}</h1>
     <p class="muted"><span class="dot {{stageClass $o.StageCategory 1}}"></span> {{$o.StageName}} · {{if eq $o.Status "open"}}abierta{{else if eq $o.Status "won"}}ganada{{else}}perdida{{end}}{{if $o.CompanyID}} · <a href="/companies/{{$o.CompanyID}}">{{$o.CompanyName}}</a>{{end}}</p>
@@ -39,7 +39,7 @@
       </form>
       {{end}}
     </section>
-    <section class="card"><div class="card-head"><h2>Actividad</h2></div>{{template "timeline" $d.Timeline}}</section>
+    <section class="card" data-live="activity"><div class="card-head"><h2>Actividad</h2></div>{{template "timeline" $d.Timeline}}</section>
   </div>
   <div class="gcol">
     <section class="card">

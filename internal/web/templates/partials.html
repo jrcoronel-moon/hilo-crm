@@ -2,7 +2,7 @@
 {{if .}}
 <table class="table">
   <tr><th>Oportunidad</th><th>Etapa</th><th class="num">Monto</th><th>Última actividad</th></tr>
-  {{range .}}<tr><td class="who"><a href="/opportunities/{{.ID}}"><b>{{.Title}}</b></a><small>{{.Kind}}</small></td><td><span class="row"><span class="dot {{stageClass .StageCategory 1}}"></span>{{.StageName}}</span></td>
+  {{range .}}<tr data-row="{{.ID}}"><td class="who"><a href="/opportunities/{{.ID}}"><b>{{.Title}}</b></a><small>{{.Kind}}</small></td><td><span class="row"><span class="dot {{stageClass .StageCategory 1}}"></span>{{.StageName}}</span></td>
     <td class="num">{{money .Amount .Currency}}</td><td>{{ago .LastInteractionAt}}</td></tr>{{end}}
 </table>
 {{else}}<p class="muted">Sin oportunidades.</p>{{end}}

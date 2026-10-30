@@ -329,3 +329,8 @@ strong.big { font-size: 32px; font-weight: 700; letter-spacing: -.02em; }
 .tag-editor .tag button { background: none; border: 0; color: inherit; cursor: pointer; padding: 0 0 0 2px; font: inherit; line-height: 1; }
 .tag-editor.plain { border: 0; padding: 0; min-height: 0; } .tag-editor.plain input { border: 1px solid var(--field); height: 40px; padding: 0 12px; }
 .opp a.t { color: var(--ink); } .opp a.t:hover { color: var(--teal); }
+
+/* live updates: a record that just changed glows briefly */
+.flash { animation: flash 2.5s ease-out; }
+@keyframes flash { from { box-shadow: 0 0 0 3px var(--teal-400); background: var(--teal-50); } to { box-shadow: 0 0 0 0 transparent; } }
+@media (prefers-reduced-motion: reduce) { .flash { animation: none; outline: 2px solid var(--teal-400); } }

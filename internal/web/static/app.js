@@ -125,9 +125,6 @@ $$("form[data-pipeline]").forEach((form) => {
 });
 
 // ───── funnel drag & drop (see board.html) ─────
-const board = $("[data-board]");
-if (board) setupBoard(board);
-
 function setupBoard(board) {
   const csrf = board.dataset.csrf;
   let dragged = null;
@@ -222,7 +219,7 @@ document.addEventListener("click", (e) => {
 });
 
 // ───── bulk selection (opportunities list) ─────
-$$("form[data-bulk]").forEach((form) => {
+function setupBulk(form) {
   const bar = $("[data-bulkbar]", form);
   const boxes = () => $$("input[name=id]", form);
   const update = () => {
@@ -243,7 +240,8 @@ $$("form[data-bulk]").forEach((form) => {
       $("input[name=reason]", form)?.focus();
     }
   });
-});
+}
+
 
 // ───── ⌘K / Ctrl+K focuses the search box ─────
 document.addEventListener("keydown", (e) => {
@@ -345,3 +343,49 @@ $$("form[data-move]").forEach((form) => form.addEventListener("submit", (e) => {
     $("input[name=reason]", form).focus();
   }
 }));
+
+// ───── live updates: the server streams every change in this workspace
+// (GET /events); the page refetches itself and swaps its [data-live] regions,
+// so what agents do shows up without reloading ─────
+function hydrate(root) {
+  $$("[data-board]", root).forEach(setupBoard);
+  $$("form[data-bulk]", root).forEach(setupBulk);
+}
+hydrate(document);
+
+if (window.EventSource && $("[data-live]")) {
+  let timer = null, pending = false, dropped = false;
+  // Never swap content under the user's hands.
+  const busy = () => {
+    const a = document.activeElement;
+    return document.hidden || $("dialog[open]") || $(".dragging") || $$("form[data-bulk] input[name=id]").some((b) => b.checked) ||
+      (a instanceof HTMLElement && a.matches("input, textarea, select") && a.closest("[data-live]"));
+  };
+  const flash = (id) => $$(`[data-opp="${id}"], [data-row="${id}"]`).forEach((n) => {
+    n.classList.add("flash");
+    setTimeout(() => n.classList.remove("flash"), 2500);
+  });
+  const refresh = async (focus) => {
+    if (busy()) { pending = true; timer = setTimeout(() => refresh(focus), 2000); return; }
+    pending = false;
+    const res = await fetch(location.href, { credentials: "same-origin" }).catch(() => null);
+    if (!res || !res.ok || res.redirected) return;
+    const doc = new DOMParser().parseFromString(await res.text(), "text/html");
+    $$("[data-live]").forEach((el) => {
+      const fresh = doc.querySelector(`[data-live="${el.dataset.live}"]`);
+      if (fresh) { el.replaceChildren(...fresh.childNodes); hydrate(el); }
+    });
+    if (focus) flash(focus);
+  };
+  const schedule = (focus) => { clearTimeout(timer); timer = setTimeout(() => refresh(focus), 300); };
+  const es = new EventSource("/events");
+  es.addEventListener("change", (e) => {
+    const ev = JSON.parse(e.data);
+    if (!ev.self) toast(`${ev.actor} ${ev.summary}`);
+    schedule(ev.entity_id);
+  });
+  // After a dropped connection, catch up on whatever was missed.
+  es.addEventListener("error", () => { dropped = true; });
+  es.addEventListener("open", () => { if (dropped) { dropped = false; schedule(); } });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && pending) schedule(); });
+}

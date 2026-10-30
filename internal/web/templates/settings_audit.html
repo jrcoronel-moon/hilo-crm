@@ -1,6 +1,6 @@
 {{define "content"}}
 {{$d := .Data}}
-<section class="card">
+<section class="card" data-live="audit">
   <div class="card-head"><h2>Auditoría</h2><span class="aside">últimos 100 cambios</span></div>
   {{if $d.Audit}}
   <table class="table">

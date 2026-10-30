@@ -116,3 +116,8 @@ WHERE a.workspace_id = $1
   AND (sqlc.narg(entity_id)::uuid IS NULL OR a.entity_id = sqlc.narg(entity_id))
 ORDER BY a.id DESC
 LIMIT sqlc.arg(lim);
+
+-- name: GetAuditEntry :one
+SELECT a.*, COALESCE(u.email, '') AS actor_email
+FROM audit_log a LEFT JOIN users u ON u.id = a.actor_user_id
+WHERE a.workspace_id = $1 AND a.id = $2;

@@ -5,11 +5,12 @@
   <div class="search"><svg class="i sm"><use href="#i-search"/></svg><input type="search" name="q" value="{{$d.Q}}" placeholder="Buscar por nombre o dominio" aria-label="Buscar" data-hotkey="k"><kbd>⌘K</kbd></div>
   {{with $d.Tag}}<span class="chip">Tag: {{.}} <a href="/companies" aria-label="Quitar filtro">×</a></span>{{end}}
 </form>
+<div data-live="list">
 {{if $d.Page.Items}}
 <table class="table">
   <tr><th>Empresa</th><th>Industria</th><th>País</th><th>Tags</th><th class="num">Contactos</th><th class="num">Abiertas</th><th>Última actividad</th></tr>
   {{range $d.Page.Items}}
-  <tr><td><a class="cellflex" href="/companies/{{.ID}}"><span class="av md">{{initials .Name ""}}</span><span class="who"><b>{{.Name}}</b><small>{{or .Domain "sin dominio"}}</small></span></a></td>
+  <tr data-row="{{.ID}}"><td><a class="cellflex" href="/companies/{{.ID}}"><span class="av md">{{initials .Name ""}}</span><span class="who"><b>{{.Name}}</b><small>{{or .Domain "sin dominio"}}</small></span></a></td>
     <td>{{or .Industry "—"}}</td><td>{{or .Country "—"}}</td>
     <td>{{$t := firstTags .Tags 2}}<span class="row">{{range $t.Shown}}<a class="tag {{tagClass .}}" href="/companies?tag={{.}}">{{.}}</a>{{end}}{{if $t.More}}<span class="tag">+{{$t.More}}</span>{{end}}</span></td>
     <td class="num">{{.Contacts}}</td><td class="num">{{.OpenOpps}}</td><td>{{ago .LastActivity}}</td></tr>
@@ -19,6 +20,7 @@
 {{else}}
 <div class="empty"><span class="ic"><svg class="i"><use href="#i-building"/></svg></span><h2>{{if $d.Q}}Sin resultados para “{{$d.Q}}”{{else}}Todavía no hay empresas{{end}}</h2><p>Tus agentes las crean con <code>upsert_company</code>, o creá una desde acá.</p></div>
 {{end}}
+</div>
 {{if .View.CanWrite}}
 <dialog id="new-company" class="wide"><form method="post" action="/companies" class="stack">
   <input type="hidden" name="csrf" value="{{$d.CSRF}}">

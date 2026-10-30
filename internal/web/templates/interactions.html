@@ -6,11 +6,12 @@
   <select name="channel" data-autosubmit aria-label="Canal"><option value="">Todos los canales</option>{{range $d.Channels}}<option value="{{.Name}}" {{if eq .Name $f.Channel}}selected{{end}}>{{.Name}}</option>{{end}}</select>
   <div class="search"><svg class="i sm"><use href="#i-search"/></svg><input type="search" name="q" value="{{$f.Query}}" placeholder="Buscar en asunto, resumen, empresa u oportunidad" aria-label="Buscar"></div>
 </form>
+<div data-live="list">
 {{if $d.Page.Items}}
 <table class="table">
   <tr><th>Cuándo</th><th>Tipo</th><th>Con</th><th>Asunto / resumen</th><th>Oportunidad</th></tr>
   {{range $d.Page.Items}}
-  <tr><td class="small">{{date .OccurredAt}} <span class="muted">{{.OccurredAt.Format "15:04"}}</span></td>
+  <tr data-row="{{.ID}}"><td class="small">{{date .OccurredAt}} <span class="muted">{{.OccurredAt.Format "15:04"}}</span></td>
     <td><span class="row"><span class="tag outline">{{.Type}}</span><span class="badge plain {{if eq .Direction "inbound"}}ok{{end}}">{{if eq .Direction "inbound"}}↓ entrante{{else if eq .Direction "outbound"}}↑ saliente{{else}}interna{{end}}</span></span></td>
     <td class="who"><b>{{or .Contact .Company "—"}}</b>{{if and .Contact .Company}}<small>{{.Company}}</small>{{end}}</td>
     <td class="who"><b>{{or .Subject "—"}}</b><small>{{.Summary}}</small></td>
@@ -21,4 +22,5 @@
 {{else}}
 <div class="empty"><span class="ic"><svg class="i"><use href="#i-msg"/></svg></span><h2>Sin interacciones</h2><p>Tus agentes registran emails, llamadas, reuniones y mensajes con <code>log_interaction</code>.</p></div>
 {{end}}
+</div>
 {{end}}

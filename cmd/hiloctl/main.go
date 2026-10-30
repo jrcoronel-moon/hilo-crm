@@ -17,7 +17,9 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"text/tabwriter"
 
 	"github.com/jrcoronel-moon/hilo-crm/internal/db"
@@ -25,7 +27,10 @@ import (
 )
 
 func main() {
-	if err := start(context.Background(), os.Args[1:]); err != nil {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	err := start(ctx, os.Args[1:])
+	stop()
+	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
@@ -47,7 +52,7 @@ func start(ctx context.Context, args []string) error {
 	return run(ctx, d, os.Stdout, args)
 }
 
-// command is one "group verb" pair, e.g. "token create".
+// command is one command, e.g. "token create" or "watch".
 type command struct {
 	name  string
 	args  []string // positional arguments, for usage and arity
@@ -75,6 +80,7 @@ var commands = []command{
 	{"domain allow", []string{"<domain>"}, nil, domainAllow},
 	{"domain deny", []string{"<domain>"}, nil, domainDeny},
 	{"domain list", nil, nil, domainList},
+	{"watch", []string{"<workspace>"}, nil, watch},
 }
 
 var errUsage = errors.New(usage())
@@ -96,7 +102,9 @@ type input struct {
 	flags map[string]string // name without dashes → value ("" for booleans)
 }
 
-func parse(args []string) (string, input, error) {
+// parse splits flags (anywhere) from the words: the command name and its
+// positional arguments.
+func parse(args []string) ([]string, input, error) {
 	in := input{flags: map[string]string{}}
 	var words []string
 	for i := 0; i < len(args); i++ {
@@ -107,7 +115,7 @@ func parse(args []string) (string, input, error) {
 		}
 		if valueFlags[name] {
 			if i+1 >= len(args) {
-				return "", in, fmt.Errorf("--%s needs a value", name)
+				return nil, in, fmt.Errorf("--%s needs a value", name)
 			}
 			i++
 			in.flags[name] = args[i]
@@ -115,11 +123,7 @@ func parse(args []string) (string, input, error) {
 			in.flags[name] = ""
 		}
 	}
-	if len(words) < 2 {
-		return "", in, errUsage
-	}
-	in.pos = words[2:]
-	return words[0] + " " + words[1], in, nil
+	return words, in, nil
 }
 
 func (in input) has(flag string) bool {
@@ -128,14 +132,17 @@ func (in input) has(flag string) bool {
 }
 
 func run(ctx context.Context, d *db.DB, out io.Writer, args []string) error {
-	name, in, err := parse(args)
+	words, in, err := parse(args)
 	if err != nil {
 		return err
 	}
 	for _, cmd := range commands {
-		if cmd.name != name {
+		n := len(strings.Fields(cmd.name))
+		if len(words) < n || strings.Join(words[:n], " ") != cmd.name {
 			continue
 		}
+		name := cmd.name
+		in.pos = words[n:]
 		if len(in.pos) != len(cmd.args) {
 			return errUsage
 		}

@@ -1,13 +1,17 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"log/slog"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
+	"github.com/jrcoronel-moon/hilo-crm/internal/events"
 	"github.com/jrcoronel-moon/hilo-crm/internal/identity"
 	"github.com/jrcoronel-moon/hilo-crm/internal/store"
 )
@@ -243,6 +247,33 @@ func clientList(c *cli, in input) error {
 		rows = append(rows, []string{p.ClientID, p.Scope, date(&p.CreatedAt)})
 	}
 	return c.emit(list, "CLIENT\tSCOPE\tSINCE", rows)
+}
+
+// ───── live activity ─────
+
+// watch prints every change in a workspace as it happens, until Ctrl-C.
+func watch(c *cli, in input) error {
+	ws, _, err := c.workspace(in.pos[0])
+	if err != nil {
+		return err
+	}
+	if !c.json {
+		if _, err := fmt.Fprintf(c.out, "watching %s (Ctrl-C to stop)\n", ws.Slug); err != nil {
+			return err
+		}
+	}
+	enc := json.NewEncoder(c.out)
+	events.Listen(c.ctx, c.d, slog.New(slog.NewTextHandler(os.Stderr, nil)), func(e events.Event) {
+		if e.Workspace != ws.ID {
+			return
+		}
+		if c.json {
+			_ = enc.Encode(e)
+			return
+		}
+		_, _ = fmt.Fprintf(c.out, "%s  %-24s %s  [%s]\n", e.At.Local().Format(time.TimeOnly), e.Actor, e.Summary, e.Via)
+	})
+	return nil
 }
 
 // ───── platform ─────

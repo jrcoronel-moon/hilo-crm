@@ -31,6 +31,7 @@ type Build struct {
 
 // Env is what a service gets to build its handler.
 type Env struct {
+	Ctx context.Context // canceled on shutdown
 	Cfg *config.Config
 	DB  *db.DB
 	Log *slog.Logger
@@ -69,7 +70,7 @@ func run(b Build, log *slog.Logger, mount func(Env) (http.Handler, []string, err
 	if applied < db.LatestMigration() {
 		return fmt.Errorf("database schema %q is older than this build (%q): run the migrate container first", applied, db.LatestMigration())
 	}
-	env := Env{Cfg: cfg, DB: d, Log: log, IPs: httpx.NewClientIP(cfg.TrustedProxies)}
+	env := Env{Ctx: ctx, Cfg: cfg, DB: d, Log: log, IPs: httpx.NewClientIP(cfg.TrustedProxies)}
 	h, integrations, err := mount(env)
 	if err != nil {
 		return err

@@ -18,6 +18,7 @@ Respondemos dentro de las 72 h y coordinamos la publicación una vez disponible 
 | Sesiones web | CSRF, robo de cookie, clickjacking | Cookie `__Host-` HttpOnly, SameSite=Lax y Secure; token CSRF por sesión y verificación de `Origin`; `frame-ancestors 'none'`. |
 | Navegador | XSS | `html/template` (escape por contexto); CSP sin `unsafe-inline` ni orígenes externos; URLs de usuario solo `http(s)`. |
 | Agentes | Prompt injection desde datos del CRM | Las instrucciones del servidor y las descripciones de herramientas declaran que todo texto del CRM es dato, no instrucción. Los formularios públicos no pueden sobrescribir registros existentes. |
+| Tiempo real (`/events`) | Ver cambios de otro workspace, agotar el servidor | Requiere sesión y solo entrega eventos del workspace activo; el aviso de la base lleva únicamente referencias y el evento se lee con el workspace ligado (RLS). Límite de conexiones por usuario y total; un cliente lento pierde eventos en lugar de frenar al resto. |
 | Formularios públicos | Spam, abuso | Clave no adivinable, rate limit por IP, honeypot, lista de orígenes, límite de cuerpo, redirección solo a la URL configurada. |
 | Secretos | Fuga en el repo o en imágenes | Solo se guardan hashes de tokens; `.gitignore` y `.dockerignore` restrictivos; gitleaks en pre-commit y CI; imágenes distroless sin shell. |
 | Infraestructura | Escalada desde un contenedor | Contenedores sin root, sistema de archivos de solo lectura, `cap_drop: ALL`, `no-new-privileges`, límites de memoria; Postgres en una red interna sin puertos publicados. |

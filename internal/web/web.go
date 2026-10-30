@@ -26,6 +26,7 @@ import (
 	"github.com/jrcoronel-moon/hilo-crm/internal/branding"
 	"github.com/jrcoronel-moon/hilo-crm/internal/config"
 	"github.com/jrcoronel-moon/hilo-crm/internal/crm"
+	"github.com/jrcoronel-moon/hilo-crm/internal/events"
 	"github.com/jrcoronel-moon/hilo-crm/internal/httpx"
 	"github.com/jrcoronel-moon/hilo-crm/internal/identity"
 	"github.com/jrcoronel-moon/hilo-crm/internal/oauth"
@@ -52,6 +53,9 @@ type Handler struct {
 	loginLimit *httpx.RateLimiter
 	formLimit  *httpx.RateLimiter
 	http       *http.Client // to the identity providers
+
+	hub  *events.Hub     // live updates (nil: disabled)
+	done <-chan struct{} // closed when the process shuts down
 }
 
 // New builds the handler and parses the templates.
@@ -95,6 +99,7 @@ func (h *Handler) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /auth/{provider}/callback", h.authCallback)
 	mux.HandleFunc("POST /auth/dev", h.devLogin)
 	mux.HandleFunc("POST /logout", h.session(h.logout))
+	mux.HandleFunc("GET /events", h.session(h.live))
 	mux.HandleFunc("GET /oauth/authorize", h.authorize)
 	mux.HandleFunc("POST /oauth/authorize", h.session(h.consent))
 	mux.HandleFunc("GET /workspaces/new", h.session(h.newWorkspacePage))

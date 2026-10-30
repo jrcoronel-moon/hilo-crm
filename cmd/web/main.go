@@ -18,7 +18,7 @@ var (
 
 func main() {
 	app.Run(app.Build{Service: "web", Commit: gitSHA, Time: buildTime}, func(env app.Env) (http.Handler, []string, error) {
-		mux, err := web.Mount(env.Cfg, env.DB, env.Log)
+		mux, err := web.Mount(env.Ctx, env.Cfg, env.DB, env.Log)
 		return mux, append(env.Cfg.Providers(), "oauth 2.1", "lead forms"), err
 	})
 }

@@ -166,8 +166,11 @@ func (s *Service) writeOpportunity(ctx context.Context, a Actor, in OpportunityI
 			return err
 		}
 		action := "opportunity.update"
-		if created {
+		switch {
+		case created:
 			action = "opportunity.create"
+		case w.move != nil:
+			action = "opportunity.move"
 		}
 		if err := s.audit(ctx, q, a, action, "opportunity", w.o.ID, map[string]any{"title": w.o.Title, "stage": w.stage.Name}); err != nil {
 			return err

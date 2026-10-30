@@ -49,6 +49,8 @@ La web es deliberadamente chica y hace solo lo que un agente no debería hacer: 
 - **Empresas, contactos y oportunidades**: listas, fichas con timeline, edición, tags con sugerencias, búsqueda,
   filtros, acciones en lote y exportación CSV.
 - **Interacciones y auditoría** de todo lo que pasó, venga de un agente o de una persona.
+- **En tiempo real**: mientras un agente trabaja, el funnel, las listas, las fichas y el dashboard se actualizan
+  solos, con un aviso de quién hizo qué ("Claude movió «Planta solar» a Propuesta").
 - **Ajustes**: pipelines, canales, formularios, miembros, dominios habilitados y marca de la aplicación (nombre y
   logo, configurables por el superadmin).
 
@@ -120,6 +122,7 @@ docker compose exec web hiloctl member add acme bob@acme.com member      # si nu
 docker compose exec web hiloctl token create acme ana@acme.com grok --read-only --ttl 90d
 docker compose exec web hiloctl --json member list acme
 docker compose exec web hiloctl client preapprove acme <client-id-url>     # copiado de Ajustes → Agentes
+docker compose exec web hiloctl watch acme                                # lo que hacen los agentes, en vivo
 ```
 
 `hiloctl` sin argumentos lista todos los comandos. Actúa como operador del servidor, con las mismas reglas que la

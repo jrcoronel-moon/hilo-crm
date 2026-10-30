@@ -1,7 +1,6 @@
 # Plan de nuevos features
 
-Estado: en curso. Hecho: fase A, partes 1 y 2 (`hiloctl` para workspaces, miembros, tokens y agentes
-pre-aprobados; redirección directa al proveedor) y guías de migración para agentes (B.0).
+Estado: en curso. Ver la tabla [Orden propuesto](#orden-propuesto) al final: ✅ hecho, ⏳ pendiente.
 
 Punto de partida (lo que ya existe y se reutiliza):
 
@@ -179,9 +178,18 @@ Publicar en directorios (conectores de Claude, revisión de conectores de Meta) 
 
 ---
 
-## 4. Tiempo real
+## 4. Tiempo real ✅
 
 **Deseo:** cuando un agente hace algo, verlo al instante, tanto en la web como en la consola.
+
+Hecho: la web (funnel, dashboard, listas, fichas, auditoría) se actualiza sola con un aviso de quién hizo qué, y
+`hiloctl watch <workspace>` muestra el mismo flujo en la terminal (`--json` para encadenar).
+
+Pendiente, si hace falta:
+
+- Mostrar también en vivo los cambios de identidad (miembros, tokens, conexiones), que hoy no pasan por la
+  auditoría del CRM.
+- Un indicador en la web de "conectado en vivo" / "reconectando".
 
 ### Diseño
 
@@ -201,18 +209,26 @@ Publicar en directorios (conectores de Claude, revisión de conectores de Meta) 
 
 ## Orden propuesto
 
+### Hecho
+
+| Fase | Contenido | Fecha | Commit |
+|---|---|---|---|
+| A.1 ✅ | `hiloctl` para workspaces, miembros y tokens, con `--json` | 2026-10-30 | `d759173` |
+| B.0 ✅ | Guías de migración para agentes (`docs/migrate/`) | 2026-10-30 | `295b326` |
+| A.2 ✅ | Redirección directa al proveedor + agentes pre-aprobados (`hiloctl client …`) | 2026-10-30 | `b7d015e` |
+| R ✅ | Tiempo real: la web y `hiloctl watch` muestran al instante lo que hacen los agentes | 2026-10-30 | este commit |
+
+### Pendiente (en el orden recomendado)
+
 | Fase | Contenido | Tamaño |
 |---|---|---|
-| A.1 ✅ | `hiloctl` para workspaces, miembros y tokens, con `--json` | S |
-| B.0 ✅ | Guías de migración para agentes (`docs/migrate/`) | S |
-| B.1 | Fechas históricas, referencias por `external_id`, `bulk_upsert` / `dry_run` | M |
-| A.2 ✅ | Redirección directa al proveedor + agentes pre-aprobados (`hiloctl client …`) | S |
-| R | Tiempo real: la web y la consola muestran al instante lo que hacen los agentes | M |
-| A | Resto de `hiloctl` (pipelines, canales, auditoría, marca) + `HILO_UI` | M |
-| B | Importador: paquete Hilo, cargador, CSV genérico, `export`, `--dry-run` | M |
-| C | Herramientas para agentes proactivos (`list_changes`, `needs_attention`, anotaciones destructivas) + matriz de compatibilidad | S–M |
-| D | Adaptadores HubSpot y Pipedrive | M |
-| E | UI de importación CSV; cola de aprobaciones (si se decide) | M |
-| — | Lightsail y publicación en directorios, cuando se decida | — |
+| B.1 ⏳ | Fechas históricas, referencias por `external_id`, `bulk_upsert` / `dry_run` (mejoran la migración y la sincronización) | M |
+| C ⏳ | Herramientas para agentes proactivos (`list_changes`, `needs_attention`, anotaciones destructivas) + matriz de compatibilidad | S–M |
+| A.3 ⏳ | Resto de `hiloctl` (pipelines, canales, auditoría, marca) + `HILO_UI=minimal/off` | M |
+| B ⏳ | Importador por terminal para volúmenes grandes: paquete Hilo, cargador, CSV genérico, `export`, `--dry-run` | M |
+| D ⏳ | Adaptadores HubSpot y Pipedrive para el importador | M |
+| E ⏳ | UI de importación CSV; cola de aprobaciones (si se decide) | M |
+| — | Lightsail y publicación en directorios de conectores, cuando se decida | — |
 
-A va primero porque B y C se apoyan en él: importar y emitir tokens desde terminal es justamente el modo headless.
+Decisiones abiertas que frenan alguna fase: si `HILO_UI=minimal` es el modo por defecto en producción (A.3) y qué
+orígenes importa primero el importador por terminal (B).

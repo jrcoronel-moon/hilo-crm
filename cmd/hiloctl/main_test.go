@@ -6,8 +6,13 @@ import (
 	"encoding/json"
 	"log/slog"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
+	"github.com/google/uuid"
+
+	"github.com/jrcoronel-moon/hilo-crm/internal/crm"
 	"github.com/jrcoronel-moon/hilo-crm/internal/db"
 	"github.com/jrcoronel-moon/hilo-crm/internal/identity"
 	"github.com/jrcoronel-moon/hilo-crm/internal/oauth"
@@ -132,3 +137,60 @@ func TestUsageErrors(t *testing.T) {
 		}
 	}
 }
+
+// syncBuffer is written by the watch goroutine and read by the test.
+type syncBuffer struct {
+	mu sync.Mutex
+	b  bytes.Buffer
+}
+
+func (s *syncBuffer) Write(p []byte) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.b.Write(p)
+}
+
+func (s *syncBuffer) String() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.b.String()
+}
+
+func TestWatchPrintsChangesLive(t *testing.T) {
+	h := harness{t: t, ctx: context.Background(), d: testdb.New(t)}
+	var ws struct{ ID string }
+	h.json(&ws, "workspace", "create", "Acme", "--owner", "ana@acme.test")
+
+	ctx, cancel := context.WithCancel(h.ctx)
+	out := &syncBuffer{}
+	done := make(chan error, 1)
+	go func() { done <- run(ctx, h.d, out, []string{"watch", "acme"}) }()
+
+	id := identity.New(h.d, slog.New(slog.DiscardHandler), nil)
+	ana, err := id.MemberCaller(h.ctx, uuid.MustParse(ws.ID), "ana@acme.test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	svc := crm.New(h.d, slog.New(slog.DiscardHandler))
+	name := "Globex"
+	deadline := time.Now().Add(5 * time.Second)
+	for !strings.Contains(out.String(), "la empresa «Globex»") { // created, or updated by a retry
+		if time.Now().After(deadline) {
+			t.Fatalf("watch output: %q", out.String())
+		}
+		// Repeat the (idempotent) change until the listener has subscribed.
+		if _, _, err := svc.UpsertCompany(h.ctx, crm.NewActor(ana.UserID, ana.WorkspaceID, "owner", "pat", "grok", crm.AllScopes), crm.CompanyInput{Name: &name, Domain: strPtr("globex.com")}); err != nil {
+			t.Fatal(err)
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if !strings.Contains(out.String(), "grok") {
+		t.Fatalf("actor missing: %q", out.String())
+	}
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+}
+
+func strPtr(s string) *string { return &s }

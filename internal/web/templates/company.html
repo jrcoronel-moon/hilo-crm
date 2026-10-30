@@ -1,7 +1,7 @@
 {{define "actions"}}{{if .View.CanWrite}}<form method="post" action="/companies/{{.Data.C.ID}}/archive" data-confirm="¿Archivar {{.Data.C.Name}}?|Deja de aparecer en listas y búsquedas. Sus contactos, oportunidades e historial se conservan."><input type="hidden" name="csrf" value="{{.Data.CSRF}}"><button class="btn ghost danger"><svg class="i sm"><use href="#i-trash"/></svg>Archivar</button></form>{{end}}{{end}}
 {{define "content"}}
 {{$d := .Data}}{{$c := $d.C}}
-<div class="record-head">
+<div class="record-head" data-live="head">
   <span class="av lg">{{initials $c.Name ""}}</span>
   <div class="grow"><h1>{{$c.Name}}</h1><p class="muted">{{with $c.Domain}}<a href="https://{{.}}" rel="noopener noreferrer" target="_blank">{{.}}</a>{{else}}sin dominio{{end}}{{with $c.Industry}} · {{.}}{{end}}{{with $c.Country}} · {{.}}{{end}}</p></div>
   <div class="kpis mini">
@@ -12,11 +12,11 @@
 </div>
 <div class="grid2">
   <div class="gcol">
-    <section class="card"><div class="card-head"><h2>Oportunidades</h2></div>{{template "opp-table" $d.Opportunities}}</section>
-    <section class="card"><div class="card-head"><h2>Contactos</h2>{{if $.View.CanWrite}}<button class="btn sm aside" type="button" data-open="#new-contact"><svg class="i sm"><use href="#i-plus"/></svg>Agregar</button>{{end}}</div>
+    <section class="card" data-live="opps"><div class="card-head"><h2>Oportunidades</h2></div>{{template "opp-table" $d.Opportunities}}</section>
+    <section class="card" data-live="contacts"><div class="card-head"><h2>Contactos</h2>{{if $.View.CanWrite}}<button class="btn sm aside" type="button" data-open="#new-contact"><svg class="i sm"><use href="#i-plus"/></svg>Agregar</button>{{end}}</div>
       {{if $d.Contacts}}<table class="table">{{range $d.Contacts}}<tr><td><a class="cellflex" href="/contacts/{{.ID}}"><span class="av">{{initials .Name .Email}}</span><span class="who"><b>{{or .Name .Email}}</b><small>{{.Title}}</small></span></a></td><td>{{.Email}}</td><td>{{ago .LastActivity}}</td></tr>{{end}}</table>
       {{else}}<p class="muted">Sin contactos.</p>{{end}}</section>
-    <section class="card"><div class="card-head"><h2>Actividad</h2></div>{{template "timeline" $d.Timeline}}</section>
+    <section class="card" data-live="activity"><div class="card-head"><h2>Actividad</h2></div>{{template "timeline" $d.Timeline}}</section>
   </div>
   <div class="gcol">
     <section class="card">

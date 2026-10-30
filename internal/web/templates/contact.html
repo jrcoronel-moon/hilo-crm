@@ -1,7 +1,7 @@
 {{define "actions"}}{{if .View.CanWrite}}<form method="post" action="/contacts/{{.Data.C.ID}}/archive" data-confirm="¿Archivar este contacto?|Deja de aparecer en listas y búsquedas. Su historial se conserva."><input type="hidden" name="csrf" value="{{.Data.CSRF}}"><button class="btn ghost danger"><svg class="i sm"><use href="#i-trash"/></svg>Archivar</button></form>{{end}}{{end}}
 {{define "content"}}
 {{$d := .Data}}{{$c := $d.C}}
-<div class="record-head">
+<div class="record-head" data-live="head">
   <span class="av lg">{{initials (printf "%s %s" $c.FirstName $c.LastName) $c.Email}}</span>
   <div class="grow"><h1>{{or (printf "%s %s" $c.FirstName $c.LastName | trim) $c.Email}}</h1>
     <p class="muted">{{with $c.Title}}{{.}} · {{end}}{{if $c.CompanyID}}<a href="/companies/{{$c.CompanyID}}">{{$d.Company}}</a>{{else}}sin empresa{{end}}{{with $c.Email}} · <a href="mailto:{{.}}">{{.}}</a>{{end}}</p></div>
@@ -12,8 +12,8 @@
 </div>
 <div class="grid2">
   <div class="gcol">
-    <section class="card"><div class="card-head"><h2>Oportunidades</h2></div>{{template "opp-table" $d.Opportunities}}</section>
-    <section class="card"><div class="card-head"><h2>Actividad</h2></div>{{template "timeline" $d.Timeline}}</section>
+    <section class="card" data-live="opps"><div class="card-head"><h2>Oportunidades</h2></div>{{template "opp-table" $d.Opportunities}}</section>
+    <section class="card" data-live="activity"><div class="card-head"><h2>Actividad</h2></div>{{template "timeline" $d.Timeline}}</section>
   </div>
   <div class="gcol">
     <section class="card">

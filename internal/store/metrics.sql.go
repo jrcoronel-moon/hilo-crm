@@ -176,6 +176,50 @@ func (q *Queries) CreateLeadForm(ctx context.Context, arg CreateLeadFormParams) 
 	return i, err
 }
 
+const getAuditEntry = `-- name: GetAuditEntry :one
+SELECT a.id, a.workspace_id, a.actor_user_id, a.actor_kind, a.actor_client, a.action, a.entity_type, a.entity_id, a.details, a.created_at, COALESCE(u.email, '') AS actor_email
+FROM audit_log a LEFT JOIN users u ON u.id = a.actor_user_id
+WHERE a.workspace_id = $1 AND a.id = $2
+`
+
+type GetAuditEntryParams struct {
+	WorkspaceID *uuid.UUID `json:"workspace_id"`
+	ID          int64      `json:"id"`
+}
+
+type GetAuditEntryRow struct {
+	ID          int64           `json:"id"`
+	WorkspaceID *uuid.UUID      `json:"workspace_id"`
+	ActorUserID *uuid.UUID      `json:"actor_user_id"`
+	ActorKind   string          `json:"actor_kind"`
+	ActorClient string          `json:"actor_client"`
+	Action      string          `json:"action"`
+	EntityType  string          `json:"entity_type"`
+	EntityID    *uuid.UUID      `json:"entity_id"`
+	Details     json.RawMessage `json:"details"`
+	CreatedAt   time.Time       `json:"created_at"`
+	ActorEmail  string          `json:"actor_email"`
+}
+
+func (q *Queries) GetAuditEntry(ctx context.Context, arg GetAuditEntryParams) (GetAuditEntryRow, error) {
+	row := q.db.QueryRow(ctx, getAuditEntry, arg.WorkspaceID, arg.ID)
+	var i GetAuditEntryRow
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.ActorUserID,
+		&i.ActorKind,
+		&i.ActorClient,
+		&i.Action,
+		&i.EntityType,
+		&i.EntityID,
+		&i.Details,
+		&i.CreatedAt,
+		&i.ActorEmail,
+	)
+	return i, err
+}
+
 const getLeadForm = `-- name: GetLeadForm :one
 SELECT id, workspace_id, name, public_key, pipeline_id, channel_id, allowed_origins, redirect_url, is_active, created_at FROM lead_forms WHERE workspace_id = $1 AND id = $2
 `

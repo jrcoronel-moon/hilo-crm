@@ -10,7 +10,6 @@
 }
 
 {$SITE_ADDRESS} {
-	encode zstd gzip
 	request_body {
 		max_size 2MB
 	}
@@ -21,11 +20,20 @@
 
 	@mcp path /mcp /mcp/*
 	handle @mcp {
+		encode zstd gzip
 		reverse_proxy mcp:8080 {
 			flush_interval -1
 		}
 	}
+	# Live updates (server-sent events): never compressed or buffered, so each
+	# change reaches the browser as it happens.
+	handle /events {
+		reverse_proxy web:8080 {
+			flush_interval -1
+		}
+	}
 	handle {
+		encode zstd gzip
 		reverse_proxy web:8080
 	}
 }

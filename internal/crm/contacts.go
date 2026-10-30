@@ -3,6 +3,7 @@ package crm
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -85,7 +86,11 @@ func (s *Service) UpsertContact(ctx context.Context, a Actor, in ContactInput) (
 		if created {
 			action = "contact.create"
 		}
-		return s.audit(ctx, q, a, action, "contact", out.ID, nil)
+		name := strings.TrimSpace(out.FirstName + " " + out.LastName)
+		if name == "" && out.Email != nil {
+			name = *out.Email
+		}
+		return s.audit(ctx, q, a, action, "contact", out.ID, map[string]any{"name": name})
 	})
 	return contactView(out), created, err
 }

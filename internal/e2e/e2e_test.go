@@ -60,7 +60,7 @@ func startWith(t *testing.T, tweak func(*config.Config)) *stack {
 	if tweak != nil {
 		tweak(cfg)
 	}
-	mux, err := web.Mount(cfg, d, log)
+	mux, err := web.Mount(t.Context(), cfg, d, log)
 	if err != nil {
 		t.Fatal(err)
 	}

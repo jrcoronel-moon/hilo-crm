@@ -16,6 +16,7 @@
 
 {{define "content"}}
 {{$d := .Data}}{{$m := $d.Metrics}}
+<div data-live="dashboard">
 <div class="kpis">
   <div class="kpi"><span>Abiertas</span><strong>{{$m.OpenCount}}</strong><small>{{moneyMap $m.OpenAmount}}</small></div>
   <div class="kpi"><span>Ponderado</span><strong>{{moneyShort $m.Weighted}}</strong><small>según probabilidad</small></div>
@@ -86,5 +87,6 @@
       {{else}}<p class="muted">Sin cambios en el período.</p>{{end}}
     </section>
   </div>
+</div>
 </div>
 {{end}}

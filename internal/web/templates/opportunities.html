@@ -15,6 +15,7 @@
   <div>{{.Done}} {{if eq .Done 1}}oportunidad actualizada{{else}}oportunidades actualizadas{{end}}.{{if .Failed}} No se pudieron cambiar:<ul>{{range .Failed}}<li>{{.}}</li>{{end}}</ul>{{end}}</div></div>
 {{end}}
 
+<div data-live="list">
 {{if $d.Page.Items}}
 <form method="post" action="/opportunities/bulk" data-bulk>
   <input type="hidden" name="csrf" value="{{$d.CSRF}}"><input type="hidden" name="back" value="{{$f.Encode}}">
@@ -32,7 +33,7 @@
   <table class="table">
     <tr>{{if $.View.CanWrite}}<th><input type="checkbox" data-select-all aria-label="Seleccionar todas"></th>{{end}}<th>Oportunidad</th><th>Etapa</th><th>Tags</th><th class="num">Monto</th><th>Última actividad</th><th>Cierre</th></tr>
     {{range $d.Page.Items}}
-    <tr>{{if $.View.CanWrite}}<td><input type="checkbox" name="id" value="{{.ID}}" aria-label="Seleccionar {{.Title}}"></td>{{end}}
+    <tr data-row="{{.ID}}">{{if $.View.CanWrite}}<td><input type="checkbox" name="id" value="{{.ID}}" aria-label="Seleccionar {{.Title}}"></td>{{end}}
       <td class="who"><a href="/opportunities/{{.ID}}"><b>{{.Title}}</b></a><small>{{if .CompanyID}}<a href="/companies/{{.CompanyID}}">{{.CompanyName}}</a>{{else}}—{{end}}</small></td>
       <td><span class="row"><span class="dot {{stageClass .StageCategory 1}}"></span>{{.StageName}}</span></td>
       <td>{{$t := firstTags .Tags 2}}<span class="row">{{range $t.Shown}}<span class="tag {{tagClass .}}">{{.}}</span>{{end}}{{if $t.More}}<span class="tag">+{{$t.More}}</span>{{end}}</span></td>
@@ -45,4 +46,5 @@
 {{else}}
 <div class="empty"><span class="ic"><svg class="i"><use href="#i-brief"/></svg></span><h2>No hay oportunidades con estos filtros</h2><p>Cambiá los filtros o conectá un agente para que las cree.</p></div>
 {{end}}
+</div>
 {{end}}
