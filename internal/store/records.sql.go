@@ -515,7 +515,7 @@ func (q *Queries) ExportInteractions(ctx context.Context, workspaceID uuid.UUID)
 }
 
 const exportOpportunities = `-- name: ExportOpportunities :many
-SELECT o.id, o.workspace_id, o.title, o.kind, o.company_id, o.primary_contact_id, o.pipeline_id, o.stage_id, o.status, o.amount_minor, o.currency, o.probability, o.expected_close_date, o.closed_at, o.lost_reason, o.source_channel_id, o.owner_id, o.next_step, o.next_step_at, o.description, o.tags, o.custom, o.external_id, o.stage_entered_at, o.last_interaction_at, o.created_at, o.updated_at, o.archived_at, p.name AS pipeline_name, s.name AS stage_name
+SELECT o.id, o.workspace_id, o.title, o.kind, o.company_id, o.primary_contact_id, o.pipeline_id, o.stage_id, o.status, o.amount_minor, o.currency, o.probability, o.expected_close_date, o.closed_at, o.lost_reason, o.source_channel_id, o.owner_id, o.next_step, o.next_step_at, o.description, o.tags, o.custom, o.external_id, o.stage_entered_at, o.last_interaction_at, o.created_at, o.updated_at, o.archived_at, o.links, p.name AS pipeline_name, s.name AS stage_name
 FROM opportunities o
 JOIN pipelines p ON p.workspace_id = o.workspace_id AND p.id = o.pipeline_id
 JOIN pipeline_stages s ON s.workspace_id = o.workspace_id AND s.id = o.stage_id
@@ -552,6 +552,7 @@ type ExportOpportunitiesRow struct {
 	CreatedAt         time.Time       `json:"created_at"`
 	UpdatedAt         time.Time       `json:"updated_at"`
 	ArchivedAt        *time.Time      `json:"archived_at"`
+	Links             json.RawMessage `json:"links"`
 	PipelineName      string          `json:"pipeline_name"`
 	StageName         string          `json:"stage_name"`
 }
@@ -594,6 +595,7 @@ func (q *Queries) ExportOpportunities(ctx context.Context, workspaceID uuid.UUID
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ArchivedAt,
+			&i.Links,
 			&i.PipelineName,
 			&i.StageName,
 		); err != nil {
@@ -950,7 +952,7 @@ func (q *Queries) GetInteractionByExternalID(ctx context.Context, arg GetInterac
 
 const getOpportunity = `-- name: GetOpportunity :one
 
-SELECT id, workspace_id, title, kind, company_id, primary_contact_id, pipeline_id, stage_id, status, amount_minor, currency, probability, expected_close_date, closed_at, lost_reason, source_channel_id, owner_id, next_step, next_step_at, description, tags, custom, external_id, stage_entered_at, last_interaction_at, created_at, updated_at, archived_at FROM opportunities WHERE workspace_id = $1 AND id = $2 AND archived_at IS NULL
+SELECT id, workspace_id, title, kind, company_id, primary_contact_id, pipeline_id, stage_id, status, amount_minor, currency, probability, expected_close_date, closed_at, lost_reason, source_channel_id, owner_id, next_step, next_step_at, description, tags, custom, external_id, stage_entered_at, last_interaction_at, created_at, updated_at, archived_at, links FROM opportunities WHERE workspace_id = $1 AND id = $2 AND archived_at IS NULL
 `
 
 type GetOpportunityParams struct {
@@ -991,12 +993,13 @@ func (q *Queries) GetOpportunity(ctx context.Context, arg GetOpportunityParams) 
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ArchivedAt,
+		&i.Links,
 	)
 	return i, err
 }
 
 const getOpportunityByExternalID = `-- name: GetOpportunityByExternalID :one
-SELECT id, workspace_id, title, kind, company_id, primary_contact_id, pipeline_id, stage_id, status, amount_minor, currency, probability, expected_close_date, closed_at, lost_reason, source_channel_id, owner_id, next_step, next_step_at, description, tags, custom, external_id, stage_entered_at, last_interaction_at, created_at, updated_at, archived_at FROM opportunities WHERE workspace_id = $1 AND external_id = $2 AND archived_at IS NULL
+SELECT id, workspace_id, title, kind, company_id, primary_contact_id, pipeline_id, stage_id, status, amount_minor, currency, probability, expected_close_date, closed_at, lost_reason, source_channel_id, owner_id, next_step, next_step_at, description, tags, custom, external_id, stage_entered_at, last_interaction_at, created_at, updated_at, archived_at, links FROM opportunities WHERE workspace_id = $1 AND external_id = $2 AND archived_at IS NULL
 `
 
 type GetOpportunityByExternalIDParams struct {
@@ -1036,6 +1039,7 @@ func (q *Queries) GetOpportunityByExternalID(ctx context.Context, arg GetOpportu
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ArchivedAt,
+		&i.Links,
 	)
 	return i, err
 }
@@ -1398,7 +1402,7 @@ func (q *Queries) ListInteractions(ctx context.Context, arg ListInteractionsPara
 }
 
 const listOpportunities = `-- name: ListOpportunities :many
-SELECT o.id, o.workspace_id, o.title, o.kind, o.company_id, o.primary_contact_id, o.pipeline_id, o.stage_id, o.status, o.amount_minor, o.currency, o.probability, o.expected_close_date, o.closed_at, o.lost_reason, o.source_channel_id, o.owner_id, o.next_step, o.next_step_at, o.description, o.tags, o.custom, o.external_id, o.stage_entered_at, o.last_interaction_at, o.created_at, o.updated_at, o.archived_at, s.name AS stage_name, s.category AS stage_category, s.probability AS stage_probability,
+SELECT o.id, o.workspace_id, o.title, o.kind, o.company_id, o.primary_contact_id, o.pipeline_id, o.stage_id, o.status, o.amount_minor, o.currency, o.probability, o.expected_close_date, o.closed_at, o.lost_reason, o.source_channel_id, o.owner_id, o.next_step, o.next_step_at, o.description, o.tags, o.custom, o.external_id, o.stage_entered_at, o.last_interaction_at, o.created_at, o.updated_at, o.archived_at, o.links, s.name AS stage_name, s.category AS stage_category, s.probability AS stage_probability,
        c.name AS company_name
 FROM opportunities o
 JOIN pipeline_stages s ON s.id = o.stage_id
@@ -1470,6 +1474,7 @@ type ListOpportunitiesRow struct {
 	CreatedAt         time.Time       `json:"created_at"`
 	UpdatedAt         time.Time       `json:"updated_at"`
 	ArchivedAt        *time.Time      `json:"archived_at"`
+	Links             json.RawMessage `json:"links"`
 	StageName         string          `json:"stage_name"`
 	StageCategory     string          `json:"stage_category"`
 	StageProbability  int32           `json:"stage_probability"`
@@ -1530,6 +1535,7 @@ func (q *Queries) ListOpportunities(ctx context.Context, arg ListOpportunitiesPa
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ArchivedAt,
+			&i.Links,
 			&i.StageName,
 			&i.StageCategory,
 			&i.StageProbability,
@@ -1821,18 +1827,18 @@ func (q *Queries) SaveContact(ctx context.Context, arg SaveContactParams) (Conta
 const saveOpportunity = `-- name: SaveOpportunity :one
 INSERT INTO opportunities (id, workspace_id, title, kind, company_id, primary_contact_id, pipeline_id, stage_id, status,
     amount_minor, currency, probability, expected_close_date, closed_at, lost_reason, source_channel_id, owner_id,
-    next_step, next_step_at, description, tags, custom, external_id, stage_entered_at, created_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
+    next_step, next_step_at, description, tags, custom, external_id, stage_entered_at, created_at, links)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)
 ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, kind = EXCLUDED.kind, company_id = EXCLUDED.company_id,
     primary_contact_id = EXCLUDED.primary_contact_id, pipeline_id = EXCLUDED.pipeline_id, stage_id = EXCLUDED.stage_id,
     status = EXCLUDED.status, amount_minor = EXCLUDED.amount_minor, currency = EXCLUDED.currency,
     probability = EXCLUDED.probability, expected_close_date = EXCLUDED.expected_close_date,
     closed_at = EXCLUDED.closed_at, lost_reason = EXCLUDED.lost_reason, source_channel_id = EXCLUDED.source_channel_id,
     owner_id = EXCLUDED.owner_id, next_step = EXCLUDED.next_step, next_step_at = EXCLUDED.next_step_at,
-    description = EXCLUDED.description, tags = EXCLUDED.tags, custom = EXCLUDED.custom,
+    description = EXCLUDED.description, tags = EXCLUDED.tags, custom = EXCLUDED.custom, links = EXCLUDED.links,
     external_id = EXCLUDED.external_id, stage_entered_at = EXCLUDED.stage_entered_at, updated_at = now()
 WHERE opportunities.workspace_id = EXCLUDED.workspace_id AND opportunities.archived_at IS NULL
-RETURNING id, workspace_id, title, kind, company_id, primary_contact_id, pipeline_id, stage_id, status, amount_minor, currency, probability, expected_close_date, closed_at, lost_reason, source_channel_id, owner_id, next_step, next_step_at, description, tags, custom, external_id, stage_entered_at, last_interaction_at, created_at, updated_at, archived_at
+RETURNING id, workspace_id, title, kind, company_id, primary_contact_id, pipeline_id, stage_id, status, amount_minor, currency, probability, expected_close_date, closed_at, lost_reason, source_channel_id, owner_id, next_step, next_step_at, description, tags, custom, external_id, stage_entered_at, last_interaction_at, created_at, updated_at, archived_at, links
 `
 
 type SaveOpportunityParams struct {
@@ -1861,6 +1867,7 @@ type SaveOpportunityParams struct {
 	ExternalID        *string         `json:"external_id"`
 	StageEnteredAt    time.Time       `json:"stage_entered_at"`
 	CreatedAt         time.Time       `json:"created_at"`
+	Links             json.RawMessage `json:"links"`
 }
 
 func (q *Queries) SaveOpportunity(ctx context.Context, arg SaveOpportunityParams) (Opportunity, error) {
@@ -1890,6 +1897,7 @@ func (q *Queries) SaveOpportunity(ctx context.Context, arg SaveOpportunityParams
 		arg.ExternalID,
 		arg.StageEnteredAt,
 		arg.CreatedAt,
+		arg.Links,
 	)
 	var i Opportunity
 	err := row.Scan(
@@ -1921,6 +1929,7 @@ func (q *Queries) SaveOpportunity(ctx context.Context, arg SaveOpportunityParams
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ArchivedAt,
+		&i.Links,
 	)
 	return i, err
 }

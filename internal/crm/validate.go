@@ -157,6 +157,50 @@ func cleanCustom(field string, m map[string]any) (json.RawMessage, error) {
 	return b, nil
 }
 
+// Link points at something outside Hilo that belongs to a record: a proposal,
+// a shared folder, a recording. Agents leave every external file here.
+type Link struct {
+	URL   string `json:"url" jsonschema:"absolute http(s) URL"`
+	Label string `json:"label,omitempty" jsonschema:"short name, e.g. Propuesta v2; the host is shown when omitted"`
+}
+
+// cleanLinks validates links (absolute http(s) URLs, labels up to 100 chars,
+// at most 50) and drops duplicates, keeping the first label.
+func cleanLinks(field string, links []Link) (json.RawMessage, error) {
+	out := make([]Link, 0, len(links))
+	seen := map[string]bool{}
+	for _, l := range links {
+		u, err := cleanURL(field, l.URL)
+		if err != nil {
+			return nil, err
+		}
+		label, err := cleanLine(field, l.Label, 100)
+		if err != nil {
+			return nil, err
+		}
+		if u == "" || seen[u] {
+			continue
+		}
+		seen[u] = true
+		out = append(out, Link{URL: u, Label: label})
+	}
+	if len(out) > 50 {
+		return nil, invalid(field, "at most 50 links")
+	}
+	b, _ := json.Marshal(out)
+	return b, nil
+}
+
+// linksOf decodes the stored links column; nil when there are none.
+func linksOf(raw json.RawMessage) []Link {
+	var out []Link
+	_ = json.Unmarshal(raw, &out)
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
 var currencyRe = regexp.MustCompile(`^[A-Z]{3}$`)
 
 func cleanCurrency(field, s string) (string, error) {

@@ -10,7 +10,7 @@ import (
 )
 
 // ChannelKinds are the allowed channel kinds.
-var ChannelKinds = []string{"web", "form", "email", "phone", "social", "referral", "event", "outbound", "partner", "ads", "other"}
+var ChannelKinds = []string{"web", "form", "email", "phone", "social", "referral", "event", "outbound", "partner", "ads", "videocall", "video", "other"}
 
 // ChannelView is a lead/interaction channel.
 type ChannelView struct {
@@ -37,7 +37,7 @@ func (s *Service) ListChannels(ctx context.Context, a Actor) ([]ChannelView, err
 type ChannelInput struct {
 	ID   string `json:"id,omitempty" jsonschema:"existing channel id or name to update"`
 	Name string `json:"name"`
-	Kind string `json:"kind" jsonschema:"web, form, email, phone, social, referral, event, outbound, partner, ads or other"`
+	Kind string `json:"kind" jsonschema:"web, form, email, phone, social, referral, event, outbound, partner, ads, videocall, video or other"`
 }
 
 // UpsertChannel creates or updates a channel (admin).

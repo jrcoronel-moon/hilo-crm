@@ -68,7 +68,7 @@ func (h *Handler) saveOpportunity(w http.ResponseWriter, r *http.Request, v view
 	in := crm.OpportunityInput{ID: &id, Title: formStr(r, "title"), Kind: formStr(r, "kind"), Currency: formStr(r, "currency"),
 		ExpectedCloseDate: formStr(r, "expected_close_date"), NextStep: formStr(r, "next_step"), NextStepAt: formStr(r, "next_step_at"),
 		Description: formStr(r, "description"), Owner: formStr(r, "owner"), SourceChannel: formStr(r, "channel"),
-		PrimaryContact: formStr(r, "primary_contact"), Tags: formTags(r)}
+		PrimaryContact: formStr(r, "primary_contact"), Tags: formTags(r), Links: formLinks(r)}
 	amount := 0.0
 	if s := strings.TrimSpace(r.PostFormValue("amount")); s != "" {
 		var err error
@@ -138,4 +138,18 @@ func (h *Handler) archiveOpportunity(w http.ResponseWriter, r *http.Request, v v
 		return
 	}
 	http.Redirect(w, r, "/opportunities?ok=archived", http.StatusSeeOther)
+}
+
+// formLinks reads the links textarea: one per line, "URL | label". An empty
+// textarea clears the links.
+func formLinks(r *http.Request) *[]crm.Link {
+	out := []crm.Link{}
+	for _, line := range strings.Split(r.PostFormValue("links"), "\n") {
+		if line = strings.TrimSpace(line); line == "" {
+			continue
+		}
+		u, label, _ := strings.Cut(line, "|")
+		out = append(out, crm.Link{URL: strings.TrimSpace(u), Label: strings.TrimSpace(label)})
+	}
+	return &out
 }

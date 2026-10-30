@@ -1,7 +1,7 @@
 {{define "content"}}
 {{$d := .Data}}{{$f := $d.F}}
 <form method="get" action="/interactions" class="toolbar">
-  <select name="type" data-autosubmit aria-label="Tipo"><option value="">Todos los tipos</option>{{range $d.Types}}<option value="{{.}}" {{if eq . $f.Type}}selected{{end}}>{{.}}</option>{{end}}</select>
+  <select name="type" data-autosubmit aria-label="Tipo"><option value="">Todos los tipos</option>{{range $d.Types}}<option value="{{.}}" {{if eq . $f.Type}}selected{{end}}>{{typeLabel .}}</option>{{end}}</select>
   <select name="direction" data-autosubmit aria-label="Dirección"><option value="">Todas las direcciones</option><option value="inbound" {{if eq $f.Direction "inbound"}}selected{{end}}>Entrantes</option><option value="outbound" {{if eq $f.Direction "outbound"}}selected{{end}}>Salientes</option><option value="internal" {{if eq $f.Direction "internal"}}selected{{end}}>Notas internas</option></select>
   <select name="channel" data-autosubmit aria-label="Canal"><option value="">Todos los canales</option>{{range $d.Channels}}<option value="{{.Name}}" {{if eq .Name $f.Channel}}selected{{end}}>{{.Name}}</option>{{end}}</select>
   <div class="search"><svg class="i sm"><use href="#i-search"/></svg><input type="search" name="q" value="{{$f.Query}}" placeholder="Buscar en asunto, resumen, empresa u oportunidad" aria-label="Buscar"></div>
@@ -12,7 +12,7 @@
   <tr><th>Cuándo</th><th>Tipo</th><th>Con</th><th>Asunto / resumen</th><th>Oportunidad</th></tr>
   {{range $d.Page.Items}}
   <tr data-row="{{.ID}}"><td class="small">{{date .OccurredAt}} <span class="muted">{{.OccurredAt.Format "15:04"}}</span></td>
-    <td><span class="row"><span class="tag outline">{{.Type}}</span><span class="badge plain {{if eq .Direction "inbound"}}ok{{end}}">{{if eq .Direction "inbound"}}↓ entrante{{else if eq .Direction "outbound"}}↑ saliente{{else}}interna{{end}}</span></span></td>
+    <td><span class="row"><span class="tag outline">{{typeLabel .Type}}</span><span class="badge plain {{if eq .Direction "inbound"}}ok{{end}}">{{if eq .Direction "inbound"}}↓ entrante{{else if eq .Direction "outbound"}}↑ saliente{{else}}interna{{end}}</span></span></td>
     <td class="who"><b>{{or .Contact .Company "—"}}</b>{{if and .Contact .Company}}<small>{{.Company}}</small>{{end}}</td>
     <td class="who"><b>{{or .Subject "—"}}</b><small>{{.Summary}}</small></td>
     <td>{{or .Opportunity "—"}}{{with .Channel}} <span class="muted small">· {{.}}</span>{{end}}</td></tr>

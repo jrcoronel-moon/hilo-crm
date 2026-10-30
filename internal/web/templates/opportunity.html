@@ -5,7 +5,8 @@
   <span class="av lg agent2">{{initials $o.Title ""}}</span>
   <div class="grow"><h1>{{$o.Title}}</h1>
     <p class="muted"><span class="dot {{stageClass $o.StageCategory 1}}"></span> {{$o.StageName}} · {{if eq $o.Status "open"}}abierta{{else if eq $o.Status "won"}}ganada{{else}}perdida{{end}}{{if $o.CompanyID}} · <a href="/companies/{{$o.CompanyID}}">{{$o.CompanyName}}</a>{{end}}</p>
-    {{if $o.Tags}}<p class="row">{{range $o.Tags}}<span class="tag {{tagClass .}}">{{.}}</span>{{end}}</p>{{end}}</div>
+    {{if $o.Tags}}<p class="row">{{range $o.Tags}}<span class="tag {{tagClass .}}">{{.}}</span>{{end}}</p>{{end}}
+    {{if $o.Links}}<p class="row">{{range $o.Links}}<a class="tag outline" href="{{.URL}}" target="_blank" rel="noopener noreferrer" title="{{.URL}}"><svg class="i sm"><use href="#i-share"/></svg>{{or .Label (host .URL)}}</a>{{end}}</p>{{end}}</div>
   <div class="kpis mini">
     <div class="kpi"><span>Monto</span><strong>{{money $o.Amount $o.Currency}}</strong></div>
     <div class="kpi"><span>Probabilidad</span><strong>{{$o.Probability}}%</strong></div>
@@ -61,6 +62,7 @@
           <div class="grow">{{template "owner-select" (ownerSel $d.Members $o.OwnerID)}}</div></div>
         {{template "tag-field" (tagField $o.Tags $d.Suggest)}}
         <label class="field">Descripción<textarea name="description" rows="4" maxlength="5000">{{$o.Description}}</textarea></label>
+        <label class="field">Links (uno por línea: URL | etiqueta)<textarea name="links" rows="3" placeholder="https://drive.google.com/… | Propuesta v2&#10;https://… | Grabación de la reunión">{{range $o.Links}}{{.URL}}{{with .Label}} | {{.}}{{end}}{{"\n"}}{{end}}</textarea></label>
         <div><button class="btn primary">Guardar</button></div>
       </form>
       {{else}}

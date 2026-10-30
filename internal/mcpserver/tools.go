@@ -54,7 +54,7 @@ func (s *Server) tools() []tool {
 				return s.crm.ListPipelines(ctx, a)
 			}),
 		def("list_channels", "List channels",
-			"Lead and interaction channels (web, form, email, social, referral…). Use their names in source_channel / channel fields.",
+			"Lead and interaction channels (web, form, email, social, referral, videocall…). Use their names in source_channel / channel fields.",
 			crm.PermRead, readTool, func(ctx context.Context, a crm.Actor, s *Server, _ empty) (any, error) {
 				return s.crm.ListChannels(ctx, a)
 			}),

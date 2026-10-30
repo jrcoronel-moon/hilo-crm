@@ -76,6 +76,14 @@ func optTags(t []string) *[]string {
 	return &t
 }
 
+func optLinks(raw json.RawMessage) *[]Link {
+	l := linksOf(raw)
+	if l == nil {
+		return nil
+	}
+	return &l
+}
+
 func optCustom(raw json.RawMessage) *map[string]any {
 	var m map[string]any
 	if json.Unmarshal(raw, &m) != nil || len(m) == 0 {
@@ -156,7 +164,7 @@ func (x *exporter) exportOpportunities() error {
 			Company: ref(x.companies, o.CompanyID), PrimaryContact: ref(x.contacts, o.PrimaryContactID), Amount: &amount,
 			Currency: &o.Currency, SourceChannel: ref(x.channels, o.SourceChannelID), Owner: ref(x.owners, o.OwnerID),
 			NextStep: opt(o.NextStep), NextStepAt: optTime(o.NextStepAt), Description: opt(o.Description),
-			LostReason: opt(o.LostReason), Tags: optTags(o.Tags), Custom: optCustom(o.Custom), Contacts: roles[o.ID],
+			LostReason: opt(o.LostReason), Tags: optTags(o.Tags), Custom: optCustom(o.Custom), Links: optLinks(o.Links), Contacts: roles[o.ID],
 			CreatedAt: optTime(&o.CreatedAt), ClosedAt: optTime(o.ClosedAt)}
 		if o.Probability != nil {
 			p := int(*o.Probability)

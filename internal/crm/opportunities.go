@@ -36,6 +36,7 @@ type OpportunityInput struct {
 	Description       *string         `json:"description,omitempty"`
 	Tags              *[]string       `json:"tags,omitempty" jsonschema:"replaces all tags"`
 	Custom            *map[string]any `json:"custom,omitempty" jsonschema:"free-form fields; replaces the whole object"`
+	Links             *[]Link         `json:"links,omitempty" jsonschema:"external files, folders or recordings about this opportunity; replaces all links"`
 	CreatedAt         *string         `json:"created_at,omitempty" jsonschema:"for migrations (needs crm:admin): original creation date, RFC 3339 or YYYY-MM-DD, in the past; applied on create, ignored on updates"`
 	ClosedAt          *string         `json:"closed_at,omitempty" jsonschema:"for migrations (needs crm:admin): original close date of an opportunity created in a won or lost stage, in the past; ignored on updates"`
 	Contacts          []ContactRole   `json:"contacts,omitempty" jsonschema:"contacts to link (added, never removed)"`
@@ -72,6 +73,7 @@ type OpportunityView struct {
 	Description       string          `json:"description,omitempty"`
 	Tags              []string        `json:"tags,omitempty"`
 	Custom            json.RawMessage `json:"custom,omitempty"`
+	Links             []Link          `json:"links,omitempty"`
 	ExternalID        string          `json:"external_id,omitempty"`
 	StageEnteredAt    time.Time       `json:"stage_entered_at"`
 	LastInteractionAt *time.Time      `json:"last_interaction_at,omitempty"`
@@ -90,7 +92,7 @@ func opportunityView(o store.Opportunity, st store.PipelineStage, companyName st
 		StageName: st.Name, StageCategory: st.Category, Amount: MinorToAmount(o.AmountMinor), Currency: o.Currency,
 		Probability: prob, CompanyID: o.CompanyID, CompanyName: companyName, PrimaryContactID: o.PrimaryContactID,
 		OwnerID: o.OwnerID, SourceChannelID: o.SourceChannelID, NextStep: o.NextStep, NextStepAt: o.NextStepAt,
-		LostReason: o.LostReason, Description: o.Description, Tags: o.Tags, Custom: emptyObjNil(o.Custom),
+		LostReason: o.LostReason, Description: o.Description, Tags: o.Tags, Custom: emptyObjNil(o.Custom), Links: linksOf(o.Links),
 		ExternalID: deref(o.ExternalID), StageEnteredAt: o.StageEnteredAt, LastInteractionAt: o.LastInteractionAt,
 		ClosedAt: o.ClosedAt, CreatedAt: o.CreatedAt, UpdatedAt: o.UpdatedAt,
 	}
@@ -206,7 +208,7 @@ func (s *Service) upsertOpportunity(ctx context.Context, q *store.Queries, a Act
 	var curStage store.PipelineStage
 	if w.created {
 		w.o = store.Opportunity{ID: newID(), WorkspaceID: ws, Kind: "deal", Currency: "USD", Tags: []string{}, Custom: json.RawMessage(`{}`),
-			Status: "open", CreatedAt: hist.created}
+			Links: json.RawMessage(`[]`), Status: "open", CreatedAt: hist.created}
 		pipe, err := resolvePipeline(ctx, q, ws, deref(in.Pipeline))
 		if err != nil {
 			return oppWrite{}, err
@@ -356,6 +358,7 @@ func applyOpportunityFields(o *store.Opportunity, in OpportunityInput, r resolve
 	p.text(&o.Description, "description", in.Description, 5000)
 	p.tags(&o.Tags, "tags", in.Tags)
 	p.custom(&o.Custom, "custom", in.Custom)
+	p.links(&o.Links, "links", in.Links)
 	p.externalID(&o.ExternalID, in.ExternalID)
 	var reason string
 	p.text(&reason, "lost_reason", in.LostReason, 1000)
@@ -413,7 +416,7 @@ func saveOpportunity(ctx context.Context, q *store.Queries, o store.Opportunity)
 		AmountMinor: o.AmountMinor, Currency: o.Currency, Probability: o.Probability,
 		ExpectedCloseDate: o.ExpectedCloseDate, ClosedAt: o.ClosedAt, LostReason: o.LostReason,
 		SourceChannelID: o.SourceChannelID, OwnerID: o.OwnerID, NextStep: o.NextStep, NextStepAt: o.NextStepAt,
-		Description: o.Description, Tags: o.Tags, Custom: o.Custom, ExternalID: o.ExternalID,
+		Description: o.Description, Tags: o.Tags, Custom: o.Custom, Links: o.Links, ExternalID: o.ExternalID,
 		StageEnteredAt: o.StageEnteredAt, CreatedAt: o.CreatedAt, // created_at is only written on insert
 	})
 }
@@ -624,7 +627,7 @@ func listRowOpportunity(r store.ListOpportunitiesRow) store.Opportunity {
 		AmountMinor: r.AmountMinor, Currency: r.Currency, Probability: r.Probability,
 		ExpectedCloseDate: r.ExpectedCloseDate, ClosedAt: r.ClosedAt, LostReason: r.LostReason,
 		SourceChannelID: r.SourceChannelID, OwnerID: r.OwnerID, NextStep: r.NextStep, NextStepAt: r.NextStepAt,
-		Description: r.Description, Tags: r.Tags, Custom: r.Custom, ExternalID: r.ExternalID,
+		Description: r.Description, Tags: r.Tags, Custom: r.Custom, Links: r.Links, ExternalID: r.ExternalID,
 		StageEnteredAt: r.StageEnteredAt, LastInteractionAt: r.LastInteractionAt, CreatedAt: r.CreatedAt,
 		UpdatedAt: r.UpdatedAt, ArchivedAt: r.ArchivedAt,
 	}

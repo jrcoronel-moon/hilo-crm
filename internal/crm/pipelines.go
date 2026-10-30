@@ -354,6 +354,7 @@ func DefaultStages() []StageInput {
 var DefaultChannels = []struct{ Name, Kind string }{
 	{"Web", "web"}, {"Formulario", "form"}, {"Email", "email"}, {"Teléfono", "phone"},
 	{"LinkedIn", "social"}, {"Referido", "referral"}, {"Evento", "event"}, {"Outbound", "outbound"},
+	{"Videoconferencia", "videocall"}, {"Video", "video"},
 }
 
 // SeedWorkspace creates the default pipeline and channels. It runs inside the

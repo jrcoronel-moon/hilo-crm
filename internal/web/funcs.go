@@ -5,6 +5,7 @@ import (
 	"hash/fnv"
 	"html/template"
 	"math"
+	"net/url"
 	"strings"
 	"time"
 	"unicode"
@@ -47,6 +48,33 @@ var funcs = template.FuncMap{
 	"trim":       strings.TrimSpace,
 	"ownerSel":   ownerSel,
 	"tagField":   tagField,
+	"typeLabel":  func(t string) string { return orSelf(typeLabels, t) },
+	"kindLabel":  func(k string) string { return orSelf(kindLabels, k) },
+	"host":       urlHost,
+}
+
+// Stored values are English (agents and the API see those); people see these.
+var (
+	typeLabels = map[string]string{"email": "Email", "call": "Llamada", "meeting": "Reunión", "note": "Nota", "message": "Mensaje",
+		"social": "Red social", "form": "Formulario"}
+	kindLabels = map[string]string{"web": "Web", "form": "Formulario", "email": "Email", "phone": "Teléfono", "social": "Red social",
+		"referral": "Referido", "event": "Evento", "outbound": "Outbound", "partner": "Partner", "ads": "Publicidad",
+		"videocall": "Videoconferencia", "video": "Video", "other": "Otro"}
+)
+
+func orSelf(m map[string]string, k string) string {
+	if v, ok := m[k]; ok {
+		return v
+	}
+	return k
+}
+
+// urlHost is the label of a link without one.
+func urlHost(s string) string {
+	if u, err := url.Parse(s); err == nil && u.Host != "" {
+		return strings.TrimPrefix(u.Host, "www.")
+	}
+	return s
 }
 
 // staleAfter matches the dashboard's "estancadas" KPI.

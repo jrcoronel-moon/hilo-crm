@@ -194,6 +194,7 @@ type Opportunity struct {
 	CreatedAt         time.Time       `json:"created_at"`
 	UpdatedAt         time.Time       `json:"updated_at"`
 	ArchivedAt        *time.Time      `json:"archived_at"`
+	Links             json.RawMessage `json:"links"`
 }
 
 type OpportunityContact struct {

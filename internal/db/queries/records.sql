@@ -117,15 +117,15 @@ SELECT * FROM opportunities WHERE workspace_id = $1 AND external_id = $2 AND arc
 -- name: SaveOpportunity :one
 INSERT INTO opportunities (id, workspace_id, title, kind, company_id, primary_contact_id, pipeline_id, stage_id, status,
     amount_minor, currency, probability, expected_close_date, closed_at, lost_reason, source_channel_id, owner_id,
-    next_step, next_step_at, description, tags, custom, external_id, stage_entered_at, created_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
+    next_step, next_step_at, description, tags, custom, external_id, stage_entered_at, created_at, links)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)
 ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, kind = EXCLUDED.kind, company_id = EXCLUDED.company_id,
     primary_contact_id = EXCLUDED.primary_contact_id, pipeline_id = EXCLUDED.pipeline_id, stage_id = EXCLUDED.stage_id,
     status = EXCLUDED.status, amount_minor = EXCLUDED.amount_minor, currency = EXCLUDED.currency,
     probability = EXCLUDED.probability, expected_close_date = EXCLUDED.expected_close_date,
     closed_at = EXCLUDED.closed_at, lost_reason = EXCLUDED.lost_reason, source_channel_id = EXCLUDED.source_channel_id,
     owner_id = EXCLUDED.owner_id, next_step = EXCLUDED.next_step, next_step_at = EXCLUDED.next_step_at,
-    description = EXCLUDED.description, tags = EXCLUDED.tags, custom = EXCLUDED.custom,
+    description = EXCLUDED.description, tags = EXCLUDED.tags, custom = EXCLUDED.custom, links = EXCLUDED.links,
     external_id = EXCLUDED.external_id, stage_entered_at = EXCLUDED.stage_entered_at, updated_at = now()
 WHERE opportunities.workspace_id = EXCLUDED.workspace_id AND opportunities.archived_at IS NULL
 RETURNING *;

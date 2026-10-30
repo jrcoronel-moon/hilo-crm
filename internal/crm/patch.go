@@ -83,6 +83,16 @@ func (p *patcher) custom(dst *json.RawMessage, field string, v *map[string]any) 
 	*dst = c
 }
 
+// links replaces the stored links; an empty list clears them.
+func (p *patcher) links(dst *json.RawMessage, field string, v *[]Link) {
+	if v == nil || p.err != nil {
+		return
+	}
+	b, err := cleanLinks(field, *v)
+	p.set(err)
+	*dst = b
+}
+
 // ref resolves an optional reference ("" clears it) with resolve.
 func (p *patcher) ref(dst **uuid.UUID, v *string, resolve func(string) (uuid.UUID, error)) {
 	if v == nil || p.err != nil {

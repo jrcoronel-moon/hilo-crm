@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -273,6 +274,7 @@ func TestExportImportRoundTrip(t *testing.T) {
 	add(svc.UpsertContact(h.ctx, op, crm.ContactInput{FirstName: strPtr("Sin email"), Company: strPtr("crm:7")}))
 	add(svc.UpsertOpportunity(h.ctx, op, crm.OpportunityInput{Title: strPtr("Planta"), Company: strPtr("globex.test"), Amount: &amount,
 		Stage: strPtr("Ganado"), CreatedAt: strPtr("2025-01-10"), ClosedAt: strPtr("2025-03-05"),
+		Links:    &[]crm.Link{{URL: "https://drive.example.test/planta", Label: "Propuesta"}},
 		Contacts: []crm.ContactRole{{Contact: "hank@globex.test", Role: "decisor"}}}))
 	add(svc.UpsertOpportunity(h.ctx, op, crm.OpportunityInput{Title: strPtr("Perdida"), Stage: strPtr("Perdido"), LostReason: strPtr("precio"), NextStep: strPtr("nada")}))
 	if _, err := svc.LogInteraction(h.ctx, op, crm.InteractionInput{Type: "call", Company: "globex.test", Contact: "hank@globex.test",
@@ -321,3 +323,68 @@ func TestExportImportRoundTrip(t *testing.T) {
 }
 
 func intPtr(i int) *int { return &i }
+
+func TestImportCSV(t *testing.T) {
+	h := harness{t: t, ctx: context.Background(), d: testdb.New(t)}
+	h.ok("workspace", "create", "Acme", "--owner", "ana@acme.test")
+
+	// Spanish headers are recognised; "Región" has no field and is mapped to custom.
+	h.stdin = "Id;Empresa;Dominio;Región\n1;Globex;globex.test;Norte\n2;Initech;;Sur\n"
+	out := h.ok("import-csv", "acme", "company", "--source", "hs", "--map", "Región=custom", "--dry-run")
+	if !regexp.MustCompile(`Empresa\s+name`).MatchString(out) || !strings.Contains(out, "dry run (nothing saved): 2 rows, 2 ok (2 new, 0 updated), 0 rejected, 0 not converted") {
+		t.Fatalf("company dry run: %s", out)
+	}
+	if out := h.ok("import-csv", "acme", "company", "--source", "hs", "--map", "Región=custom"); !strings.Contains(out, "imported: 2 rows, 2 ok (2 new") {
+		t.Fatalf("company import: %s", out)
+	}
+	// Again: nothing new, nothing duplicated.
+	var res struct {
+		Mapping              map[string]string
+		OK, Created, Updated int
+	}
+	h.json(&res, "import-csv", "acme", "company", "--source", "hs", "--map", "Región=custom")
+	if res.OK != 2 || res.Created != 0 || res.Updated != 2 || res.Mapping["Región"] != "custom" {
+		t.Fatalf("re-import: %+v", res)
+	}
+
+	// Opportunities: references by source id and by domain, a default pipeline,
+	// a bad amount (not converted) and a lost deal without a reason (rejected).
+	h.stdin = "Deal ID,Deal Name,Company,Stage,Amount,Close Date,Created\n" +
+		"d1,Planta,1,Ganado,\"1.500,50\",03/04/2025,2025-01-10\n" +
+		"d2,Rara,globex.test,Nuevo,abc,,\n" +
+		"d3,Perdida,2,Perdido,10,,\n"
+	out = h.ok("import-csv", "acme", "opportunity", "--source", "hs", "--set", "currency=EUR", "--tags", "migrado")
+	if !strings.Contains(out, "imported: 3 rows, 1 ok (1 new, 0 updated), 1 rejected, 1 not converted") ||
+		!regexp.MustCompile(`3\s+amount\s+"abc" is not an amount`).MatchString(out) || !strings.Contains(out, "lost_reason") {
+		t.Fatalf("opportunity import: %s", out)
+	}
+	svc := crm.New(h.d, slog.New(slog.DiscardHandler))
+	id := identity.New(h.d, slog.New(slog.DiscardHandler), nil)
+	ws, err := id.FindWorkspace(h.ctx, "acme")
+	if err != nil {
+		t.Fatal(err)
+	}
+	op := crm.NewActor(uuid.Nil, ws.ID, "owner", "system", "test", crm.AllScopes)
+	o, err := svc.GetOpportunity(h.ctx, op, "hs:d1")
+	if err != nil || o.CompanyName != "Globex" || o.Amount != 1500.5 || o.Currency != "EUR" || o.Status != "won" ||
+		o.CreatedAt.UTC().Format("2006-01-02") != "2025-01-10" || strings.Join(o.Tags, ",") != "migrado" {
+		t.Fatalf("imported deal: %+v %v", o, err)
+	}
+
+	h.stdin = "a,b\n1,2\n"
+	for _, c := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"import-csv", "acme", "thing"}, "kind must be"},
+		{[]string{"import-csv", "acme", "company"}, "name must be mapped"},
+		{[]string{"import-csv", "acme", "company", "--map", "zzz=name"}, "no column"},
+		{[]string{"import-csv", "acme", "company", "--map", "a=name", "--dates", "ymd"}, "--dates"},
+		{[]string{"import-csv", "acme", "company", "--map", "a=name", "--set", "nope"}, "--set"},
+		{[]string{"import-csv", "acme", "interaction", "--map", "a=custom"}, "custom"},
+	} {
+		if msg := h.fails(c.args...); !strings.Contains(msg, c.want) {
+			t.Errorf("%v: got %q, want %q", c.args, msg, c.want)
+		}
+	}
+}
