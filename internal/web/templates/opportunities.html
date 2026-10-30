@@ -15,7 +15,7 @@
   <div>{{.Done}} {{if eq .Done 1}}oportunidad actualizada{{else}}oportunidades actualizadas{{end}}.{{if .Failed}} No se pudieron cambiar:<ul>{{range .Failed}}<li>{{.}}</li>{{end}}</ul>{{end}}</div></div>
 {{end}}
 
-<div data-live="list">
+<div class="live-region" data-live="list">
 {{if $d.Page.Items}}
 <form method="post" action="/opportunities/bulk" data-bulk>
   <input type="hidden" name="csrf" value="{{$d.CSRF}}"><input type="hidden" name="back" value="{{$f.Encode}}">

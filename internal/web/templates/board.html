@@ -24,7 +24,7 @@
   {{with $f.Q}}<span class="chip">“{{.}}” <a href="/board{{$f.Without "q"}}" aria-label="Quitar búsqueda">×</a></span>{{end}}
   <a class="btn" href="/opportunities.csv?{{$f.Encode}}"><svg class="i sm"><use href="#i-download"/></svg>Exportar</a>
 </form>
-<div data-live="board">
+<div class="live-region" data-live="board">
 <div class="kpis">
   <div class="kpi inline"><span>Abiertas</span><strong>{{$m.OpenCount}}</strong><small>{{moneyMap $m.OpenAmount}}</small></div>
   <div class="kpi inline"><span>Ponderado</span><strong>{{moneyMap $m.Weighted}}</strong></div>

@@ -16,7 +16,7 @@
 
 {{define "content"}}
 {{$d := .Data}}{{$m := $d.Metrics}}
-<div data-live="dashboard">
+<div class="live-region" data-live="dashboard">
 <div class="kpis">
   <div class="kpi"><span>Abiertas</span><strong>{{$m.OpenCount}}</strong><small>{{moneyMap $m.OpenAmount}}</small></div>
   <div class="kpi"><span>Ponderado</span><strong>{{moneyShort $m.Weighted}}</strong><small>según probabilidad</small></div>
@@ -83,7 +83,7 @@
     <section class="card">
       <div class="card-head"><h2>Actividad por agente</h2>{{if $.View.IsAdmin}}<a class="aside" href="/settings/audit">Ver todo</a>{{end}}</div>
       {{if $d.Actors}}
-      <div class="activity">{{range $d.Actors}}<div class="a"><span class="av md {{.Class}}">{{.Initials}}</span><div><b>{{.Title}}</b><small>{{.Sub}}</small></div><span class="tag teal">{{if .Created}}{{.Created}} creadas · {{end}}{{.Changes}} cambios</span></div>{{end}}</div>
+      <div class="activity">{{range $d.Actors}}<div class="a"><span class="av md {{.Class}}">{{.Initials}}</span><div><b>{{.Title}}</b><small>{{.Sub}}</small></div><span class="tag teal">{{if .Created}}{{.Created}} {{if eq .Created 1}}creada{{else}}creadas{{end}} · {{end}}{{.Changes}} {{if eq .Changes 1}}cambio{{else}}cambios{{end}}</span></div>{{end}}</div>
       {{else}}<p class="muted">Sin cambios en el período.</p>{{end}}
     </section>
   </div>

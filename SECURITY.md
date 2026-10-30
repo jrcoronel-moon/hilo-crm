@@ -30,3 +30,8 @@ Respondemos dentro de las 72 h y coordinamos la publicación una vez disponible 
 - Secretos largos y aleatorios en `.env`, con permisos `600`, fuera del repositorio.
 - Backups fuera del host (snapshots de Lightsail o copia del volumen `backups`).
 - Actualizar con regularidad (`git pull && make` y el despliegue descrito en `docs/DEPLOY_LIGHTSAIL.md`).
+- Tratar el acceso SSH al servidor como acceso total: `hiloctl` actúa como propietario de cualquier workspace (emite
+  tokens, cambia roles, exporta todo). `hiloctl export` produce el workspace completo en claro: guardalo como un
+  backup.
+- Si nadie necesita la web, `HILO_UI=minimal` (solo login y consentimiento de agentes) o `HILO_UI=off` (solo tokens
+  personales) reducen la superficie expuesta.

@@ -218,7 +218,8 @@ Pendiente, si hace falta:
 | B.1 ✅ | Fechas históricas (`created_at`/`closed_at`, solo admin, solo al crear), referencias por `external_id` en todas las herramientas, `bulk_upsert` con `dry_run` exacto (savepoints) | 2026-10-30 | `5543313` |
 | C ✅ | `list_changes` (cursor) y `needs_attention` para agentes proactivos; anotaciones ya declaradas; guía y matriz de compatibilidad en `docs/AGENTS.md` | 2026-10-30 | `d672484` |
 | A.3 ✅ | `hiloctl` completo (pipelines, canales, auditoría, marca) + `HILO_UI=full/minimal/off` (por defecto `full`) | 2026-10-30 | `fcb4e15` |
-| B ✅ | `hiloctl export` / `import` con el formato de `bulk_upsert` (hasta 100 000 registros, `--dry-run` sobre todo el archivo, reimportar nunca duplica) | 2026-10-30 | ver `git log` |
+| B ✅ | `hiloctl export` / `import` con el formato de `bulk_upsert` (hasta 100 000 registros, `--dry-run` sobre todo el archivo, reimportar nunca duplica) | 2026-10-30 | `4d023c9` |
+| Rev ✅ | Revisión final: el stream en vivo se corta al perder acceso; avisos agrupados en ráfagas; layout del funnel; enlaces y redirecciones en modo `minimal`; documentación de operación y seguridad | 2026-10-30 | ver `git log` |
 
 ### Pendiente (en el orden recomendado)
 

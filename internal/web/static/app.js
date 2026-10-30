@@ -354,7 +354,6 @@ function hydrate(root) {
 hydrate(document);
 
 if (window.EventSource && $("[data-live]")) {
-  let timer = null, pending = false, dropped = false;
   // Never swap content under the user's hands.
   const busy = () => {
     const a = document.activeElement;
@@ -365,9 +364,18 @@ if (window.EventSource && $("[data-live]")) {
     n.classList.add("flash");
     setTimeout(() => n.classList.remove("flash"), 2500);
   });
-  const refresh = async (focus) => {
-    if (busy()) { pending = true; timer = setTimeout(() => refresh(focus), 2000); return; }
+  // Fixed windows, not debouncing: during a long burst (an import) the page
+  // still refreshes and announces every so often instead of waiting for the end.
+  let timer = null, focusId = null, pending = false, dropped = false;
+  const schedule = (focus, delay = 400) => {
+    if (focus) focusId = focus;
+    if (!timer) timer = setTimeout(() => { timer = null; refresh(); }, delay);
+  };
+  const refresh = async () => {
+    if (busy()) { pending = true; schedule(null, 2000); return; }
     pending = false;
+    const focus = focusId;
+    focusId = null;
     const res = await fetch(location.href, { credentials: "same-origin" }).catch(() => null);
     if (!res || !res.ok || res.redirected) return;
     const doc = new DOMParser().parseFromString(await res.text(), "text/html");
@@ -377,11 +385,22 @@ if (window.EventSource && $("[data-live]")) {
     });
     if (focus) flash(focus);
   };
-  const schedule = (focus) => { clearTimeout(timer); timer = setTimeout(() => refresh(focus), 300); };
+  // A burst (an import, a bulk_upsert) becomes one notice, not hundreds.
+  let burst = [], burstTimer = null;
+  const announce = () => {
+    burstTimer = null;
+    const actors = new Set(burst.map((ev) => ev.actor));
+    if (burst.length === 1) toast(`${burst[0].actor} ${burst[0].summary}`);
+    else toast(actors.size === 1 ? `${burst[0].actor} hizo ${burst.length} cambios` : `${burst.length} cambios de ${actors.size} personas o agentes`);
+    burst = [];
+  };
   const es = new EventSource("/events");
   es.addEventListener("change", (e) => {
     const ev = JSON.parse(e.data);
-    if (!ev.self) toast(`${ev.actor} ${ev.summary}`);
+    if (!ev.self) {
+      burst.push(ev);
+      if (!burstTimer) burstTimer = setTimeout(announce, 800);
+    }
     schedule(ev.entity_id);
   });
   // After a dropped connection, catch up on whatever was missed.

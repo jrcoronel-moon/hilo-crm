@@ -65,10 +65,16 @@ docker compose -f docker-compose.yml -f deploy/compose.prod.yml up -d --build --
 ```sh
 docker compose exec web hiloctl superadmin grant ana@tudominio.com
 docker compose exec web hiloctl domain allow tudominio.com
+docker compose exec web hiloctl                                    # todos los comandos (miembros, tokens, pipelines…)
+docker compose exec web hiloctl watch <workspace>                  # actividad de los agentes en vivo
+docker compose exec -T web hiloctl export <workspace> > ws.json    # el workspace en JSON (copia legible)
 docker compose exec backup ls -l /var/lib/postgresql/backups     # backups diarios
 # restaurar un backup:
 docker compose exec -T backup sh -c 'gunzip -c /var/lib/postgresql/backups/hilo-AAAAMMDD-HHMM.sql.gz' \
   | docker compose exec -T db psql -U postgres -d hilo
 ```
+
+Para operar sin web, poné `HILO_UI=minimal` (o `off`) en `.env` y volvé a levantar los contenedores: ver
+`.env.example`.
 
 Para ver los logs, `docker logs <contenedor>` no necesita el `.env` (a diferencia de `docker compose logs`).

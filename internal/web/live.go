@@ -13,10 +13,26 @@ import (
 // Live updates: GET /events streams every change in the current workspace as
 // server-sent events, so the open pages refresh while agents work.
 
-const (
-	heartbeat  = 25 * time.Second // keeps proxies from closing an idle stream
-	writeGrace = 10 * time.Second // a write that takes longer drops the stream
-)
+// heartbeat keeps proxies from closing an idle stream and is when the session
+// is checked again; a var so tests can shorten it.
+var heartbeat = 25 * time.Second
+
+const writeGrace = 10 * time.Second // a write that takes longer drops the stream
+
+// stillWatching reports whether the stream's session is still signed in, on
+// the same workspace, and its user still a member of it.
+func (h *Handler) stillWatching(r *http.Request, v view) bool {
+	c, err := r.Cookie(h.cookieName())
+	if err != nil {
+		return false
+	}
+	sess, err := h.id.ResolveSession(r.Context(), c.Value)
+	if err != nil || sess.UserID != v.Sess.UserID || (sess.WorkspaceID != nil && *sess.WorkspaceID != v.Current.ID) {
+		return false
+	}
+	_, err = h.id.Membership(r.Context(), sess.UserID, v.Current.ID)
+	return err == nil
+}
 
 func (h *Handler) live(w http.ResponseWriter, r *http.Request, v view) {
 	if h.hub == nil || v.Current == nil {
@@ -56,7 +72,9 @@ func (h *Handler) live(w http.ResponseWriter, r *http.Request, v view) {
 		case <-h.done:
 			return
 		case <-tick.C:
-			if !send(": ping\n\n") {
+			// Revalidate, so signing out or being removed from the workspace
+			// ends an open stream within one heartbeat.
+			if !h.stillWatching(r, v) || !send(": ping\n\n") {
 				return
 			}
 		case e := <-sub.C:

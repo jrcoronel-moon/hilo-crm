@@ -344,7 +344,7 @@ func (h *Handler) createWorkspace(w http.ResponseWriter, r *http.Request, v view
 		h.fail(w, r, err)
 		return
 	}
-	http.Redirect(w, r, "/board", http.StatusSeeOther)
+	http.Redirect(w, r, "/", http.StatusSeeOther) // the board, or the headless page without the full UI
 }
 
 func (h *Handler) switchWorkspace(w http.ResponseWriter, r *http.Request, v view) {
@@ -356,5 +356,5 @@ func (h *Handler) switchWorkspace(w http.ResponseWriter, r *http.Request, v view
 		h.fail(w, r, err)
 		return
 	}
-	http.Redirect(w, r, "/board", http.StatusSeeOther)
+	http.Redirect(w, r, "/", http.StatusSeeOther)
 }

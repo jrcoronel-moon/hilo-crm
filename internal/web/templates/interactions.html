@@ -6,7 +6,7 @@
   <select name="channel" data-autosubmit aria-label="Canal"><option value="">Todos los canales</option>{{range $d.Channels}}<option value="{{.Name}}" {{if eq .Name $f.Channel}}selected{{end}}>{{.Name}}</option>{{end}}</select>
   <div class="search"><svg class="i sm"><use href="#i-search"/></svg><input type="search" name="q" value="{{$f.Query}}" placeholder="Buscar en asunto, resumen, empresa u oportunidad" aria-label="Buscar"></div>
 </form>
-<div data-live="list">
+<div class="live-region" data-live="list">
 {{if $d.Page.Items}}
 <table class="table">
   <tr><th>Cuándo</th><th>Tipo</th><th>Con</th><th>Asunto / resumen</th><th>Oportunidad</th></tr>

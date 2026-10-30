@@ -5,7 +5,7 @@
   <div class="search"><svg class="i sm"><use href="#i-search"/></svg><input type="search" name="q" value="{{$d.Q}}" placeholder="Buscar por nombre, email o empresa" aria-label="Buscar" data-hotkey="k"><kbd>⌘K</kbd></div>
   {{with $d.Tag}}<span class="chip">Tag: {{.}} <a href="/contacts" aria-label="Quitar filtro">×</a></span>{{end}}
 </form>
-<div data-live="list">
+<div class="live-region" data-live="list">
 {{if $d.Page.Items}}
 <table class="table">
   <tr><th>Contacto</th><th>Cargo</th><th>Empresa</th><th>Teléfono</th><th>Tags</th><th>Última actividad</th></tr>

@@ -334,3 +334,6 @@ strong.big { font-size: 32px; font-weight: 700; letter-spacing: -.02em; }
 .flash { animation: flash 2.5s ease-out; }
 @keyframes flash { from { box-shadow: 0 0 0 3px var(--teal-400); background: var(--teal-50); } to { box-shadow: 0 0 0 0 transparent; } }
 @media (prefers-reduced-motion: reduce) { .flash { animation: none; outline: 2px solid var(--teal-400); } }
+/* live-update wrappers (data-live) lay out their children like .body does,
+   and may shrink: wide content (the board) scrolls instead of widening the page */
+.live-region { display: grid; gap: 16px; align-content: start; min-width: 0; }
