@@ -19,7 +19,7 @@ documentación, debería funcionar, pero no lo probamos.
 | Claude (web, escritorio) | Conector personalizado con la URL, OAuth | Probado |
 | Claude Code | `claude mcp add --transport http hilo <URL>`, OAuth | Probado |
 | Grok (API de xAI) | Herramienta `mcp` en `/v1/responses` con un PAT | Probado (`scripts/try-grok.py`) |
-| Cursor | Servidor MCP remoto, OAuth o PAT | Por verificar |
+| Cursor | Servidor MCP remoto, OAuth o PAT | Probado (OAuth) |
 | ChatGPT y ChatGPT Dots | Conector MCP remoto, OAuth | Por verificar |
 | Claude Duet | Usa los conectores de Claude: conectá Hilo en Claude | Por verificar (vista previa con lista de espera) |
 | Meta Muse | Conector personalizado; las fuentes no coinciden en si acepta OAuth o solo encabezados | Por verificar: si solo acepta encabezados, usá un PAT |
