@@ -131,10 +131,17 @@ docker compose exec web hiloctl watch acme                                # lo q
 docker compose exec -T web hiloctl pipeline apply acme < pipeline.json    # pipelines, canales, auditoría, marca…
 docker compose exec -T web hiloctl export acme > acme.json                 # todo el workspace, en JSON
 docker compose exec -T web hiloctl import otro --dry-run < acme.json       # validar; sin --dry-run, cargar
+docker compose exec -T web hiloctl import-csv acme contact --source hubspot --dry-run < contacts.csv   # un CSV de otro CRM
 ```
+
+Manual completo, con pasos y recetas: [docs/HILOCTL.md](docs/HILOCTL.md).
 
 `export` produce el mismo formato que lee `import` (y la herramienta `bulk_upsert`): sirve de backup legible, para
 mover un workspace a otro Hilo y como formato de migraciones grandes sin agente. Importarlo de nuevo nunca duplica.
+
+Un CSV de otro CRM o de una planilla se carga desde *Ajustes → Importar* (un tipo de registro por archivo: Hilo
+reconoce las columnas en español o inglés, te deja ajustarlas y valida todo con una prueba antes de guardar) o con
+`hiloctl import-csv` para archivos grandes. Ambos pasan por los mismos `upsert` que usan los agentes.
 
 `hiloctl` sin argumentos lista todos los comandos. Actúa como operador del servidor, con las mismas reglas que la
 web (por ejemplo, ningún workspace se queda sin propietario). El token se muestra una sola vez.
@@ -202,7 +209,7 @@ make dast      # OWASP ZAP baseline contra el stack levantado (make up)
 
 [Apache-2.0](LICENSE): uso libre, comercial y privado.
 
-Documentación: [despliegue en AWS Lightsail](docs/DEPLOY_LIGHTSAIL.md) · [seguridad y modelo de amenazas](SECURITY.md) ·
+Documentación: [despliegue (Docker, Lightsail, EC2 + Aurora)](docs/DEPLOY.md) · [manual de hiloctl](docs/HILOCTL.md) · [seguridad y modelo de amenazas](SECURITY.md) ·
 [banner de arranque](docs/STARTUP_BANNER.md) · [migrar desde otro CRM con un agente](docs/migrate/README.md) ·
 [cómo contribuir](CONTRIBUTING.md) ·
 [plan de próximos features](docs/PLAN_FEATURES.md).

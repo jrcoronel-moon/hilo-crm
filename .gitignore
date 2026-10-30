@@ -4,6 +4,7 @@
 !.env.example
 !.env.*.example
 *.pem
+# (deploy/rds-ca.pem is the public RDS root bundle, downloaded on the server; never committed either)
 *.key
 *.crt
 *.p12

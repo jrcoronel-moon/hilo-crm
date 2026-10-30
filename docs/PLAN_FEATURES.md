@@ -67,6 +67,11 @@ origen (HubSpot, Pipedrive, CSV…) ──► adaptador ──► paquete Hilo (
 2. **SSH / contenedor**: el mismo comando, ejecutado en el servidor con `docker compose exec web hiloctl import …`. Lo único extra es poder pasar el paquete por stdin o por un volumen de solo lectura.
 3. **UI**: subir un CSV, previsualizar el mapeo y confirmar. Reutiliza el adaptador CSV y el cargador; la UI solo arma el `mapping.yaml`.
 
+Hecho (E.1): el adaptador CSV vive en `internal/importer` y lo usan tanto *Ajustes → Importar* como `hiloctl
+import-csv`. En lugar de `mapping.yaml`, el mapeo se adivina por los encabezados y se corrige en la pantalla o con
+`--map`; los valores fijos (`--set pipeline=Ventas`) reemplazan al archivo de mapeo. El paquete JSONL intermedio no
+hizo falta: el formato intermedio es el de `bulk_upsert`, que `export` e `import` ya usan.
+
 Bonus casi gratis: un agente ya puede migrar hoy leyendo el CRM viejo con su propio conector y llamando a los `upsert_*` de Hilo. Se puede documentar como "migración asistida" y, si hace falta, sumar una herramienta MCP `bulk_upsert` para hacerlo en lotes.
 
 ### Seguridad
@@ -219,14 +224,17 @@ Pendiente, si hace falta:
 | C ✅ | `list_changes` (cursor) y `needs_attention` para agentes proactivos; anotaciones ya declaradas; guía y matriz de compatibilidad en `docs/AGENTS.md` | 2026-10-30 | `d672484` |
 | A.3 ✅ | `hiloctl` completo (pipelines, canales, auditoría, marca) + `HILO_UI=full/minimal/off` (por defecto `full`) | 2026-10-30 | `fcb4e15` |
 | B ✅ | `hiloctl export` / `import` con el formato de `bulk_upsert` (hasta 100 000 registros, `--dry-run` sobre todo el archivo, reimportar nunca duplica) | 2026-10-30 | `4d023c9` |
-| Rev ✅ | Revisión final: el stream en vivo se corta al perder acceso; avisos agrupados en ráfagas; layout del funnel; enlaces y redirecciones en modo `minimal`; documentación de operación y seguridad | 2026-10-30 | ver `git log` |
+| Rev ✅ | Revisión final: el stream en vivo se corta al perder acceso; avisos agrupados en ráfagas; layout del funnel; enlaces y redirecciones en modo `minimal`; documentación de operación y seguridad | 2026-10-30 | `9283220` |
+| E.1 ✅ | Importación CSV: adaptador `internal/importer` (detecta columnas en español e inglés, normaliza fechas, montos, tipos y referencias por `external_id`), pantalla *Ajustes → Importar* (subir, mapear, validar con dry run, importar) y `hiloctl import-csv`; manual `docs/HILOCTL.md` | 2026-10-30 | ver `git log` |
+| + ✅ | Links en oportunidades (archivos externos, carpetas, grabaciones), canales `videocall` y `video` (sembrados en los workspaces existentes), tipos y canales en español en la web; guía de despliegue unificada (`docs/DEPLOY.md`: Docker, Lightsail, EC2 + Aurora) | 2026-10-30 | ver `git log` |
 
 ### Pendiente (en el orden recomendado)
 
 | Fase | Contenido | Tamaño |
 |---|---|---|
 | D ⏸ | Adaptadores HubSpot y Pipedrive dentro de Hilo. En pausa: las guías para agentes ya cubren estos orígenes y los adaptadores no se pueden probar sin cuentas reales. Se retoma si aparece un caso concreto | M |
-| E ⏸ | UI de importación CSV y cola de aprobaciones dentro de Hilo. En pausa: la importación ya la hace un agente o `hiloctl import`, y los agentes proactivos ya piden confirmación según las anotaciones. Requiere tu decisión | M |
+| E.2 ⏳ | Cola de aprobaciones dentro de Hilo: acciones delicadas de agentes (archivar, pasar a perdida, cambios masivos) quedan pendientes hasta que una persona las apruebe por web, `hiloctl` o el propio agente. Hoy la confirmación la pide el cliente MCP según las anotaciones de las herramientas. Requiere decidir qué acciones y quién aprueba | M |
+| I18N ⏳ | Multiidioma: la interfaz y los textos de la auditoría en español hoy; pasar los textos a un catálogo (`es`, `en` primero), idioma por usuario con fallback al del workspace, y mensajes de validación traducibles. Los valores internos (tipos, categorías, roles) siguen en inglés para agentes y API | M |
 | — | Lightsail y publicación en directorios de conectores, cuando se decida | — |
 
 Decisión tomada por defecto (cambiable): `HILO_UI` es `full` salvo que lo configures; para producción headless,

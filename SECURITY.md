@@ -19,6 +19,7 @@ Respondemos dentro de las 72 h y coordinamos la publicación una vez disponible 
 | Navegador | XSS | `html/template` (escape por contexto); CSP sin `unsafe-inline` ni orígenes externos; URLs de usuario solo `http(s)`. |
 | Agentes | Prompt injection desde datos del CRM | Las instrucciones del servidor y las descripciones de herramientas declaran que todo texto del CRM es dato, no instrucción. Los formularios públicos no pueden sobrescribir registros existentes. |
 | Tiempo real (`/events`) | Ver cambios de otro workspace, agotar el servidor | Requiere sesión y solo entrega eventos del workspace activo; el aviso de la base lleva únicamente referencias y el evento se lee con el workspace ligado (RLS). Límite de conexiones por usuario y total; un cliente lento pierde eventos en lugar de frenar al resto. |
+| Importación (web y `hiloctl import-csv`) | Archivos maliciosos, cargas masivas | Solo admins; el CSV se lee como datos (nada se evalúa), con límites de tamaño y filas en la web (700 KB, 3 000 filas) y el cuerpo de la petición acotado; el archivo no toca el disco; cada registro pasa por la misma validación, reglas y auditoría que un `upsert` de un agente, y la prueba (`dry run`) usa savepoints para no guardar nada. Los links de las oportunidades solo aceptan URLs `http(s)` absolutas. |
 | Formularios públicos | Spam, abuso | Clave no adivinable, rate limit por IP, honeypot, lista de orígenes, límite de cuerpo, redirección solo a la URL configurada. |
 | Secretos | Fuga en el repo o en imágenes | Solo se guardan hashes de tokens; `.gitignore` y `.dockerignore` restrictivos; gitleaks en pre-commit y CI; imágenes distroless sin shell. |
 | Infraestructura | Escalada desde un contenedor | Contenedores sin root, sistema de archivos de solo lectura, `cap_drop: ALL`, `no-new-privileges`, límites de memoria; Postgres en una red interna sin puertos publicados. |
@@ -29,7 +30,7 @@ Respondemos dentro de las 72 h y coordinamos la publicación una vez disponible 
 - HTTPS (Caddy lo provee si el DNS apunta a la instancia y los puertos 80/443 están abiertos).
 - Secretos largos y aleatorios en `.env`, con permisos `600`, fuera del repositorio.
 - Backups fuera del host (snapshots de Lightsail o copia del volumen `backups`).
-- Actualizar con regularidad (`git pull && make` y el despliegue descrito en `docs/DEPLOY_LIGHTSAIL.md`).
+- Actualizar con regularidad (`git pull && make` y el despliegue descrito en `docs/DEPLOY.md`).
 - Tratar el acceso SSH al servidor como acceso total: `hiloctl` actúa como propietario de cualquier workspace (emite
   tokens, cambia roles, exporta todo). `hiloctl export` produce el workspace completo en claro: guardalo como un
   backup.

@@ -1,0 +1,35 @@
+# External Postgres (Amazon Aurora PostgreSQL or RDS): the db and backup
+# containers do not run; web, mcp and migrate talk to the cluster endpoint
+# over TLS. Use it on top of the base file and the production override:
+#
+#   docker compose -f docker-compose.yml -f deploy/compose.prod.yml -f deploy/compose.aurora.yml up -d --build --wait
+#
+# .env needs DATABASE_URL (role hilo_app) and MIGRATOR_DATABASE_URL (role
+# hilo_migrator) pointing at the writer endpoint, e.g.
+#   postgres://hilo_app:…@hilo.cluster-xxxx.us-east-1.rds.amazonaws.com:5432/hilo?sslmode=verify-full&sslrootcert=/etc/ssl/rds-ca.pem&pool_max_conns=20
+# The roles are created once with deploy/postgres/roles-external.sql.
+# See docs/DEPLOY.md.
+services:
+  db:
+    profiles: ["local-db"] # never started without --profile local-db
+  backup:
+    profiles: ["local-db"] # Aurora keeps the backups
+  migrate:
+    depends_on: !reset []
+    environment:
+      MIGRATOR_DATABASE_URL: ${MIGRATOR_DATABASE_URL:?set MIGRATOR_DATABASE_URL (hilo_migrator on the writer endpoint)}
+    volumes:
+      - ./deploy/rds-ca.pem:/etc/ssl/rds-ca.pem:ro
+  web:
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL (hilo_app on the writer endpoint)}
+    volumes:
+      - ./deploy/rds-ca.pem:/etc/ssl/rds-ca.pem:ro
+  mcp:
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL (hilo_app on the writer endpoint)}
+    volumes:
+      - ./deploy/rds-ca.pem:/etc/ssl/rds-ca.pem:ro
+networks:
+  data:
+    internal: false # the database lives outside the host
