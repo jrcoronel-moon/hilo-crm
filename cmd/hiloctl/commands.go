@@ -271,7 +271,7 @@ func watch(c *cli, in input) error {
 			_ = enc.Encode(e)
 			return
 		}
-		_, _ = fmt.Fprintf(c.out, "%s  %-24s %s  [%s]\n", e.At.Local().Format(time.TimeOnly), e.Actor, e.Summary, e.Via)
+		_, _ = fmt.Fprintf(c.out, "%s  %s  %-40s %s  [%s]\n", e.At.Local().Format(time.TimeOnly), ws.Slug, e.Who(), e.Summary, e.Via)
 	})
 	return nil
 }

@@ -29,12 +29,21 @@ type Event struct {
 	Action    string     `json:"action"`
 	Entity    string     `json:"entity"`
 	EntityID  *uuid.UUID `json:"entity_id,omitempty"`
-	Actor     string     `json:"actor"` // the agent's name, the person's email, or the public form
-	Via       string     `json:"via"`   // session | oauth | pat | form | system
+	Actor     string     `json:"actor"`          // the agent's name, the person's email, or the public form
+	User      string     `json:"user,omitempty"` // when an agent acted: the email of the person it acts for
+	Via       string     `json:"via"`            // session | oauth | pat | form | system
 	Summary   string     `json:"summary"`
 	Self      bool       `json:"self,omitempty"` // set per browser: the viewer did it
 
 	actorUser *uuid.UUID
+}
+
+// Who names the actor and, for an agent, the person it acts for: "Cursor (ana@acme.com)".
+func (e Event) Who() string {
+	if e.User != "" && e.User != e.Actor {
+		return e.Actor + " (" + e.User + ")"
+	}
+	return e.Actor
 }
 
 // By reports whether the person signed in as user made this change in the web.
@@ -64,7 +73,7 @@ func FromAudit(r store.GetAuditEntryRow) Event {
 	case r.ActorKind == "form":
 		e.Actor = "Formulario público"
 	case r.ActorClient != "" && r.ActorKind != "session":
-		e.Actor = r.ActorClient
+		e.Actor, e.User = r.ActorClient, r.ActorEmail
 	case r.ActorEmail != "":
 		e.Actor = r.ActorEmail
 	default:

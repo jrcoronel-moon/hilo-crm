@@ -127,7 +127,7 @@ func auditList(c *cli, in input) error {
 	rows := make([][]string, 0, len(entries))
 	for _, e := range entries {
 		ev := events.FromAudit(store.GetAuditEntryRow(e))
-		rows = append(rows, []string{ev.At.Local().Format(time.DateTime), ev.Actor, ev.Via, ev.Summary})
+		rows = append(rows, []string{ev.At.Local().Format(time.DateTime), ev.Who(), ev.Via, ev.Summary})
 	}
 	return c.emit(entries, "WHEN\tWHO\tVIA\tWHAT", rows)
 }

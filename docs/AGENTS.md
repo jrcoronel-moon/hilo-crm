@@ -9,6 +9,12 @@ una de dos formas:
   `hiloctl token create <workspace> <email> <nombre> [--read-only] [--ttl 90d]`, y se manda como
   `Authorization: Bearer hilo_pat_…`.
 
+> **¿Token o OAuth?** Son dos caminos para el mismo acceso, nunca los dos a la vez. Un cliente con OAuth (Claude,
+> Grokbot, Cursor, ChatGPT…) no necesita ningún token: pegás la URL y autorizás; la conexión aparece en *Ajustes →
+> Agentes* como "conectado por OAuth". El token personal es solo para lo que no sabe hacer OAuth: la **API de xAI
+> (Grok por API)**, scripts propios, integraciones por encabezado. Si creaste un token y el cliente terminó entrando
+> por OAuth, el token quedó sin uso: revocalo.
+
 ## Compatibilidad
 
 "Probado" quiere decir que lo conectamos de punta a punta contra Hilo. "Por verificar" quiere decir que, según su

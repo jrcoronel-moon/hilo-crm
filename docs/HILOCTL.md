@@ -97,6 +97,11 @@ Roles: **owner** y **admin** administran (ajustes, miembros, importar, exportar)
 El token se usa como `Authorization: Bearer hilo_pat_…` contra `https://<tu-dominio>/mcp`. Hereda los permisos del
 rol del miembro, acotados por `--read-only`.
 
+> Un token es para clientes **sin OAuth**: la API de xAI (Grok por API), scripts, integraciones por encabezado. Los
+> clientes con OAuth (Claude, Grokbot, Cursor, ChatGPT…) no lo necesitan: se conectan con la URL `/mcp` y autorizan
+> en Hilo; su conexión se ve y se revoca en *Ajustes → Agentes*. Si un cliente entró por OAuth, el token que le
+> habías creado no se usa: revocalo.
+
 ### Agentes pre-aprobados (OAuth sin pantalla de consentimiento)
 
 | Comando | Qué hace |
