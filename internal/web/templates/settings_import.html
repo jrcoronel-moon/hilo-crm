@@ -1,0 +1,74 @@
+{{define "content"}}
+{{$d := .Data}}
+<section class="card">
+  <div class="card-head"><div><h2>Importar desde CSV</h2><p class="muted small">Exportá de tu CRM o planilla un archivo por tipo de registro. Hilo reconoce las columnas, te deja ajustarlas y valida todo antes de guardar nada. Hasta {{$d.MaxKB}} KB y {{$d.MaxRows}} filas por archivo; para más, <code>hiloctl import-csv</code>.</p></div></div>
+  <form method="post" action="/settings/import" enctype="multipart/form-data" class="row">
+    <input type="hidden" name="csrf" value="{{$d.CSRF}}">
+    <label class="field">Tipo<select name="kind">{{range $d.Kinds}}<option value="{{.Key}}" {{if eq .Key $d.Kind}}selected{{end}}>{{.Label}}</option>{{end}}</select></label>
+    <label class="field grow">Archivo CSV<input type="file" name="file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values" required></label>
+    <label class="field">Origen<input name="source" value="{{$d.Source}}" placeholder="hubspot" maxlength="40"></label>
+    <button class="btn strong">Analizar</button>
+  </form>
+  <p class="muted small">El origen se antepone a los ids del archivo (<code>hubspot:123</code>): así podés volver a importar, o sincronizar después con un agente, sin duplicar. Cargá en orden empresas → contactos → oportunidades → interacciones, cada tipo con su archivo.</p>
+</section>
+
+{{if $d.Columns}}
+<form method="post" action="/settings/import" class="stack" data-confirm="¿Importar en {{$d.Label}}?|Se crean los registros nuevos y se actualizan los que ya existen (mismo id, dominio o email). Las filas con error se omiten. Queda en Auditoría.">
+  <input type="hidden" name="csrf" value="{{$d.CSRF}}">
+  <input type="hidden" name="kind" value="{{$d.Kind}}">
+  <input type="hidden" name="csv" value="{{$d.CSV}}">
+  <section class="card">
+    <div class="card-head"><h2>Columnas</h2><span class="aside">{{$d.Rows}} filas · {{$d.Label}}</span></div>
+    <table class="table">
+      <tr><th>Columna del archivo</th><th>Ejemplos</th><th>Campo en Hilo</th></tr>
+      {{range $d.Columns}}{{$t := .Target}}
+      <tr><td><b>{{.Name}}</b></td><td class="muted small">{{range $i, $s := .Sample}}{{if $i}} · {{end}}{{$s}}{{end}}</td>
+        <td><select name="col_{{.Index}}" aria-label="Campo para {{.Name}}">
+          <option value="">— ignorar —</option>
+          {{range $d.Fields}}<option value="{{.Key}}" {{if eq .Key $t}}selected{{end}}>{{.Label}}</option>{{end}}
+          {{if ne $d.Kind "interaction"}}<option value="custom" {{if eq $t "custom"}}selected{{end}}>Campo personalizado «{{.Name}}»</option>{{end}}
+        </select></td></tr>
+      {{end}}
+    </table>
+  </section>
+  <section class="card">
+    <div class="card-head"><h2>Opciones</h2></div>
+    <div class="row">
+      <label class="field">Origen<input name="source" value="{{$d.Source}}" placeholder="hubspot" maxlength="40"></label>
+      <label class="field">Fechas ambiguas (03/04/2025)<select name="dates"><option value="dmy" {{if eq $d.DateOrder "dmy"}}selected{{end}}>día/mes/año</option><option value="mdy" {{if eq $d.DateOrder "mdy"}}selected{{end}}>mes/día/año</option></select></label>
+      <label class="field grow">Etiquetas para todo lo importado<input name="tags" value="{{$d.Tags}}" placeholder="importado-2026-10"></label>
+      {{if eq $d.Kind "opportunity"}}{{$p := index $d.Defaults "pipeline"}}
+      <label class="field">Pipeline si no hay columna<select name="default_pipeline"><option value="">el pipeline por defecto</option>{{range $d.Pipelines}}<option {{if eq .Name $p}}selected{{end}}>{{.Name}}</option>{{end}}</select></label>
+      <label class="field">Moneda si no hay columna<input name="default_currency" value="{{index $d.Defaults "currency"}}" placeholder="USD" maxlength="3"></label>
+      {{end}}
+      {{if eq $d.Kind "interaction"}}{{$ty := index $d.Defaults "type"}}
+      <label class="field">Tipo si no hay columna<select name="default_type"><option value="">— ninguno —</option>{{range $d.Types}}<option {{if eq . $ty}}selected{{end}}>{{.}}</option>{{end}}</select></label>
+      {{end}}
+    </div>
+    <div class="row">
+      <button class="btn" name="action" value="preview" data-noconfirm>Validar de nuevo</button>
+      {{if and $d.Summary (gt $d.Summary.OK 0) (not $d.Done)}}<button class="btn primary" name="action" value="import"><svg class="i sm"><use href="#i-download"/></svg>Importar {{$d.Summary.OK}} registros</button>{{end}}
+    </div>
+  </section>
+</form>
+{{end}}
+
+{{with $d.Summary}}
+<section class="card">
+  <div class="card-head"><h2>{{if .DryRun}}Validación{{else}}Importado{{end}}</h2><span class="aside">{{if .DryRun}}nada guardado todavía{{else}}guardado · <a href="{{$d.List}}">ver {{$d.Label}}</a>{{end}}</span></div>
+  <div class="row">
+    <span class="badge ok">{{.OK}} {{if .DryRun}}válidos{{else}}guardados{{end}}</span>
+    <span class="badge plain">{{.Created}} {{if .DryRun}}nuevos · {{.Updated}} ya existen{{else}}nuevos · {{.Updated}} actualizados{{end}}</span>
+    {{if .Failed}}<span class="badge err">{{.Failed}} rechazados</span>{{end}}
+    {{if .Skipped}}<span class="badge warn">{{.Skipped}} sin convertir</span>{{end}}
+  </div>
+  {{if .Errors}}
+  <table class="table">
+    <tr><th>Fila</th><th>Campo</th><th>Error</th></tr>
+    {{range .Errors}}<tr><td class="num">{{.Row}}</td><td>{{with .Field}}<code>{{.}}</code>{{else}}—{{end}}</td><td>{{.Error}}</td></tr>{{end}}
+  </table>
+  {{if $d.More}}<p class="muted small">y {{$d.More}} errores más. Corregí el archivo o el mapeo y volvé a validar.</p>{{end}}
+  {{else if .DryRun}}<p class="muted small">Todo convierte y valida. Si el mapeo te cierra, importá.</p>{{end}}
+</section>
+{{end}}
+{{end}}

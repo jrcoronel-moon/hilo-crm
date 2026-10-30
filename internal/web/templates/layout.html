@@ -63,7 +63,8 @@
       <a href="/settings/agents" {{if eq .Nav "agents"}}aria-current="page"{{end}} title="Agentes (MCP)"><svg class="i"><use href="#i-plug"/></svg><span>Agentes (MCP)</span></a>
       <a href="/settings/pipelines" {{if eq .Nav "pipelines"}}aria-current="page"{{end}} title="Pipelines"><svg class="i"><use href="#i-branch"/></svg><span>Pipelines</span></a>
       <a href="/settings/channels" {{if eq .Nav "channels"}}aria-current="page"{{end}} title="Canales"><svg class="i"><use href="#i-radio"/></svg><span>Canales</span></a>
-      {{if .View.IsAdmin}}<a href="/settings/forms" {{if eq .Nav "forms"}}aria-current="page"{{end}} title="Formularios"><svg class="i"><use href="#i-file"/></svg><span>Formularios</span></a>{{end}}
+      {{if .View.IsAdmin}}<a href="/settings/forms" {{if eq .Nav "forms"}}aria-current="page"{{end}} title="Formularios"><svg class="i"><use href="#i-file"/></svg><span>Formularios</span></a>
+      <a href="/settings/import" {{if eq .Nav "import"}}aria-current="page"{{end}} title="Importar"><svg class="i"><use href="#i-download"/></svg><span>Importar</span></a>{{end}}
       <a href="/settings/members" {{if eq .Nav "members"}}aria-current="page"{{end}} title="Miembros"><svg class="i"><use href="#i-useradd"/></svg><span>Miembros</span></a>
       {{if .View.IsAdmin}}<a href="/settings/audit" {{if eq .Nav "audit"}}aria-current="page"{{end}} title="Auditoría"><svg class="i"><use href="#i-shield"/></svg><span>Auditoría</span></a>{{end}}
       {{if .View.Sess.IsSuperadmin}}<a href="/admin" {{if eq .Nav "admin"}}aria-current="page"{{end}} title="Superadmin"><svg class="i"><use href="#i-star"/></svg><span>Superadmin</span></a>{{end}}

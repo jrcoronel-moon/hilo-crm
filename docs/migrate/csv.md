@@ -3,6 +3,10 @@
 Seguí primero el método común de [README.md](README.md). Esta guía sirve para cualquier herramienta que exporte a
 CSV o Excel: Monday, Freshsales, Notion, Airtable, Google Sheets, otros CRMs o planillas propias.
 
+> Para archivos simples no hace falta un agente: *Ajustes → Importar* (hasta 700 KB y 3 000 filas por archivo) o
+> `hiloctl import-csv` (sin límite práctico) detectan las columnas y cargan por los mismos `upsert`. Esta guía es para
+> cuando el agente tiene que limpiar, separar o cruzar datos antes de cargar.
+
 ## Archivos
 
 Pedile a la persona un archivo por tipo (empresas, contactos, oportunidades y, si hay, actividades), con todas las

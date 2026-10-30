@@ -43,7 +43,7 @@ linters:
         - G104 # covered by errcheck
     misspell:
       # Spanish UI copy is not English misspelled.
-      ignore-rules: [momento, sesion, ciudad, contraseña, contactos, administrar, corporativo]
+      ignore-rules: [momento, sesion, ciudad, contraseña, contactos, administrar, corporativo, responsable, organizacion, descripcion]
     nolintlint:
       require-explanation: true
       require-specific: true

@@ -92,6 +92,8 @@ var commands = []command{
 	{"branding reset-logo", nil, nil, brandingResetLogo},
 	{"export", []string{"<workspace>"}, []string{"> bundle.json"}, exportCmd},
 	{"import", []string{"<workspace>"}, []string{"[--dry-run]", "< bundle.json"}, importCmd},
+	{"import-csv", []string{"<workspace>", "<company|contact|opportunity|interaction>"},
+		[]string{"[--source <name>]", "[--map <Col=field,...>]", "[--set <field=value,...>]", "[--dates dmy|mdy]", "[--tags <a,b>]", "[--dry-run]", "< file.csv"}, importCSV},
 	{"watch", []string{"<workspace>"}, nil, watch},
 }
 
@@ -107,7 +109,7 @@ func usage() string {
 }
 
 // valueFlags take the next argument as their value; the rest are booleans.
-var valueFlags = map[string]bool{"owner": true, "ttl": true, "limit": true}
+var valueFlags = map[string]bool{"owner": true, "ttl": true, "limit": true, "source": true, "map": true, "set": true, "dates": true, "tags": true}
 
 type input struct {
 	pos   []string          // positional arguments after the command name

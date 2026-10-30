@@ -51,6 +51,7 @@ const dlg = $("#confirm");
 document.addEventListener("submit", (e) => {
   const form = e.target;
   if (!(form instanceof HTMLFormElement) || !form.dataset.confirm || form.dataset.confirmed || !dlg) return;
+  if (e.submitter instanceof Element && e.submitter.hasAttribute("data-noconfirm")) return; // e.g. "validate" next to "import"
   e.preventDefault();
   const [title, body] = form.dataset.confirm.split("|");
   $("[data-title]", dlg).textContent = title || "¿Confirmar?";
