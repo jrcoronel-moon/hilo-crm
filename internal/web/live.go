@@ -48,7 +48,9 @@ func (h *Handler) live(w http.ResponseWriter, r *http.Request, v view) {
 
 	rc := http.NewResponseController(w)
 	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-store")
+	// no-transform: proxies and tunnels (Cloudflare) must not compress the
+	// stream, since compressing buffers it and events would arrive late or never.
+	w.Header().Set("Cache-Control", "no-store, no-transform")
 	w.Header().Set("X-Accel-Buffering", "no")
 	send := func(chunk string) bool {
 		// The server's WriteTimeout would cut the stream; each write gets its own.

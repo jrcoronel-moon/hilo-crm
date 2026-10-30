@@ -337,3 +337,4 @@ strong.big { font-size: 32px; font-weight: 700; letter-spacing: -.02em; }
 /* live-update wrappers (data-live) lay out their children like .body does,
    and may shrink: wide content (the board) scrolls instead of widening the page */
 .live-region { display: grid; gap: 16px; align-content: start; min-width: 0; }
+.live-region:empty { display: none; } .link-btn { max-width: 100%; } .link-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
