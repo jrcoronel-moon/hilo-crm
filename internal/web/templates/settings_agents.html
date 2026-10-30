@@ -26,7 +26,7 @@
   <table class="table">
     <tr><th>Aplicación</th><th>Tipo</th><th>Autorizado</th><th>Último uso</th><th></th></tr>
     {{range $d.Connections}}
-    <tr><td><div class="cellflex"><span class="av md agent2">{{initials .Name ""}}</span><div class="who"><b>{{.Name}}</b><small>{{if eq .Kind "cimd"}}verificado{{else}}nombre no verificado{{end}}</small></div></div></td>
+    <tr><td><div class="cellflex"><span class="av md agent2">{{initials .Name ""}}</span><div class="who"><b>{{.Name}}</b><small>{{if eq .Kind "cimd"}}verificado · <span class="mono">{{.ClientID}}</span>{{else}}nombre no verificado{{end}}</small></div></div></td>
       <td><span class="tag outline">OAuth</span></td><td>{{date .GrantedAt}}</td><td>{{agoT .LastRefresh}}</td>
       <td class="num"><form method="post" action="/settings/connection-revoke" data-confirm="¿Revocar a {{.Name}}?|El agente pierde acceso de inmediato. Esta acción queda en Auditoría."><input type="hidden" name="csrf" value="{{$d.CSRF}}"><input type="hidden" name="client" value="{{.ClientID}}"><button class="link danger">Revocar</button></form></td></tr>
     {{end}}

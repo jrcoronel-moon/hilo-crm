@@ -37,7 +37,7 @@ func describeScopes(scope string) []scopeInfo {
 }
 
 // authorize validates the request, makes sure the user is signed in, and
-// shows the consent screen.
+// shows the consent screen, unless a workspace admin preapproved the client.
 func (h *Handler) authorize(w http.ResponseWriter, r *http.Request) {
 	p, err := h.oauth.ParseAuthorize(r.Context(), r.URL.Query())
 	if err != nil {
@@ -53,6 +53,14 @@ func (h *Handler) authorize(w http.ResponseWriter, r *http.Request) {
 	h.session(func(w http.ResponseWriter, _ *http.Request, v view) {
 		if v.Current == nil {
 			http.Redirect(w, r, "/workspaces/new", http.StatusSeeOther)
+			return
+		}
+		if dest, ws, ok, err := h.oauth.Preapproved(r.Context(), p, v.Sess.UserID); err != nil {
+			h.fail(w, r, err)
+			return
+		} else if ok {
+			h.log.Info("oauth consent preapproved", "user_id", v.Sess.UserID, "workspace_id", ws, "client", p.ClientName)
+			h.handBack(w, "Agente autorizado", dest)
 			return
 		}
 		blob, err := h.oauth.SignPending(p)

@@ -120,3 +120,20 @@ SELECT (t.revoked_at IS NOT NULL)::boolean AS revoked,
        EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = t.workspace_id AND m.user_id = t.user_id) AS member,
        t.resource
 FROM oauth_tokens t WHERE t.access_hash = $1;
+
+-- name: Preapprove :exec
+INSERT INTO oauth_preapprovals (workspace_id, client_id, scope) VALUES ($1, $2, $3)
+ON CONFLICT (workspace_id, client_id) DO UPDATE SET scope = EXCLUDED.scope;
+
+-- name: Unpreapprove :execrows
+DELETE FROM oauth_preapprovals WHERE workspace_id = $1 AND client_id = $2;
+
+-- name: ListPreapprovals :many
+SELECT client_id, scope, created_at FROM oauth_preapprovals WHERE workspace_id = $1 ORDER BY client_id;
+
+-- name: PreapprovedWorkspaces :many
+-- The user's live workspaces that trust this client.
+SELECT p.workspace_id, p.scope FROM oauth_preapprovals p
+JOIN workspace_members m ON m.workspace_id = p.workspace_id AND m.user_id = $2
+JOIN workspaces w ON w.id = p.workspace_id AND w.archived_at IS NULL
+WHERE p.client_id = $1;

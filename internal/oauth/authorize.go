@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/google/uuid"
@@ -159,6 +160,40 @@ var ErrNoWorkspaceAccess = errors.New("not a member of that workspace")
 // redirect URI, PKCE challenge, scope, resource) and returns the URL to send
 // the browser to. readOnly narrows the grant to crm:read.
 func (s *Server) Approve(ctx context.Context, p Pending, userID, workspaceID uuid.UUID, readOnly bool) (string, error) {
+	scope := p.Scope
+	if readOnly {
+		scope = string(crm.PermRead)
+	}
+	return s.approve(ctx, p, userID, workspaceID, scope)
+}
+
+// Preapproved skips the consent screen when exactly one of the user's
+// workspaces trusts this client (see identity.Preapprove). The grant is what
+// the client asked for, narrowed to what the workspace allows; a request for
+// crm:admin alone, or a client not identified by URL, gets the consent screen.
+func (s *Server) Preapproved(ctx context.Context, p Pending, userID uuid.UUID) (string, uuid.UUID, bool, error) {
+	if !p.Verified {
+		return "", uuid.Nil, false, nil
+	}
+	rows, err := s.db.Platform().PreapprovedWorkspaces(ctx, store.PreapprovedWorkspacesParams{ClientID: p.ClientID, UserID: userID})
+	if err != nil || len(rows) != 1 {
+		return "", uuid.Nil, false, err
+	}
+	allowed := strings.Fields(rows[0].Scope)
+	var scope []string
+	for _, sc := range strings.Fields(p.Scope) {
+		if slices.Contains(allowed, sc) {
+			scope = append(scope, sc)
+		}
+	}
+	if len(scope) == 0 {
+		return "", uuid.Nil, false, nil
+	}
+	dest, err := s.approve(ctx, p, userID, rows[0].WorkspaceID, strings.Join(scope, " "))
+	return dest, rows[0].WorkspaceID, err == nil, err
+}
+
+func (s *Server) approve(ctx context.Context, p Pending, userID, workspaceID uuid.UUID, scope string) (string, error) {
 	// Re-check everything the blob claims against the store.
 	c, err := s.resolveClient(ctx, p.ClientID, p.RedirectURI)
 	if err != nil || !redirectAllowed(c.RedirectURIs, p.RedirectURI) {
@@ -166,10 +201,6 @@ func (s *Server) Approve(ctx context.Context, p Pending, userID, workspaceID uui
 	}
 	if _, err := s.db.Platform().GetMembership(ctx, store.GetMembershipParams{WorkspaceID: workspaceID, UserID: userID}); err != nil {
 		return "", ErrNoWorkspaceAccess
-	}
-	scope := p.Scope
-	if readOnly {
-		scope = string(crm.PermRead)
 	}
 	code := secure.Token("hilo_code_", 32)
 	if _, err := s.db.Platform().CreateOAuthCode(ctx, store.CreateOAuthCodeParams{

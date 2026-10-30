@@ -17,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/jrcoronel-moon/hilo-crm/internal/httpx"
+	"github.com/jrcoronel-moon/hilo-crm/internal/identity"
 	"github.com/jrcoronel-moon/hilo-crm/internal/secure"
 	"github.com/jrcoronel-moon/hilo-crm/internal/store"
 )
@@ -236,13 +237,8 @@ const (
 	cimdMaxBody = 64 << 10
 )
 
-// isCIMD: the client_id is an https URL with a path, on the default port,
-// without credentials, query or fragment.
-func isCIMD(clientID string) bool {
-	u, err := url.Parse(clientID)
-	return err == nil && u.Scheme == "https" && u.Host != "" && u.Port() == "" && u.User == nil &&
-		u.Path != "" && u.Path != "/" && u.RawQuery == "" && u.Fragment == ""
-}
+// isCIMD: the client_id is a Client ID Metadata Document URL.
+func isCIMD(clientID string) bool { return identity.IsClientIDURL(clientID) }
 
 // blockedPrefixes are non-public ranges not covered by netip's predicates.
 var blockedPrefixes = []netip.Prefix{

@@ -40,6 +40,17 @@ func (h *Handler) loginPage(w http.ResponseWriter, r *http.Request) {
 	}
 	d := loginData{Google: h.cfg.GoogleEnabled(), Microsoft: h.cfg.MicrosoftEnabled(), Dev: h.devLoginAllowed(r),
 		ReturnTo: safeReturn(r.URL.Query().Get("return_to"))}
+	// An agent's authorization with a single provider: nothing to choose, go
+	// straight to it. Only for /oauth/authorize, so signing out does not bounce
+	// the user back in through the provider's remembered session.
+	if msg == "" && !d.Dev && d.Google != d.Microsoft && strings.HasPrefix(d.ReturnTo, "/oauth/authorize?") {
+		provider := "google"
+		if d.Microsoft {
+			provider = "microsoft"
+		}
+		http.Redirect(w, r, "/auth/"+provider+"?return_to="+url.QueryEscape(d.ReturnTo), http.StatusSeeOther)
+		return
+	}
 	if d.Dev {
 		d.CSRF = secure.Token("", 24)
 		http.SetCookie(w, &http.Cookie{Name: h.preLoginCookie(), Value: d.CSRF, Path: "/", MaxAge: 600, HttpOnly: true, //nolint:gosec // G124: Secure follows the base URL scheme

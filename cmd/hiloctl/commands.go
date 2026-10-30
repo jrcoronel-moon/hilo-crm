@@ -205,6 +205,46 @@ func tokenRevoke(c *cli, in input) error {
 	return c.done("revoked token "+id.String(), nil)
 }
 
+// ───── preapproved agents ─────
+
+func clientPreapprove(c *cli, in input) error {
+	ws, op, err := c.workspace(in.pos[0])
+	if err != nil {
+		return err
+	}
+	if err := c.id.Preapprove(c.ctx, op, in.pos[1], in.has("read-only")); err != nil {
+		return err
+	}
+	return c.done(fmt.Sprintf("preapproved %s in %s: its users skip the consent screen", in.pos[1], ws.Slug), nil)
+}
+
+func clientUnapprove(c *cli, in input) error {
+	_, op, err := c.workspace(in.pos[0])
+	if err != nil {
+		return err
+	}
+	if err := c.id.Unpreapprove(c.ctx, op, in.pos[1]); err != nil {
+		return err
+	}
+	return c.done("no longer preapproved: "+in.pos[1], nil)
+}
+
+func clientList(c *cli, in input) error {
+	_, op, err := c.workspace(in.pos[0])
+	if err != nil {
+		return err
+	}
+	list, err := c.id.Preapprovals(c.ctx, op)
+	if err != nil {
+		return err
+	}
+	rows := make([][]string, 0, len(list))
+	for _, p := range list {
+		rows = append(rows, []string{p.ClientID, p.Scope, date(&p.CreatedAt)})
+	}
+	return c.emit(list, "CLIENT\tSCOPE\tSINCE", rows)
+}
+
 // ───── platform ─────
 
 func superadminSet(on bool) func(*cli, input) error {

@@ -421,6 +421,90 @@ func (q *Queries) ListPATs(ctx context.Context, arg ListPATsParams) ([]ListPATsR
 	return items, nil
 }
 
+const listPreapprovals = `-- name: ListPreapprovals :many
+SELECT client_id, scope, created_at FROM oauth_preapprovals WHERE workspace_id = $1 ORDER BY client_id
+`
+
+type ListPreapprovalsRow struct {
+	ClientID  string    `json:"client_id"`
+	Scope     string    `json:"scope"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+func (q *Queries) ListPreapprovals(ctx context.Context, workspaceID uuid.UUID) ([]ListPreapprovalsRow, error) {
+	rows, err := q.db.Query(ctx, listPreapprovals, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListPreapprovalsRow{}
+	for rows.Next() {
+		var i ListPreapprovalsRow
+		if err := rows.Scan(&i.ClientID, &i.Scope, &i.CreatedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const preapprove = `-- name: Preapprove :exec
+INSERT INTO oauth_preapprovals (workspace_id, client_id, scope) VALUES ($1, $2, $3)
+ON CONFLICT (workspace_id, client_id) DO UPDATE SET scope = EXCLUDED.scope
+`
+
+type PreapproveParams struct {
+	WorkspaceID uuid.UUID `json:"workspace_id"`
+	ClientID    string    `json:"client_id"`
+	Scope       string    `json:"scope"`
+}
+
+func (q *Queries) Preapprove(ctx context.Context, arg PreapproveParams) error {
+	_, err := q.db.Exec(ctx, preapprove, arg.WorkspaceID, arg.ClientID, arg.Scope)
+	return err
+}
+
+const preapprovedWorkspaces = `-- name: PreapprovedWorkspaces :many
+SELECT p.workspace_id, p.scope FROM oauth_preapprovals p
+JOIN workspace_members m ON m.workspace_id = p.workspace_id AND m.user_id = $2
+JOIN workspaces w ON w.id = p.workspace_id AND w.archived_at IS NULL
+WHERE p.client_id = $1
+`
+
+type PreapprovedWorkspacesParams struct {
+	ClientID string    `json:"client_id"`
+	UserID   uuid.UUID `json:"user_id"`
+}
+
+type PreapprovedWorkspacesRow struct {
+	WorkspaceID uuid.UUID `json:"workspace_id"`
+	Scope       string    `json:"scope"`
+}
+
+// The user's live workspaces that trust this client.
+func (q *Queries) PreapprovedWorkspaces(ctx context.Context, arg PreapprovedWorkspacesParams) ([]PreapprovedWorkspacesRow, error) {
+	rows, err := q.db.Query(ctx, preapprovedWorkspaces, arg.ClientID, arg.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []PreapprovedWorkspacesRow{}
+	for rows.Next() {
+		var i PreapprovedWorkspacesRow
+		if err := rows.Scan(&i.WorkspaceID, &i.Scope); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const resolveAccessToken = `-- name: ResolveAccessToken :one
 SELECT t.id, t.user_id, t.workspace_id, t.scope, t.resource, t.client_id,
        c.name AS client_name, m.role, u.email, u.is_superadmin
@@ -564,6 +648,23 @@ UPDATE personal_access_tokens SET last_used_at = now() WHERE id = $1
 func (q *Queries) TouchPAT(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, touchPAT, id)
 	return err
+}
+
+const unpreapprove = `-- name: Unpreapprove :execrows
+DELETE FROM oauth_preapprovals WHERE workspace_id = $1 AND client_id = $2
+`
+
+type UnpreapproveParams struct {
+	WorkspaceID uuid.UUID `json:"workspace_id"`
+	ClientID    string    `json:"client_id"`
+}
+
+func (q *Queries) Unpreapprove(ctx context.Context, arg UnpreapproveParams) (int64, error) {
+	result, err := q.db.Exec(ctx, unpreapprove, arg.WorkspaceID, arg.ClientID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const upsertCIMDClient = `-- name: UpsertCIMDClient :exec

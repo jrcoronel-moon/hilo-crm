@@ -1,6 +1,7 @@
 # Plan de nuevos features
 
-Estado: en curso. Hecho: fase A, parte 1 (`hiloctl` para workspaces, miembros y tokens, con `--json`).
+Estado: en curso. Hecho: fase A, partes 1 y 2 (`hiloctl` para workspaces, miembros, tokens y agentes
+pre-aprobados; redirección directa al proveedor) y guías de migración para agentes (B.0).
 
 Punto de partida (lo que ya existe y se reutiliza):
 
@@ -178,6 +179,26 @@ Publicar en directorios (conectores de Claude, revisión de conectores de Meta) 
 
 ---
 
+## 4. Tiempo real
+
+**Deseo:** cuando un agente hace algo, verlo al instante, tanto en la web como en la consola.
+
+### Diseño
+
+- **Fuente única: la auditoría.** Cada escritura (de agente o de persona) ya deja una fila en `audit_log` dentro de
+  la misma transacción. Un trigger hace `pg_notify` con el workspace, el tipo de registro, el id y el actor (sin
+  datos sensibles: solo referencias).
+- **Web**: un endpoint `GET /events` con Server-Sent Events, autenticado con la sesión y filtrado por el workspace
+  activo. El tablero, las fichas, las listas y el dashboard escuchan y actualizan la parte que cambió (por ejemplo,
+  la tarjeta que se movió, con un resaltado breve y quién lo hizo). Si la conexión se corta, el navegador reconecta
+  y recarga lo que haga falta.
+- **Consola**: `hiloctl watch <workspace>` (y `--json` para encadenar con otras herramientas) muestra el mismo
+  flujo en vivo: hora, actor (persona o agente), acción y registro.
+- **Seguridad**: SSE solo para miembros del workspace, con el mismo control de sesión que el resto de la web y un
+  límite de conexiones por usuario; la CSP ya permite `connect-src 'self'`.
+- **Escala**: una conexión `LISTEN` por proceso `web`, que reparte a los navegadores conectados; no se abre una
+  conexión de base por pestaña.
+
 ## Orden propuesto
 
 | Fase | Contenido | Tamaño |
@@ -185,7 +206,9 @@ Publicar en directorios (conectores de Claude, revisión de conectores de Meta) 
 | A.1 ✅ | `hiloctl` para workspaces, miembros y tokens, con `--json` | S |
 | B.0 ✅ | Guías de migración para agentes (`docs/migrate/`) | S |
 | B.1 | Fechas históricas, referencias por `external_id`, `bulk_upsert` / `dry_run` | M |
-| A | Resto de `hiloctl` (pipelines, canales, auditoría, marca) + `HILO_UI` + redirect directo al proveedor + clientes pre-aprobados | M |
+| A.2 ✅ | Redirección directa al proveedor + agentes pre-aprobados (`hiloctl client …`) | S |
+| R | Tiempo real: la web y la consola muestran al instante lo que hacen los agentes | M |
+| A | Resto de `hiloctl` (pipelines, canales, auditoría, marca) + `HILO_UI` | M |
 | B | Importador: paquete Hilo, cargador, CSV genérico, `export`, `--dry-run` | M |
 | C | Herramientas para agentes proactivos (`list_changes`, `needs_attention`, anotaciones destructivas) + matriz de compatibilidad | S–M |
 | D | Adaptadores HubSpot y Pipedrive | M |

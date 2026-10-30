@@ -140,6 +140,13 @@ type OauthCode struct {
 	UsedAt        *time.Time `json:"used_at"`
 }
 
+type OauthPreapproval struct {
+	WorkspaceID uuid.UUID `json:"workspace_id"`
+	ClientID    string    `json:"client_id"`
+	Scope       string    `json:"scope"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
 type OauthToken struct {
 	ID               uuid.UUID  `json:"id"`
 	FamilyID         uuid.UUID  `json:"family_id"`

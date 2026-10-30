@@ -43,7 +43,10 @@ type stack struct {
 	web  *http.Client // browser: cookie jar, no auto-redirects
 }
 
-func start(t *testing.T) *stack {
+func start(t *testing.T) *stack { return startWith(t, nil) }
+
+// startWith starts the stack, letting the test adjust the configuration.
+func startWith(t *testing.T, tweak func(*config.Config)) *stack {
 	t.Helper()
 	d := testdb.New(t)
 	log := slog.New(slog.DiscardHandler)
@@ -54,6 +57,9 @@ func start(t *testing.T) *stack {
 	base := "http://" + ts.Listener.Addr().String()
 	cfg := &config.Config{BaseURL: base, SessionSecret: []byte(strings.Repeat("s", 40)), DevLogin: true,
 		SuperadminEmails: map[string]bool{"root@acme.test": true}}
+	if tweak != nil {
+		tweak(cfg)
+	}
 	mux, err := web.Mount(cfg, d, log)
 	if err != nil {
 		t.Fatal(err)
