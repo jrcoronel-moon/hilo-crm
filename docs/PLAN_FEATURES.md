@@ -216,7 +216,7 @@ Pendiente, si hace falta:
 | A.1 ✅ | `hiloctl` para workspaces, miembros y tokens, con `--json` | 2026-10-30 | `d759173` |
 | B.0 ✅ | Guías de migración para agentes (`docs/migrate/`) | 2026-10-30 | `295b326` |
 | A.2 ✅ | Redirección directa al proveedor + agentes pre-aprobados (`hiloctl client …`) | 2026-10-30 | `b7d015e` |
-| R ✅ | Tiempo real: la web y `hiloctl watch` muestran al instante lo que hacen los agentes | 2026-10-30 | este commit |
+| R ✅ | Tiempo real: la web y `hiloctl watch` muestran al instante lo que hacen los agentes | 2026-10-30 | `b1d58be` |
 
 ### Pendiente (en el orden recomendado)
 
