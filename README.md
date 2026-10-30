@@ -179,5 +179,6 @@ make dast      # OWASP ZAP baseline contra el stack levantado (make up)
 [Apache-2.0](LICENSE): uso libre, comercial y privado.
 
 Documentación: [despliegue en AWS Lightsail](docs/DEPLOY_LIGHTSAIL.md) · [seguridad y modelo de amenazas](SECURITY.md) ·
-[banner de arranque](docs/STARTUP_BANNER.md) · [cómo contribuir](CONTRIBUTING.md) ·
+[banner de arranque](docs/STARTUP_BANNER.md) · [migrar desde otro CRM con un agente](docs/migrate/README.md) ·
+[cómo contribuir](CONTRIBUTING.md) ·
 [plan de próximos features](docs/PLAN_FEATURES.md).

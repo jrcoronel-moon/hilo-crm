@@ -37,8 +37,19 @@ primero es escribirle las instrucciones:
 - Escritas para que un agente las siga paso a paso: el usuario dice "migrá desde HubSpot siguiendo
   `docs/migrate/hubspot.md`" y listo.
 
-Herramientas que lo harían más rápido, en este orden: `bulk_upsert` (lotes de hasta N registros por llamada) y un
-modo `dry_run` en los upserts para que el agente muestre el plan antes de escribir.
+Hecho: [docs/migrate/](migrate/README.md) con el método común y guías para HubSpot, Salesforce, Pipedrive, Zoho,
+Dynamics 365, Close, Odoo y CSV/Excel (que cubre Monday, Freshsales, Notion, Airtable y Sheets por export).
+
+Mejoras a Hilo que salieron al escribirlas, en orden de impacto:
+
+1. **Fechas históricas**: hoy la fecha de creación, la de cierre y la de entrada a etapa son las de la carga, así que
+   el dashboard muestra lo migrado como cerrado el día de la migración. Permitir `created_at` y `closed_at` al crear
+   (solo admin, solo en el pasado) para que las métricas reflejen la historia.
+2. **Referencias por `external_id`**: hoy las herramientas referencian empresas por id o dominio, contactos por id o
+   email y oportunidades solo por id, así que el agente tiene que guardar un mapa de ids. Aceptar `external_id`
+   en esas referencias simplifica la migración y cualquier sincronización.
+3. `bulk_upsert` (lotes por llamada) y `dry_run` en los upserts, para que el agente muestre el plan antes de
+   escribir.
 
 El importador de abajo sigue teniendo sentido para volúmenes grandes o migraciones sin agente.
 
@@ -172,7 +183,8 @@ Publicar en directorios (conectores de Claude, revisión de conectores de Meta) 
 | Fase | Contenido | Tamaño |
 |---|---|---|
 | A.1 ✅ | `hiloctl` para workspaces, miembros y tokens, con `--json` | S |
-| B.0 | Guías de migración para agentes (`docs/migrate/`) + `bulk_upsert` | S–M |
+| B.0 ✅ | Guías de migración para agentes (`docs/migrate/`) | S |
+| B.1 | Fechas históricas, referencias por `external_id`, `bulk_upsert` / `dry_run` | M |
 | A | Resto de `hiloctl` (pipelines, canales, auditoría, marca) + `HILO_UI` + redirect directo al proveedor + clientes pre-aprobados | M |
 | B | Importador: paquete Hilo, cargador, CSV genérico, `export`, `--dry-run` | M |
 | C | Herramientas para agentes proactivos (`list_changes`, `needs_attention`, anotaciones destructivas) + matriz de compatibilidad | S–M |
