@@ -139,3 +139,15 @@ func attentionReasons(o OpportunityView, now time.Time, today string, staleBefor
 	}
 	return r
 }
+
+// LastChange is the id of the newest audit entry in the workspace (0 if
+// none). Pages poll it when their live stream cannot get through a proxy.
+func (s *Service) LastChange(ctx context.Context, a Actor) (int64, error) {
+	var id int64
+	err := s.tx(ctx, a, PermRead, func(q *store.Queries) error {
+		var err error
+		id, err = q.LastAuditID(ctx, &a.WorkspaceID)
+		return err
+	})
+	return id, err
+}

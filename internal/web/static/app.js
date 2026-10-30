@@ -397,9 +397,22 @@ if (window.EventSource && $("[data-live]")) {
     else toast(actors.size === 1 ? `${burst[0].actor} hizo ${burst.length} cambios` : `${burst.length} cambios de ${actors.size} personas o agentes`);
     burst = [];
   };
+  // Newest change this page has seen. The stream keeps it current; a slow
+  // poll catches what a proxy that drops server-sent events never delivers.
+  let lastId = 0;
+  const poll = async () => {
+    const res = await fetch("/events/last", { credentials: "same-origin" }).catch(() => null);
+    if (!res || !res.ok || res.redirected) return;
+    const { id } = await res.json();
+    if (lastId && id > lastId) schedule();
+    lastId = Math.max(lastId, id);
+  };
+  poll();
+  setInterval(poll, 10000);
   const es = new EventSource("/events");
   es.addEventListener("change", (e) => {
     const ev = JSON.parse(e.data);
+    lastId = Math.max(lastId, ev.id);
     if (!ev.self) {
       burst.push(ev);
       if (!burstTimer) burstTimer = setTimeout(announce, 800);

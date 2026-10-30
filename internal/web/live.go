@@ -88,3 +88,16 @@ func (h *Handler) live(w http.ResponseWriter, r *http.Request, v view) {
 		}
 	}
 }
+
+// lastChange answers {"id": <newest change>} for the current workspace. Pages
+// poll it as a fallback: some proxies (Cloudflare Quick Tunnels, for one)
+// never deliver server-sent events, and a page should still stay current.
+func (h *Handler) lastChange(w http.ResponseWriter, r *http.Request, v view) {
+	id, err := h.crm.LastChange(r.Context(), v.Actor)
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]int64{"id": id})
+}

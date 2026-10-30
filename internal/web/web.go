@@ -119,6 +119,7 @@ func (h *Handler) Routes(mux *http.ServeMux) {
 	}
 	mux.HandleFunc("GET /{$}", h.home)
 	mux.HandleFunc("GET /events", h.session(h.live))
+	mux.HandleFunc("GET /events/last", h.member(h.lastChange))
 	mux.HandleFunc("GET /board", h.member(h.board))
 	mux.HandleFunc("POST /board/move", h.member(h.boardMove))
 	mux.HandleFunc("POST /opportunities", h.member(h.createOpportunity))

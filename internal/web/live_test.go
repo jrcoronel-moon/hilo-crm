@@ -3,6 +3,7 @@ package web
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/jrcoronel-moon/hilo-crm/internal/config"
+	"github.com/jrcoronel-moon/hilo-crm/internal/crm"
 	"github.com/jrcoronel-moon/hilo-crm/internal/identity"
 	"github.com/jrcoronel-moon/hilo-crm/internal/testdb"
 )
@@ -54,6 +56,33 @@ func TestLiveStreamEndsWhenAccessEnds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The polling fallback: the newest change id, which moves with each change.
+	last := func(token string) int64 {
+		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, ts.URL+"/events/last", nil)
+		req.AddCookie(&http.Cookie{Name: "hilo_session", Value: token})
+		res, err := http.DefaultClient.Do(req)
+		if err != nil || res.StatusCode != http.StatusOK {
+			t.Fatalf("events/last: %v %v", res, err)
+		}
+		defer func() { _ = res.Body.Close() }()
+		var body struct{ ID int64 }
+		if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		return body.ID
+	}
+	tok, err := id.CreateSession(ctx, u.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := last(tok)
+	if _, _, err := crm.New(d, log).UpsertCompany(ctx, crm.NewActor(u.ID, ws.ID, "owner", "session", "", ""), crm.CompanyInput{Name: ptr("Globex")}); err != nil {
+		t.Fatal(err)
+	}
+	if after := last(tok); after <= before {
+		t.Fatalf("events/last did not move: %d → %d", before, after)
+	}
+
 	for _, c := range []struct {
 		name string
 		user uuid.UUID
