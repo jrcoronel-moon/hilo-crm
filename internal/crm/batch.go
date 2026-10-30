@@ -35,8 +35,11 @@ type ImportResult struct {
 	Items  []ImportItem `json:"items"`
 }
 
-// MaxImport is the most records one batch may carry.
-const MaxImport = 200
+// Batch sizes: one bulk_upsert call, and one file loaded with hiloctl import.
+const (
+	MaxImport     = 200
+	MaxImportFile = 100_000
+)
 
 func (r *ImportResult) add(kind string, i int, id uuid.UUID, created bool, err error) {
 	it := ImportItem{Type: kind, Index: i, OK: err == nil, Created: created && err == nil}
@@ -55,13 +58,24 @@ func (r *ImportResult) add(kind string, i int, id uuid.UUID, created bool, err e
 // DryRun nothing is saved. Every record goes through the same upsert, rules
 // and audit as a single call.
 func (s *Service) Import(ctx context.Context, a Actor, in ImportInput) (ImportResult, error) {
+	return s.importBatch(ctx, a, in, MaxImport)
+}
+
+// ImportFile is Import for a whole exported workspace or migration file
+// (hiloctl import): up to MaxImportFile records, all in one transaction, so a
+// dry run validates references across the whole file.
+func (s *Service) ImportFile(ctx context.Context, a Actor, in ImportInput) (ImportResult, error) {
+	return s.importBatch(ctx, a, in, MaxImportFile)
+}
+
+func (s *Service) importBatch(ctx context.Context, a Actor, in ImportInput, maxRecords int) (ImportResult, error) {
 	res := ImportResult{DryRun: in.DryRun, Items: []ImportItem{}}
 	if err := a.require(PermWrite); err != nil {
 		return res, err
 	}
 	n := len(in.Companies) + len(in.Contacts) + len(in.Opportunities) + len(in.Interactions)
-	if n == 0 || n > MaxImport {
-		return res, invalid("batch", "must carry between 1 and %d records", MaxImport)
+	if n == 0 || n > maxRecords {
+		return res, invalid("batch", "must carry between 1 and %d records", maxRecords)
 	}
 	err := s.db.Batch(ctx, a.WorkspaceID, !in.DryRun, func(ctx context.Context) error {
 		for i, c := range in.Companies {

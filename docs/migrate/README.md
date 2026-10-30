@@ -24,6 +24,10 @@ reanudar sin duplicar.
 Las guías por plataforma describen las APIs como estaban al escribirlas. Antes de empezar, el agente debe confirmar
 en la documentación oficial del origen la versión vigente de la API, los permisos y los límites.
 
+Para volúmenes grandes (decenas de miles de registros) o sin agente: el agente, o un script, puede generar un
+archivo JSON con la forma de `bulk_upsert` (`companies`, `contacts`, `opportunities`, `interactions`) y cargarlo
+de una vez con `hiloctl import <workspace> --dry-run < archivo.json` y después sin `--dry-run`.
+
 ## Lo que necesita el agente
 
 - **Hilo conectado por MCP** con permiso de escritura (`crm:write`). Si hay que crear o cambiar pipelines o canales,
@@ -120,7 +124,8 @@ cada oportunidad su fecha original de creación (`created_at`) y, si está ganad
 
 - Requiere permiso de administración (`crm:admin`): cambia las métricas. Si el agente no lo tiene, la persona puede
   conectarlo con ese permiso solo para la migración.
-- Solo al crear: en una oportunidad existente se rechaza.
+- Se aplican solo al crear; en una oportunidad que ya existe se ignoran, así que un lote se puede volver a correr tal
+  cual.
 - Si solo se conoce una de las dos fechas, Hilo usa esa para ambas.
 - Las interacciones conservan su fecha con `occurred_at`. Las empresas y los contactos no tienen fecha histórica:
   si importa, guardala en `custom` (`{"origen_creado": "2024-03-01"}`).

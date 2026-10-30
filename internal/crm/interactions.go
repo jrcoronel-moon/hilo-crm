@@ -92,6 +92,11 @@ func (s *Service) logInteraction(ctx context.Context, q *store.Queries, a Actor,
 		} else if !isNoRows(err) {
 			return store.Interaction{}, false, err
 		}
+		if id, ok := hiloID(in.ExternalID); ok { // exported from this workspace
+			if prev, err := q.GetInteraction(ctx, store.GetInteractionParams{WorkspaceID: ws, ID: id}); err == nil {
+				return prev, true, nil
+			}
+		}
 	}
 	if err := oneOf("type", in.Type, InteractionTypes); err != nil {
 		return store.Interaction{}, false, err

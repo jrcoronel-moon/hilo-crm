@@ -359,6 +359,284 @@ func (q *Queries) CountInteractions(ctx context.Context, arg CountInteractionsPa
 	return column_1, err
 }
 
+const exportChannelNames = `-- name: ExportChannelNames :many
+SELECT id, name FROM channels WHERE workspace_id = $1
+`
+
+type ExportChannelNamesRow struct {
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
+}
+
+func (q *Queries) ExportChannelNames(ctx context.Context, workspaceID uuid.UUID) ([]ExportChannelNamesRow, error) {
+	rows, err := q.db.Query(ctx, exportChannelNames, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ExportChannelNamesRow{}
+	for rows.Next() {
+		var i ExportChannelNamesRow
+		if err := rows.Scan(&i.ID, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const exportCompanies = `-- name: ExportCompanies :many
+
+SELECT id, workspace_id, name, domain, industry, size_range, country, website, description, owner_id, source_channel_id, tags, custom, external_id, created_at, updated_at, archived_at FROM companies WHERE workspace_id = $1 AND archived_at IS NULL ORDER BY created_at, id
+`
+
+// ───────────── export (the whole workspace, for hiloctl export) ─────────────
+func (q *Queries) ExportCompanies(ctx context.Context, workspaceID uuid.UUID) ([]Company, error) {
+	rows, err := q.db.Query(ctx, exportCompanies, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Company{}
+	for rows.Next() {
+		var i Company
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.Name,
+			&i.Domain,
+			&i.Industry,
+			&i.SizeRange,
+			&i.Country,
+			&i.Website,
+			&i.Description,
+			&i.OwnerID,
+			&i.SourceChannelID,
+			&i.Tags,
+			&i.Custom,
+			&i.ExternalID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ArchivedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const exportContacts = `-- name: ExportContacts :many
+SELECT id, workspace_id, company_id, first_name, last_name, email, phone, title, linkedin_url, owner_id, source_channel_id, tags, custom, external_id, created_at, updated_at, archived_at FROM contacts WHERE workspace_id = $1 AND archived_at IS NULL ORDER BY created_at, id
+`
+
+func (q *Queries) ExportContacts(ctx context.Context, workspaceID uuid.UUID) ([]Contact, error) {
+	rows, err := q.db.Query(ctx, exportContacts, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Contact{}
+	for rows.Next() {
+		var i Contact
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.CompanyID,
+			&i.FirstName,
+			&i.LastName,
+			&i.Email,
+			&i.Phone,
+			&i.Title,
+			&i.LinkedinUrl,
+			&i.OwnerID,
+			&i.SourceChannelID,
+			&i.Tags,
+			&i.Custom,
+			&i.ExternalID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ArchivedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const exportInteractions = `-- name: ExportInteractions :many
+SELECT id, workspace_id, type, direction, channel_id, subject, summary, occurred_at, duration_minutes, company_id, contact_id, opportunity_id, external_id, created_by, created_at FROM interactions WHERE workspace_id = $1 ORDER BY occurred_at, id
+`
+
+func (q *Queries) ExportInteractions(ctx context.Context, workspaceID uuid.UUID) ([]Interaction, error) {
+	rows, err := q.db.Query(ctx, exportInteractions, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Interaction{}
+	for rows.Next() {
+		var i Interaction
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.Type,
+			&i.Direction,
+			&i.ChannelID,
+			&i.Subject,
+			&i.Summary,
+			&i.OccurredAt,
+			&i.DurationMinutes,
+			&i.CompanyID,
+			&i.ContactID,
+			&i.OpportunityID,
+			&i.ExternalID,
+			&i.CreatedBy,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const exportOpportunities = `-- name: ExportOpportunities :many
+SELECT o.id, o.workspace_id, o.title, o.kind, o.company_id, o.primary_contact_id, o.pipeline_id, o.stage_id, o.status, o.amount_minor, o.currency, o.probability, o.expected_close_date, o.closed_at, o.lost_reason, o.source_channel_id, o.owner_id, o.next_step, o.next_step_at, o.description, o.tags, o.custom, o.external_id, o.stage_entered_at, o.last_interaction_at, o.created_at, o.updated_at, o.archived_at, p.name AS pipeline_name, s.name AS stage_name
+FROM opportunities o
+JOIN pipelines p ON p.workspace_id = o.workspace_id AND p.id = o.pipeline_id
+JOIN pipeline_stages s ON s.workspace_id = o.workspace_id AND s.id = o.stage_id
+WHERE o.workspace_id = $1 AND o.archived_at IS NULL
+ORDER BY o.created_at, o.id
+`
+
+type ExportOpportunitiesRow struct {
+	ID                uuid.UUID       `json:"id"`
+	WorkspaceID       uuid.UUID       `json:"workspace_id"`
+	Title             string          `json:"title"`
+	Kind              string          `json:"kind"`
+	CompanyID         *uuid.UUID      `json:"company_id"`
+	PrimaryContactID  *uuid.UUID      `json:"primary_contact_id"`
+	PipelineID        uuid.UUID       `json:"pipeline_id"`
+	StageID           uuid.UUID       `json:"stage_id"`
+	Status            string          `json:"status"`
+	AmountMinor       int64           `json:"amount_minor"`
+	Currency          string          `json:"currency"`
+	Probability       *int32          `json:"probability"`
+	ExpectedCloseDate *time.Time      `json:"expected_close_date"`
+	ClosedAt          *time.Time      `json:"closed_at"`
+	LostReason        string          `json:"lost_reason"`
+	SourceChannelID   *uuid.UUID      `json:"source_channel_id"`
+	OwnerID           *uuid.UUID      `json:"owner_id"`
+	NextStep          string          `json:"next_step"`
+	NextStepAt        *time.Time      `json:"next_step_at"`
+	Description       string          `json:"description"`
+	Tags              []string        `json:"tags"`
+	Custom            json.RawMessage `json:"custom"`
+	ExternalID        *string         `json:"external_id"`
+	StageEnteredAt    time.Time       `json:"stage_entered_at"`
+	LastInteractionAt *time.Time      `json:"last_interaction_at"`
+	CreatedAt         time.Time       `json:"created_at"`
+	UpdatedAt         time.Time       `json:"updated_at"`
+	ArchivedAt        *time.Time      `json:"archived_at"`
+	PipelineName      string          `json:"pipeline_name"`
+	StageName         string          `json:"stage_name"`
+}
+
+func (q *Queries) ExportOpportunities(ctx context.Context, workspaceID uuid.UUID) ([]ExportOpportunitiesRow, error) {
+	rows, err := q.db.Query(ctx, exportOpportunities, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ExportOpportunitiesRow{}
+	for rows.Next() {
+		var i ExportOpportunitiesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.Title,
+			&i.Kind,
+			&i.CompanyID,
+			&i.PrimaryContactID,
+			&i.PipelineID,
+			&i.StageID,
+			&i.Status,
+			&i.AmountMinor,
+			&i.Currency,
+			&i.Probability,
+			&i.ExpectedCloseDate,
+			&i.ClosedAt,
+			&i.LostReason,
+			&i.SourceChannelID,
+			&i.OwnerID,
+			&i.NextStep,
+			&i.NextStepAt,
+			&i.Description,
+			&i.Tags,
+			&i.Custom,
+			&i.ExternalID,
+			&i.StageEnteredAt,
+			&i.LastInteractionAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ArchivedAt,
+			&i.PipelineName,
+			&i.StageName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const exportOpportunityContacts = `-- name: ExportOpportunityContacts :many
+SELECT opportunity_id, contact_id, role FROM opportunity_contacts WHERE workspace_id = $1
+`
+
+type ExportOpportunityContactsRow struct {
+	OpportunityID uuid.UUID `json:"opportunity_id"`
+	ContactID     uuid.UUID `json:"contact_id"`
+	Role          string    `json:"role"`
+}
+
+func (q *Queries) ExportOpportunityContacts(ctx context.Context, workspaceID uuid.UUID) ([]ExportOpportunityContactsRow, error) {
+	rows, err := q.db.Query(ctx, exportOpportunityContacts, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ExportOpportunityContactsRow{}
+	for rows.Next() {
+		var i ExportOpportunityContactsRow
+		if err := rows.Scan(&i.OpportunityID, &i.ContactID, &i.Role); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getCompany = `-- name: GetCompany :one
 
 
@@ -602,6 +880,38 @@ func (q *Queries) GetContactByExternalID(ctx context.Context, arg GetContactByEx
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ArchivedAt,
+	)
+	return i, err
+}
+
+const getInteraction = `-- name: GetInteraction :one
+SELECT id, workspace_id, type, direction, channel_id, subject, summary, occurred_at, duration_minutes, company_id, contact_id, opportunity_id, external_id, created_by, created_at FROM interactions WHERE workspace_id = $1 AND id = $2
+`
+
+type GetInteractionParams struct {
+	WorkspaceID uuid.UUID `json:"workspace_id"`
+	ID          uuid.UUID `json:"id"`
+}
+
+func (q *Queries) GetInteraction(ctx context.Context, arg GetInteractionParams) (Interaction, error) {
+	row := q.db.QueryRow(ctx, getInteraction, arg.WorkspaceID, arg.ID)
+	var i Interaction
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.Type,
+		&i.Direction,
+		&i.ChannelID,
+		&i.Subject,
+		&i.Summary,
+		&i.OccurredAt,
+		&i.DurationMinutes,
+		&i.CompanyID,
+		&i.ContactID,
+		&i.OpportunityID,
+		&i.ExternalID,
+		&i.CreatedBy,
+		&i.CreatedAt,
 	)
 	return i, err
 }

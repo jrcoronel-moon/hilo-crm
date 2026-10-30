@@ -60,8 +60,11 @@ func TestImportBatch(t *testing.T) {
 		}
 	}
 
-	// Again: idempotent, nothing new.
+	// Again: idempotent, nothing new, and the same outcome for every record.
 	res, _ = f.crm.Import(f.ctx, owner, migrationBatch(false))
+	if res.OK != 4 || res.Failed != 1 {
+		t.Fatalf("re-run: %+v", res)
+	}
 	for _, it := range res.Items {
 		if it.Created {
 			t.Fatalf("second run created %+v", it)
@@ -103,8 +106,9 @@ func TestHistoricalDatesRules(t *testing.T) {
 	if o.CreatedAt.UTC().Format(time.DateOnly) != "2024-01-01" || o.Status != "open" {
 		t.Fatalf("open historical: %+v", o)
 	}
-	if _, _, err := f.crm.UpsertOpportunity(f.ctx, owner, crm.OpportunityInput{ExternalID: s("x:1"), CreatedAt: s("2023-01-01")}); !isValidation(err) {
-		t.Fatalf("dates on update must be rejected: %v", err)
+	// On updates the dates are ignored (re-running a migration), never rewritten.
+	if o = must2(f.crm.UpsertOpportunity(f.ctx, owner, crm.OpportunityInput{ExternalID: s("x:1"), CreatedAt: s("2023-01-01")})); o.CreatedAt.UTC().Format(time.DateOnly) != "2024-01-01" {
+		t.Fatalf("update rewrote created_at: %+v", o)
 	}
 	// Only the close date known: created then too.
 	o = must2(f.crm.UpsertOpportunity(f.ctx, owner, crm.OpportunityInput{Title: s("H"), Stage: s("Perdido"), LostReason: s("precio"), ClosedAt: s("2024-06-01")}))

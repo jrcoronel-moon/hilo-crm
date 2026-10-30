@@ -129,7 +129,12 @@ docker compose exec web hiloctl --json member list acme
 docker compose exec web hiloctl client preapprove acme <client-id-url>     # copiado de Ajustes → Agentes
 docker compose exec web hiloctl watch acme                                # lo que hacen los agentes, en vivo
 docker compose exec -T web hiloctl pipeline apply acme < pipeline.json    # pipelines, canales, auditoría, marca…
+docker compose exec -T web hiloctl export acme > acme.json                 # todo el workspace, en JSON
+docker compose exec -T web hiloctl import otro --dry-run < acme.json       # validar; sin --dry-run, cargar
 ```
+
+`export` produce el mismo formato que lee `import` (y la herramienta `bulk_upsert`): sirve de backup legible, para
+mover un workspace a otro Hilo y como formato de migraciones grandes sin agente. Importarlo de nuevo nunca duplica.
 
 `hiloctl` sin argumentos lista todos los comandos. Actúa como operador del servidor, con las mismas reglas que la
 web (por ejemplo, ningún workspace se queda sin propietario). El token se muestra una sola vez.

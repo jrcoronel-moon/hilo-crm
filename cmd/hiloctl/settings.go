@@ -132,6 +132,60 @@ func auditList(c *cli, in input) error {
 	return c.emit(entries, "WHEN\tWHO\tVIA\tWHAT", rows)
 }
 
+// ───── export / import ─────
+
+// exportCmd writes the whole workspace as JSON, in the shape import (and the
+// bulk_upsert tool) reads.
+func exportCmd(c *cli, in input) error {
+	a, err := c.operator(in.pos[0])
+	if err != nil {
+		return err
+	}
+	bundle, err := c.crm.Export(c.ctx, a)
+	if err != nil {
+		return err
+	}
+	e := json.NewEncoder(c.out)
+	e.SetIndent("", "  ")
+	return e.Encode(bundle)
+}
+
+// importCmd loads a bundle (an export, or a migration file) from stdin.
+func importCmd(c *cli, in input) error {
+	a, err := c.operator(in.pos[0])
+	if err != nil {
+		return err
+	}
+	var bundle crm.ImportInput
+	dec := json.NewDecoder(io.LimitReader(c.in, 512<<20))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&bundle); err != nil {
+		return fmt.Errorf("bundle JSON on stdin: %w", err)
+	}
+	bundle.DryRun = bundle.DryRun || in.has("dry-run")
+	res, err := c.crm.ImportFile(c.ctx, a, bundle)
+	if err != nil {
+		return err
+	}
+	if c.json {
+		return c.emit(res, "", nil)
+	}
+	mode := "imported"
+	if res.DryRun {
+		mode = "dry run (nothing saved)"
+	}
+	rows := [][]string{}
+	for _, it := range res.Items {
+		if !it.OK {
+			rows = append(rows, []string{it.Type, strconv.Itoa(it.Index), it.Error})
+		}
+	}
+	if _, err := fmt.Fprintf(c.out, "%s: %d ok, %d failed\n", mode, res.OK, res.Failed); err != nil || len(rows) == 0 {
+		return err
+	}
+	return c.emit(nil, "TYPE\tINDEX\tERROR", rows)
+}
+
 // ───── branding (platform-wide) ─────
 
 func (c *cli) branding() *branding.Service { return branding.New(c.d) }

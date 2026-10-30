@@ -217,15 +217,15 @@ Pendiente, si hace falta:
 | R ✅ | Tiempo real: la web y `hiloctl watch` muestran al instante lo que hacen los agentes | 2026-10-30 | `b1d58be` |
 | B.1 ✅ | Fechas históricas (`created_at`/`closed_at`, solo admin, solo al crear), referencias por `external_id` en todas las herramientas, `bulk_upsert` con `dry_run` exacto (savepoints) | 2026-10-30 | `5543313` |
 | C ✅ | `list_changes` (cursor) y `needs_attention` para agentes proactivos; anotaciones ya declaradas; guía y matriz de compatibilidad en `docs/AGENTS.md` | 2026-10-30 | `d672484` |
-| A.3 ✅ | `hiloctl` completo (pipelines, canales, auditoría, marca) + `HILO_UI=full/minimal/off` (por defecto `full`) | 2026-10-30 | ver `git log` |
+| A.3 ✅ | `hiloctl` completo (pipelines, canales, auditoría, marca) + `HILO_UI=full/minimal/off` (por defecto `full`) | 2026-10-30 | `fcb4e15` |
+| B ✅ | `hiloctl export` / `import` con el formato de `bulk_upsert` (hasta 100 000 registros, `--dry-run` sobre todo el archivo, reimportar nunca duplica) | 2026-10-30 | ver `git log` |
 
 ### Pendiente (en el orden recomendado)
 
 | Fase | Contenido | Tamaño |
 |---|---|---|
-| B ⏳ | Importador por terminal para volúmenes grandes: paquete Hilo, cargador, CSV genérico, `export`, `--dry-run` | M |
-| D ⏳ | Adaptadores HubSpot y Pipedrive para el importador | M |
-| E ⏳ | UI de importación CSV; cola de aprobaciones (si se decide) | M |
+| D ⏸ | Adaptadores HubSpot y Pipedrive dentro de Hilo. En pausa: las guías para agentes ya cubren estos orígenes y los adaptadores no se pueden probar sin cuentas reales. Se retoma si aparece un caso concreto | M |
+| E ⏸ | UI de importación CSV y cola de aprobaciones dentro de Hilo. En pausa: la importación ya la hace un agente o `hiloctl import`, y los agentes proactivos ya piden confirmación según las anotaciones. Requiere tu decisión | M |
 | — | Lightsail y publicación en directorios de conectores, cuando se decida | — |
 
 Decisión tomada por defecto (cambiable): `HILO_UI` es `full` salvo que lo configures; para producción headless,

@@ -99,6 +99,17 @@ func (p *patcher) ref(dst **uuid.UUID, v *string, resolve func(string) (uuid.UUI
 	}
 }
 
+// hiloID recognises the external_id hiloctl export gives records that had
+// none ("hilo:<id>"), so a re-import into the same workspace finds them.
+func hiloID(ext string) (uuid.UUID, bool) {
+	rest, ok := strings.CutPrefix(ext, "hilo:")
+	if !ok {
+		return uuid.Nil, false
+	}
+	id, err := uuid.Parse(rest)
+	return id, err == nil
+}
+
 // findRecord locates the record an upsert refers to: by id (must exist), then
 // external_id, then an optional natural key (domain, email). It returns nil
 // when nothing matches, meaning "create".
@@ -122,6 +133,11 @@ func findRecord[T any](what string, id, externalID *string,
 			return &r, nil
 		} else if !isNoRows(err) {
 			return nil, err
+		}
+		if uid, ok := hiloID(*externalID); ok { // exported from this workspace
+			if r, err := byID(uid); err == nil {
+				return &r, nil
+			}
 		}
 	}
 	if byNatural == nil {
@@ -227,6 +243,9 @@ func splitRef(field, ref string, normalize func(string, string) (string, error))
 	if n, err := normalize(field, ref); err == nil && n != "" {
 		return refKey{key: &n}
 	}
+	if id, ok := hiloID(ref); ok {
+		return refKey{id: &id, external: &ref} // the record exported from here, or its copy elsewhere
+	}
 	return refKey{external: &ref}
 }
 
@@ -253,6 +272,9 @@ func (r resolvers) opportunity(ref string) (uuid.UUID, error) {
 		},
 		func(key string) (uuid.UUID, error) {
 			o, err := r.q.GetOpportunityByExternalID(r.ctx, store.GetOpportunityByExternalIDParams{WorkspaceID: r.ws, ExternalID: &key})
+			if id, ok := hiloID(key); ok && isNoRows(err) {
+				o, err = r.q.GetOpportunity(r.ctx, store.GetOpportunityParams{WorkspaceID: r.ws, ID: id})
+			}
 			return o.ID, err
 		})
 }

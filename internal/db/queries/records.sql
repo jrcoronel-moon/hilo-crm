@@ -234,6 +234,9 @@ WHERE i.workspace_id = $1
 ORDER BY i.occurred_at DESC, i.id DESC
 LIMIT sqlc.arg(lim);
 
+-- name: GetInteraction :one
+SELECT * FROM interactions WHERE workspace_id = $1 AND id = $2;
+
 -- name: GetInteractionByExternalID :one
 SELECT * FROM interactions WHERE workspace_id = $1 AND external_id = $2;
 
@@ -305,3 +308,28 @@ WHERE workspace_id = $1 AND archived_at IS NULL
 SELECT id FROM contacts
 WHERE workspace_id = $1 AND archived_at IS NULL
   AND (id = sqlc.narg(ref_id) OR email = sqlc.narg(ref_key) OR external_id = sqlc.narg(ref_external));
+
+-- ───────────── export (the whole workspace, for hiloctl export) ─────────────
+
+-- name: ExportCompanies :many
+SELECT * FROM companies WHERE workspace_id = $1 AND archived_at IS NULL ORDER BY created_at, id;
+
+-- name: ExportContacts :many
+SELECT * FROM contacts WHERE workspace_id = $1 AND archived_at IS NULL ORDER BY created_at, id;
+
+-- name: ExportOpportunities :many
+SELECT o.*, p.name AS pipeline_name, s.name AS stage_name
+FROM opportunities o
+JOIN pipelines p ON p.workspace_id = o.workspace_id AND p.id = o.pipeline_id
+JOIN pipeline_stages s ON s.workspace_id = o.workspace_id AND s.id = o.stage_id
+WHERE o.workspace_id = $1 AND o.archived_at IS NULL
+ORDER BY o.created_at, o.id;
+
+-- name: ExportOpportunityContacts :many
+SELECT opportunity_id, contact_id, role FROM opportunity_contacts WHERE workspace_id = $1;
+
+-- name: ExportInteractions :many
+SELECT * FROM interactions WHERE workspace_id = $1 ORDER BY occurred_at, id;
+
+-- name: ExportChannelNames :many
+SELECT id, name FROM channels WHERE workspace_id = $1;

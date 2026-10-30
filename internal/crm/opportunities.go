@@ -36,8 +36,8 @@ type OpportunityInput struct {
 	Description       *string         `json:"description,omitempty"`
 	Tags              *[]string       `json:"tags,omitempty" jsonschema:"replaces all tags"`
 	Custom            *map[string]any `json:"custom,omitempty" jsonschema:"free-form fields; replaces the whole object"`
-	CreatedAt         *string         `json:"created_at,omitempty" jsonschema:"only on create, for migrations (needs crm:admin): original creation date, RFC 3339 or YYYY-MM-DD, in the past"`
-	ClosedAt          *string         `json:"closed_at,omitempty" jsonschema:"only on create in a won or lost stage, for migrations (needs crm:admin): original close date, in the past"`
+	CreatedAt         *string         `json:"created_at,omitempty" jsonschema:"for migrations (needs crm:admin): original creation date, RFC 3339 or YYYY-MM-DD, in the past; applied on create, ignored on updates"`
+	ClosedAt          *string         `json:"closed_at,omitempty" jsonschema:"for migrations (needs crm:admin): original close date of an opportunity created in a won or lost stage, in the past; ignored on updates"`
 	Contacts          []ContactRole   `json:"contacts,omitempty" jsonschema:"contacts to link (added, never removed)"`
 }
 
@@ -250,15 +250,13 @@ type history struct {
 // earliest is the oldest date a migrated record may carry.
 var earliest = time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC)
 
-// historicDates validates created_at / closed_at: only when creating, only
-// for admins (they change the metrics), in the past, and closed after created.
+// historicDates validates created_at / closed_at: applied only when creating
+// (ignored on updates), only for admins (they change the metrics), in the past,
+// and closed after created.
 func historicDates(a Actor, in OpportunityInput, creating bool, now time.Time) (history, error) {
 	h := history{created: now, closed: now}
-	if in.CreatedAt == nil && in.ClosedAt == nil {
-		return h, nil
-	}
-	if !creating {
-		return h, invalid("created_at", "created_at and closed_at can only be set when creating an opportunity")
+	if (in.CreatedAt == nil && in.ClosedAt == nil) || !creating {
+		return h, nil // on updates they are ignored, so a migration batch can be re-run as is
 	}
 	if err := a.require(PermAdmin); err != nil {
 		return h, invalid("created_at", "setting historical dates needs crm:admin")

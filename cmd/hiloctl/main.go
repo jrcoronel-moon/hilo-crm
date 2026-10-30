@@ -90,6 +90,8 @@ var commands = []command{
 	{"branding name", []string{"<name>"}, nil, brandingName},
 	{"branding logo", nil, []string{"< logo.png|jpg|webp|svg"}, brandingLogo},
 	{"branding reset-logo", nil, nil, brandingResetLogo},
+	{"export", []string{"<workspace>"}, []string{"> bundle.json"}, exportCmd},
+	{"import", []string{"<workspace>"}, []string{"[--dry-run]", "< bundle.json"}, importCmd},
 	{"watch", []string{"<workspace>"}, nil, watch},
 }
 

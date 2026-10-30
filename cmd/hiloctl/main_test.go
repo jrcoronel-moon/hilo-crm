@@ -248,3 +248,76 @@ func TestSettingsAndBrandingCommands(t *testing.T) {
 		t.Fatal("long name accepted")
 	}
 }
+
+// TestExportImportRoundTrip: a workspace exported and imported elsewhere
+// exports identically; importing it again where it came from changes nothing.
+func TestExportImportRoundTrip(t *testing.T) {
+	h := harness{t: t, ctx: context.Background(), d: testdb.New(t)}
+	var a struct{ ID string }
+	h.json(&a, "workspace", "create", "Alpha", "--owner", "ana@acme.test")
+	h.ok("workspace", "create", "Beta", "--owner", "ana@acme.test")
+
+	id := identity.New(h.d, slog.New(slog.DiscardHandler), nil)
+	ana, err := id.MemberCaller(h.ctx, uuid.MustParse(a.ID), "ana@acme.test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	svc := crm.New(h.d, slog.New(slog.DiscardHandler))
+	op := crm.NewActor(ana.UserID, ana.WorkspaceID, "owner", "pat", "seed", crm.AllScopes)
+	tags, custom, amount := []string{"pyme"}, map[string]any{"segmento": "B2B"}, 1500.5
+	steps := []error{}
+	add := func(_ any, _ bool, err error) { steps = append(steps, err) }
+	add(svc.UpsertCompany(h.ctx, op, crm.CompanyInput{Name: strPtr("Globex"), Domain: strPtr("globex.test"), Tags: &tags, Custom: &custom, Owner: strPtr("ana@acme.test")}))
+	add(svc.UpsertCompany(h.ctx, op, crm.CompanyInput{Name: strPtr("Sin dominio"), ExternalID: strPtr("crm:7")}))
+	add(svc.UpsertContact(h.ctx, op, crm.ContactInput{Email: strPtr("hank@globex.test"), FirstName: strPtr("Hank"), Company: strPtr("globex.test")}))
+	add(svc.UpsertContact(h.ctx, op, crm.ContactInput{FirstName: strPtr("Sin email"), Company: strPtr("crm:7")}))
+	add(svc.UpsertOpportunity(h.ctx, op, crm.OpportunityInput{Title: strPtr("Planta"), Company: strPtr("globex.test"), Amount: &amount,
+		Stage: strPtr("Ganado"), CreatedAt: strPtr("2025-01-10"), ClosedAt: strPtr("2025-03-05"),
+		Contacts: []crm.ContactRole{{Contact: "hank@globex.test", Role: "decisor"}}}))
+	add(svc.UpsertOpportunity(h.ctx, op, crm.OpportunityInput{Title: strPtr("Perdida"), Stage: strPtr("Perdido"), LostReason: strPtr("precio"), NextStep: strPtr("nada")}))
+	if _, err := svc.LogInteraction(h.ctx, op, crm.InteractionInput{Type: "call", Company: "globex.test", Contact: "hank@globex.test",
+		Summary: "Llamada", OccurredAt: "2025-02-01T10:00:00Z", DurationMinutes: intPtr(15)}); err != nil {
+		t.Fatal(err)
+	}
+	for _, err := range steps {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	alpha := h.ok("export", "alpha")
+	h.stdin = alpha
+	if out := h.ok("import", "beta", "--dry-run"); !strings.HasPrefix(out, "dry run (nothing saved): 7 ok, 0 failed") {
+		t.Fatalf("dry run: %s", out)
+	}
+	h.stdin = ""
+	if out := h.ok("export", "beta"); strings.Contains(out, "Globex") {
+		t.Fatal("dry run saved data")
+	}
+	h.stdin = alpha
+	if out := h.ok("import", "beta"); !strings.HasPrefix(out, "imported: 7 ok, 0 failed") {
+		t.Fatalf("import: %s", out)
+	}
+	h.stdin = ""
+	if beta := h.ok("export", "beta"); beta != alpha {
+		t.Fatalf("round trip differs:\nalpha: %s\nbeta:  %s", alpha, beta)
+	}
+	// Back where it came from: every record is an update, nothing is created.
+	h.stdin = alpha
+	var res crm.ImportResult
+	h.json(&res, "import", "alpha")
+	if res.Failed != 0 {
+		t.Fatalf("re-import: %+v", res)
+	}
+	for _, it := range res.Items {
+		if it.Created {
+			t.Fatalf("re-import created %+v", it)
+		}
+	}
+	h.stdin = `{"companies":[{"name":"X"}],"bogus":true}`
+	if msg := h.fails("import", "alpha"); !strings.Contains(msg, "unknown field") {
+		t.Fatalf("bad bundle: %s", msg)
+	}
+}
+
+func intPtr(i int) *int { return &i }
