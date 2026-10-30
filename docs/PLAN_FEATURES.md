@@ -131,7 +131,11 @@ Descartado por ahora: delegar todo en un proveedor externo (Google/Entra como se
 
 ---
 
-## 3. Nuevos agentes (Claude Duet, Meta Muse, ChatGPT Dots, …)
+## 3. Nuevos agentes (Claude Duet, Meta Muse, ChatGPT Dots, …) ✅
+
+Hecho: `list_changes`, `needs_attention` y la guía [docs/AGENTS.md](AGENTS.md) con la matriz de compatibilidad.
+Pendiente: verificar de punta a punta Cursor, ChatGPT/Dots, Duet y Muse (requiere sus cuentas) y, si se decide, la
+cola de aprobaciones dentro de Hilo.
 
 **Deseo:** que Hilo funcione con los agentes personales y proactivos que van saliendo.
 
@@ -209,13 +213,13 @@ Pendiente, si hace falta:
 | B.0 ✅ | Guías de migración para agentes (`docs/migrate/`) | 2026-10-30 | `295b326` |
 | A.2 ✅ | Redirección directa al proveedor + agentes pre-aprobados (`hiloctl client …`) | 2026-10-30 | `b7d015e` |
 | R ✅ | Tiempo real: la web y `hiloctl watch` muestran al instante lo que hacen los agentes | 2026-10-30 | `b1d58be` |
-| B.1 ✅ | Fechas históricas (`created_at`/`closed_at`, solo admin, solo al crear), referencias por `external_id` en todas las herramientas, `bulk_upsert` con `dry_run` exacto (savepoints) | 2026-10-30 | ver `git log` |
+| B.1 ✅ | Fechas históricas (`created_at`/`closed_at`, solo admin, solo al crear), referencias por `external_id` en todas las herramientas, `bulk_upsert` con `dry_run` exacto (savepoints) | 2026-10-30 | `5543313` |
+| C ✅ | `list_changes` (cursor) y `needs_attention` para agentes proactivos; anotaciones ya declaradas; guía y matriz de compatibilidad en `docs/AGENTS.md` | 2026-10-30 | ver `git log` |
 
 ### Pendiente (en el orden recomendado)
 
 | Fase | Contenido | Tamaño |
 |---|---|---|
-| C ⏳ | Herramientas para agentes proactivos (`list_changes`, `needs_attention`, anotaciones destructivas) + matriz de compatibilidad | S–M |
 | A.3 ⏳ | Resto de `hiloctl` (pipelines, canales, auditoría, marca) + `HILO_UI=minimal/off` | M |
 | B ⏳ | Importador por terminal para volúmenes grandes: paquete Hilo, cargador, CSV genérico, `export`, `--dry-run` | M |
 | D ⏳ | Adaptadores HubSpot y Pipedrive para el importador | M |

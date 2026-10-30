@@ -324,6 +324,17 @@ func (q *Queries) InteractionsByWeek(ctx context.Context, arg InteractionsByWeek
 	return items, nil
 }
 
+const lastAuditID = `-- name: LastAuditID :one
+SELECT COALESCE(max(id), 0)::bigint FROM audit_log WHERE workspace_id = $1
+`
+
+func (q *Queries) LastAuditID(ctx context.Context, workspaceID *uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, lastAuditID, workspaceID)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const leadsByChannel = `-- name: LeadsByChannel :many
 SELECT COALESCE(ch.name, '(none)') AS channel, count(o.id)::int AS count
 FROM opportunities o
@@ -402,6 +413,73 @@ func (q *Queries) ListAudit(ctx context.Context, arg ListAuditParams) ([]ListAud
 	items := []ListAuditRow{}
 	for rows.Next() {
 		var i ListAuditRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.ActorUserID,
+			&i.ActorKind,
+			&i.ActorClient,
+			&i.Action,
+			&i.EntityType,
+			&i.EntityID,
+			&i.Details,
+			&i.CreatedAt,
+			&i.ActorEmail,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listChanges = `-- name: ListChanges :many
+SELECT a.id, a.workspace_id, a.actor_user_id, a.actor_kind, a.actor_client, a.action, a.entity_type, a.entity_id, a.details, a.created_at, COALESCE(u.email, '') AS actor_email
+FROM audit_log a LEFT JOIN users u ON u.id = a.actor_user_id
+WHERE a.workspace_id = $1 AND a.id > $2::bigint AND a.created_at >= $3::timestamptz
+ORDER BY a.id
+LIMIT $4
+`
+
+type ListChangesParams struct {
+	WorkspaceID *uuid.UUID `json:"workspace_id"`
+	AfterID     int64      `json:"after_id"`
+	Since       time.Time  `json:"since"`
+	Lim         int32      `json:"lim"`
+}
+
+type ListChangesRow struct {
+	ID          int64           `json:"id"`
+	WorkspaceID *uuid.UUID      `json:"workspace_id"`
+	ActorUserID *uuid.UUID      `json:"actor_user_id"`
+	ActorKind   string          `json:"actor_kind"`
+	ActorClient string          `json:"actor_client"`
+	Action      string          `json:"action"`
+	EntityType  string          `json:"entity_type"`
+	EntityID    *uuid.UUID      `json:"entity_id"`
+	Details     json.RawMessage `json:"details"`
+	CreatedAt   time.Time       `json:"created_at"`
+	ActorEmail  string          `json:"actor_email"`
+}
+
+// Audited changes after a cursor (audit id), oldest first.
+func (q *Queries) ListChanges(ctx context.Context, arg ListChangesParams) ([]ListChangesRow, error) {
+	rows, err := q.db.Query(ctx, listChanges,
+		arg.WorkspaceID,
+		arg.AfterID,
+		arg.Since,
+		arg.Lim,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListChangesRow{}
+	for rows.Next() {
+		var i ListChangesRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.WorkspaceID,

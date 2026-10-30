@@ -26,15 +26,15 @@ func TestSummaries(t *testing.T) {
 		{row("form", "", "", "lead.capture", `{"form":"Web","stage":"Lead"}`), "Formulario público", "recibió un lead «Web»"},
 		{row("system", "", "", "something.new", `{}`), "Sistema", "something.new"},
 	} {
-		e := fromAudit(c.row)
+		e := FromAudit(c.row)
 		if e.Actor != c.actor || e.Summary != c.summary || e.Workspace != ws {
 			t.Errorf("%s: got %q %q", c.row.Action, e.Actor, e.Summary)
 		}
 	}
-	if e := fromAudit(row("session", "web", "a@b.c", "company.update", `{}`)); !e.By(user) || e.By(uuid.New()) {
+	if e := FromAudit(row("session", "web", "a@b.c", "company.update", `{}`)); !e.By(user) || e.By(uuid.New()) {
 		t.Error("By must match only the signed-in author")
 	}
-	if e := fromAudit(row("oauth", "Claude", "a@b.c", "company.update", `{}`)); e.By(user) {
+	if e := FromAudit(row("oauth", "Claude", "a@b.c", "company.update", `{}`)); e.By(user) {
 		t.Error("an agent acting for the user is not the user in the browser")
 	}
 }

@@ -53,8 +53,8 @@ var verbs = map[string]string{
 	"form.create": "creó el formulario", "form.update": "actualizó el formulario",
 }
 
-// fromAudit builds the event of an audit row.
-func fromAudit(r store.GetAuditEntryRow) Event {
+// FromAudit builds the event of an audit row.
+func FromAudit(r store.GetAuditEntryRow) Event {
 	e := Event{ID: r.ID, At: r.CreatedAt, Action: r.Action, Entity: r.EntityType, EntityID: r.EntityID,
 		Via: r.ActorKind, actorUser: r.ActorUserID}
 	if r.WorkspaceID != nil {
@@ -155,7 +155,7 @@ func listenOnce(ctx context.Context, d *db.DB, log *slog.Logger, publish func(Ev
 			log.Warn("live updates: read audit entry", "err", err)
 			continue
 		}
-		publish(fromAudit(row))
+		publish(FromAudit(row))
 	}
 }
 

@@ -121,3 +121,14 @@ LIMIT sqlc.arg(lim);
 SELECT a.*, COALESCE(u.email, '') AS actor_email
 FROM audit_log a LEFT JOIN users u ON u.id = a.actor_user_id
 WHERE a.workspace_id = $1 AND a.id = $2;
+
+-- name: ListChanges :many
+-- Audited changes after a cursor (audit id), oldest first.
+SELECT a.*, COALESCE(u.email, '') AS actor_email
+FROM audit_log a LEFT JOIN users u ON u.id = a.actor_user_id
+WHERE a.workspace_id = $1 AND a.id > sqlc.arg(after_id)::bigint AND a.created_at >= sqlc.arg(since)::timestamptz
+ORDER BY a.id
+LIMIT sqlc.arg(lim);
+
+-- name: LastAuditID :one
+SELECT COALESCE(max(id), 0)::bigint FROM audit_log WHERE workspace_id = $1;

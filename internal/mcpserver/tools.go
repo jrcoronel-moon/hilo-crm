@@ -99,6 +99,16 @@ func (s *Server) tools() []tool {
 			crm.PermRead, readTool, func(ctx context.Context, a crm.Actor, s *Server, _ empty) (any, error) {
 				return s.crm.ListAllTags(ctx, a)
 			}),
+		def("list_changes", "List changes since your last look",
+			"Everything that changed in the workspace (creates, updates, stage moves, interactions, archives; by people, agents and forms), oldest first. Keep next_cursor and pass it on the next call to get only what is new; without a cursor you get the last 24 hours. Built for agents that check in periodically.",
+			crm.PermRead, readTool, func(ctx context.Context, a crm.Actor, s *Server, in crm.ChangesInput) (any, error) {
+				return s.crm.ListChanges(ctx, a, in)
+			}),
+		def("needs_attention", "List what needs attention",
+			"Open opportunities that need someone, each with its reasons: next_step_overdue, past_expected_close, stale (no activity for stale_days, default 14), no_owner, no_next_step. Most reasons first, then the largest amounts. A good start for a daily brief.",
+			crm.PermRead, readTool, func(ctx context.Context, a crm.Actor, s *Server, in crm.AttentionInput) (any, error) {
+				return s.crm.NeedsAttention(ctx, a, in)
+			}),
 		def("get_metrics", "Get pipeline metrics",
 			"Open volume and weighted value per stage, won/lost counts and amounts, win rate, average won cycle, average days per stage, stale count, new opportunities by channel, interactions per week, won amount per month (last 6), this month's progress against the pipeline goal, and activity per person/agent.",
 			crm.PermRead, readTool, func(ctx context.Context, a crm.Actor, s *Server, in crm.MetricsInput) (any, error) {

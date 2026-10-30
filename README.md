@@ -77,14 +77,15 @@ URL del servidor MCP: `https://<tu-dominio>/mcp`
 - **Grok (API de xAI)**: herramienta `{"type": "mcp", "server_url": "https://<tu-dominio>/mcp", "authorization":
   "hilo_pat_…"}` en `/v1/responses` (el token solo: xAI agrega `Bearer`). Para probarlo contra tu stack local, con
   túnel incluido: `./scripts/try-grok.py`.
-- **ChatGPT, Cursor y otros**: agregá la URL como servidor MCP remoto. Si el cliente no soporta OAuth, creá un
+- **ChatGPT, Cursor, Duet, Muse y otros**: agregá la URL como servidor MCP remoto ([compatibilidad y guía por
+  cliente](docs/AGENTS.md)). Si el cliente no soporta OAuth, creá un
   token personal en *Ajustes → Agentes* y mandalo como `Authorization: Bearer hilo_pat_…`.
 
 ### Herramientas MCP
 
 | Lectura | Escritura | Administración |
 |---|---|---|
-| `search_crm`, `list_pipelines`, `list_channels`, `get_company`, `get_contact`, `get_opportunity`, `list_companies`, `list_contacts`, `list_opportunities`, `get_timeline`, `list_interactions`, `list_tags`, `get_metrics` | `upsert_company`, `upsert_contact`, `upsert_opportunity`, `move_opportunity_stage`, `log_interaction`, `bulk_upsert`, `archive_record` | `configure_pipeline`, `upsert_channel` |
+| `search_crm`, `list_pipelines`, `list_channels`, `get_company`, `get_contact`, `get_opportunity`, `list_companies`, `list_contacts`, `list_opportunities`, `get_timeline`, `list_interactions`, `list_tags`, `list_changes`, `needs_attention`, `get_metrics` | `upsert_company`, `upsert_contact`, `upsert_opportunity`, `move_opportunity_stage`, `log_interaction`, `bulk_upsert`, `archive_record` | `configure_pipeline`, `upsert_channel` |
 
 Las referencias entre registros aceptan el id de Hilo, la clave natural (dominio de la empresa, email del contacto) o
 el `external_id` del sistema de origen, así que un agente que sincroniza o migra no necesita guardar ids.

@@ -140,7 +140,7 @@ func TestToolsFilteredByPermission(t *testing.T) {
 	member := toolNames(t, e.connect(e.token(ws, "m@x.com", "member", false)))
 	readOnly := toolNames(t, e.connect(e.token(ws, "a@x.com", "admin", true)))
 
-	if len(owner) != 22 || !slices.Contains(owner, "bulk_upsert") || !slices.Contains(owner, "configure_pipeline") || !slices.Contains(owner, "list_interactions") || !slices.Contains(owner, "list_tags") {
+	if len(owner) != 24 || !slices.Contains(owner, "list_changes") || !slices.Contains(owner, "needs_attention") || !slices.Contains(owner, "bulk_upsert") || !slices.Contains(owner, "configure_pipeline") || !slices.Contains(owner, "list_interactions") || !slices.Contains(owner, "list_tags") {
 		t.Fatalf("owner tools (%d): %v", len(owner), owner)
 	}
 	for _, list := range [][]string{viewer, readOnly} {
@@ -195,6 +195,12 @@ func TestAgentFlow(t *testing.T) {
 	}
 	if out, isErr = call(t, cs, "search_crm", map[string]any{"query": "glob"}); isErr || !strings.Contains(out, "Globex") {
 		t.Fatalf("search: %s", out)
+	}
+	if out, isErr = call(t, cs, "list_changes", map[string]any{}); isErr || !strings.Contains(out, "creó la oportunidad «Planta solar»") || !strings.Contains(out, `"next_cursor"`) {
+		t.Fatalf("list_changes: %s", out)
+	}
+	if out, isErr = call(t, cs, "needs_attention", map[string]any{}); isErr || !strings.Contains(out, "no_next_step") {
+		t.Fatalf("needs_attention: %s", out)
 	}
 	batch := map[string]any{"dry_run": true,
 		"companies": []any{map[string]any{"name": "Initech", "external_id": "x:1"}},

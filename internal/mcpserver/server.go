@@ -33,7 +33,9 @@ Model: companies, contacts, opportunities (deals or projects), interactions, cha
 - Each pipeline has ordered stages with a category: initial (exactly one), in_progress, won, lost. Call list_pipelines before moving opportunities; use stage names or ids from it. An opportunity's status (open/won/lost) follows its stage category. Moving to a lost stage needs a reason.
 - New opportunities start in the initial stage of the default pipeline unless you say otherwise.
 - upsert_* tools are idempotent: they update when id, external_id (or domain for companies, email for contacts) matches, and create otherwise. Pass your own external_id to make retries safe. Omitted fields are left unchanged; an empty string clears a field.
-- References accept ids or natural keys: company by domain, contact by email, owner by member email, channel/stage/pipeline by name.
+- References accept ids, natural keys or your external_id: company by domain or external_id, contact by email or external_id, opportunity by external_id, owner by member email, channel/stage/pipeline by name.
+- For many records at once (imports, syncs), use bulk_upsert; run it with dry_run first.
+- Checking in periodically? list_changes (keep its next_cursor) tells you what changed since your last look; needs_attention lists the open opportunities that need someone.
 - Log every touchpoint with log_interaction (email, call, meeting, note, message, social, form; inbound/outbound/internal).
 - Amounts are decimals in the opportunity currency (ISO 4217).
 
