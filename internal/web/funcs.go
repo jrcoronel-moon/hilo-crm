@@ -51,6 +51,7 @@ var funcs = template.FuncMap{
 	"typeLabel":  func(t string) string { return orSelf(typeLabels, t) },
 	"kindLabel":  func(k string) string { return orSelf(kindLabels, k) },
 	"host":       urlHost,
+	"asset":      asset,
 }
 
 // Stored values are English (agents and the API see those); people see these.

@@ -10,7 +10,9 @@ package web
 
 import (
 	"context"
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"errors"
 	"html/template"
 	"io/fs"
@@ -149,6 +151,31 @@ func (h *Handler) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /settings/{action}", h.member(h.settingsAction))
 	mux.HandleFunc("GET /admin", h.session(h.adminPage))
 	mux.HandleFunc("POST /admin/{action}", h.session(h.adminAction))
+}
+
+// assetVersions maps each static file to a short hash of its content. Pages
+// link "/static/app.js?v=<hash>", so a deploy that changes a file changes its
+// URL and browsers fetch it again instead of using a cached copy.
+var assetVersions = func() map[string]string {
+	out := map[string]string{}
+	_ = fs.WalkDir(staticFS, "static", func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		b, err := staticFS.ReadFile(p)
+		if err != nil {
+			return err
+		}
+		sum := sha256.Sum256(b)
+		out[strings.TrimPrefix(p, "static/")] = hex.EncodeToString(sum[:6])
+		return nil
+	})
+	return out
+}()
+
+// asset is the versioned URL of a static file (templates).
+func asset(name string) string {
+	return "/static/" + name + "?v=" + assetVersions[name]
 }
 
 func cacheStatic(next http.Handler) http.Handler {
