@@ -355,10 +355,12 @@ function hydrate(root) {
 hydrate(document);
 
 if (window.EventSource && $("[data-live]")) {
-  // Never swap content under the user's hands.
+  // Never swap content under the user's hands. A tab that is merely in the
+  // background (covered by another window, e.g. the agent's) still refreshes,
+  // so it is current the moment it comes into view.
   const busy = () => {
     const a = document.activeElement;
-    return document.hidden || $("dialog[open]") || $(".dragging") || $$("form[data-bulk] input[name=id]").some((b) => b.checked) ||
+    return $("dialog[open]") || $(".dragging") || $$("form[data-bulk] input[name=id]").some((b) => b.checked) ||
       (a instanceof HTMLElement && a.matches("input, textarea, select") && a.closest("[data-live]"));
   };
   const flash = (id) => $$(`[data-opp="${id}"], [data-row="${id}"]`).forEach((n) => {
@@ -407,5 +409,7 @@ if (window.EventSource && $("[data-live]")) {
   // After a dropped connection, catch up on whatever was missed.
   es.addEventListener("error", () => { dropped = true; });
   es.addEventListener("open", () => { if (dropped) { dropped = false; schedule(); } });
+  // Coming back to the tab or window: catch up on anything deferred.
   document.addEventListener("visibilitychange", () => { if (!document.hidden && pending) schedule(); });
+  window.addEventListener("focus", () => { if (pending) schedule(); });
 }
