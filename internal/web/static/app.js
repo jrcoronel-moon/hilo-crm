@@ -266,6 +266,13 @@ if (shell) {
     const collapsed = shell.classList.toggle("collapsed");
     save(collapsed ? "c" : (widthClass() || "sw-232").slice(3));
   });
+  // Phones: the sidebar is a top bar; the menu button shows the navigation.
+  const menu = $("[data-menu]");
+  menu?.addEventListener("click", () => {
+    const open = shell.classList.toggle("menu-open");
+    menu.setAttribute("aria-expanded", String(open));
+    menu.setAttribute("aria-label", open ? "Cerrar el menú" : "Abrir el menú");
+  });
   const handle = $("[data-resizer]");
   handle?.addEventListener("pointerdown", (e) => {
     e.preventDefault();

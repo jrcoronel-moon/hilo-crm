@@ -45,14 +45,16 @@
   <symbol id="i-key" viewBox="0 0 24 24"><path d="M20 8.5a4.5 4.5 0 0 1-6 4.2L8 19H5v-3l6.3-6A4.5 4.5 0 1 1 20 8.5z"/></symbol>
   <symbol id="i-pulse" viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></symbol>
   <symbol id="i-sidebar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M14 10l-2 2 2 2"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
   <symbol id="i-out" viewBox="0 0 24 24"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></symbol>
 </svg>
 {{if and .View .View.Current (not .Bare)}}
 <div class="shell {{.View.Side}}" data-shell>
   <aside class="side">
     <div class="brand-row"><a class="brand" href="/board"><img src="{{.Brand.LogoURL}}" alt=""><span>{{.Brand.Name}}</span></a>
-      <button type="button" class="btn ghost sm collapse-btn" data-collapse title="Plegar / desplegar menú" aria-label="Plegar o desplegar el menú"><svg class="i sm"><use href="#i-sidebar"/></svg></button></div>
-    <nav class="nav">
+      <button type="button" class="btn ghost sm collapse-btn" data-collapse title="Plegar / desplegar menú" aria-label="Plegar o desplegar el menú"><svg class="i sm"><use href="#i-sidebar"/></svg></button>
+      <button type="button" class="btn ghost sm menu-btn" data-menu aria-controls="side-menu" aria-expanded="false" aria-label="Abrir el menú"><svg class="i"><use href="#i-menu"/></svg></button></div>
+    <nav class="nav" id="side-menu">
       <a href="/board" {{if eq .Nav "board"}}aria-current="page"{{end}} title="Funnel"><svg class="i"><use href="#i-funnel"/></svg><span>Funnel</span></a>
       <a href="/dashboard" {{if eq .Nav "dashboard"}}aria-current="page"{{end}} title="Dashboard"><svg class="i"><use href="#i-dash"/></svg><span>Dashboard</span></a>
       <div class="nav-label">Datos</div>

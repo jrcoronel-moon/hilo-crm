@@ -338,3 +338,58 @@ strong.big { font-size: 32px; font-weight: 700; letter-spacing: -.02em; }
    and may shrink: wide content (the board) scrolls instead of widening the page */
 .live-region { display: grid; gap: 16px; align-content: start; min-width: 0; }
 .live-region:empty { display: none; } .link-btn { max-width: 100%; } .link-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ───── phones and narrow windows ─────
+   One column; the sidebar becomes a top bar whose menu button (data-menu)
+   shows the navigation. Grid tracks are minmax(0, 1fr) so wide content
+   (tables, the board) scrolls inside its card instead of widening the page. */
+.menu-btn { display: none; }
+@media (max-width: 860px) {
+  .shell, .shell.collapsed { grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 8px; }
+  .side, .collapsed .side { position: static; height: auto; padding: 6px 8px; overflow: visible; border-radius: 14px; }
+  .brand-row, .collapsed .brand-row { flex-direction: row; padding: 0; }
+  .brand-row .brand { padding: 4px 6px; font-size: 17px; }
+  .collapsed .brand span, .collapsed .nav a span { display: inline; }
+  .collapsed .nav-label, .collapsed .me .grow { display: block; }
+  .collapsed .nav a { justify-content: flex-start; padding: 0 12px; }
+  .collapsed .me { flex-direction: row; padding: 4px 6px; }
+  .menu-btn { display: inline-flex; padding: 0 8px; height: 40px; }
+  .side .nav, .side .side-foot, .agent-box { display: none; }
+  .menu-open .side .nav, .menu-open .side .side-foot { display: grid; }
+  .menu-open .side .nav { margin-top: 6px; }
+  .menu-open .side .side-foot { padding-top: 10px; margin-top: 8px; border-top: 1px solid var(--line); }
+  .nav a { height: 44px; }
+
+  .main { border-radius: 14px; }
+  .head { flex-wrap: wrap; gap: 10px; padding: 12px 14px; min-height: 0; }
+  .head .title { flex-wrap: wrap; min-width: 0; }
+  .head .actions { margin-left: 0; width: 100%; }
+  .body { padding: 12px; gap: 12px; }
+  .body, .card, .live-region, .stack, .grid2 > .gcol { grid-template-columns: minmax(0, 1fr); }
+  .card { padding: 14px; }
+  .card-head { flex-wrap: wrap; } .card-head .aside { margin-left: 0; }
+  .foot-note { flex-wrap: wrap; padding: 12px 14px; } .foot-note a { margin-left: 0; }
+
+  /* iOS zooms into fields under 16px */
+  input, select, textarea { font-size: 16px; }
+  /* inline forms (move stage, link contact…): one field per line */
+  form.row > input:not([type=hidden]):not([type=checkbox]):not([type=radio]), form.row > select { flex: 1 1 100%; }
+  .toolbar > * { flex: 1 1 auto; }
+  .search { min-width: 0; flex-basis: 100%; } .search kbd { display: none; }
+  details.pop .pop-body { width: min(300px, calc(100vw - 48px)); }
+
+  table.table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .board { grid-auto-columns: minmax(260px, 82%); scroll-snap-type: x mandatory; }
+  .board .col { scroll-snap-align: start; }
+
+  .record-head .grow { min-width: 0; } .record-head h1 { font-size: 20px; overflow-wrap: anywhere; }
+  .kpis.mini { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .bars .r { grid-template-columns: 90px minmax(0, 1fr) 28px; } .bars .r .v { grid-column: 2 / -1; text-align: left; }
+  .donut { grid-template-columns: 1fr; justify-items: center; } .donut .legend { width: 100%; }
+  .copybox { flex-wrap: wrap; } .copybox code { overflow-wrap: anywhere; word-break: break-all; }
+  .facts { grid-template-columns: 100px minmax(0, 1fr); }
+  .toasts { left: 12px; right: 12px; bottom: 12px; max-width: none; }
+
+  .split .l { padding: 24px 16px; } .login { width: 100%; max-width: 380px; }
+  .center .top { padding: 16px; gap: 12px; flex-wrap: wrap; }
+}
