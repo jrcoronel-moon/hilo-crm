@@ -266,13 +266,7 @@ if (shell) {
     const collapsed = shell.classList.toggle("collapsed");
     save(collapsed ? "c" : (widthClass() || "sw-232").slice(3));
   });
-  // Phones: the sidebar is a top bar; the menu button shows the navigation.
-  const menu = $("[data-menu]");
-  menu?.addEventListener("click", () => {
-    const open = shell.classList.toggle("menu-open");
-    menu.setAttribute("aria-expanded", String(open));
-    menu.setAttribute("aria-label", open ? "Cerrar el menú" : "Abrir el menú");
-  });
+  phoneMenu();
   const handle = $("[data-resizer]");
   handle?.addEventListener("pointerdown", (e) => {
     e.preventDefault();
@@ -299,6 +293,84 @@ if (shell) {
     if (old) shell.classList.remove(old);
     save("");
   });
+}
+
+// ───── phones: the navigation is a drawer from the left. It opens with the
+// menu button or by swiping right anywhere on the page, follows the finger,
+// and closes swiping left, tapping the page or pressing Escape. Swipes that
+// start on fields or on content that scrolls sideways (the board, tables,
+// code) are left alone. ─────
+function phoneMenu() {
+  const menu = $("[data-menu]");
+  const drawer = $("#side-menu");
+  const main = $(".main");
+  if (!shell || !menu || !drawer || !main) return;
+  const phone = matchMedia("(max-width: 860px)");
+  const isOpen = () => shell.classList.contains("menu-open");
+  const setOpen = (open) => {
+    shell.style.removeProperty("--drawer-x");
+    shell.classList.toggle("menu-open", open);
+    document.documentElement.classList.toggle("menu-lock", open);
+    menu.setAttribute("aria-expanded", String(open));
+    menu.setAttribute("aria-label", open ? "Cerrar el menú" : "Abrir el menú");
+    drawer.inert = phone.matches && !open; // off-screen links are not tabbable
+  };
+  setOpen(false);
+  phone.addEventListener("change", () => setOpen(false));
+  menu.addEventListener("click", () => setOpen(!isOpen()));
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && isOpen()) setOpen(false); });
+  main.addEventListener("click", (e) => {
+    if (!isOpen()) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setOpen(false);
+  }, true);
+
+  const scrollsSideways = (el) => {
+    for (; el && el !== document.body; el = el.parentElement) {
+      if (el.scrollWidth > el.clientWidth + 1 && /auto|scroll/.test(getComputedStyle(el).overflowX)) return true;
+    }
+    return false;
+  };
+  let g = null; // the gesture in progress
+  document.addEventListener("touchstart", (e) => {
+    g = null;
+    if (!phone.matches || e.touches.length !== 1) return;
+    const target = e.target instanceof Element ? e.target : null;
+    if (!target || target.closest("input, textarea, select, [contenteditable], dialog, [data-no-swipe]") || scrollsSideways(target)) return;
+    const t = e.touches[0];
+    g = { x: t.clientX, y: t.clientY, open: isOpen(), w: drawer.getBoundingClientRect().width, active: false,
+      dx: 0, last: { x: t.clientX, t: e.timeStamp }, prev: { x: t.clientX, t: e.timeStamp } };
+  }, { passive: true });
+  document.addEventListener("touchmove", (e) => {
+    if (!g) return;
+    const t = e.touches[0];
+    const dx = t.clientX - g.x, dy = t.clientY - g.y;
+    if (!g.active) {
+      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+      // Mostly horizontal, and towards opening (closed) or closing (open).
+      if (Math.abs(dx) < Math.abs(dy) * 1.3 || (g.open ? dx > 0 : dx < 0)) { g = null; return; }
+      g.active = true;
+      shell.classList.add("menu-dragging");
+    }
+    e.preventDefault(); // the page does not scroll while the menu follows the finger
+    g.dx = dx;
+    g.prev = g.last;
+    g.last = { x: t.clientX, t: e.timeStamp };
+    const x = Math.min(g.w, Math.max(0, (g.open ? g.w : 0) + dx));
+    shell.style.setProperty("--drawer-x", x + "px");
+  }, { passive: false });
+  const end = () => {
+    const done = g;
+    g = null;
+    if (!done?.active) return;
+    shell.classList.remove("menu-dragging");
+    const v = (done.last.x - done.prev.x) / Math.max(1, done.last.t - done.prev.t); // px/ms at release
+    const far = Math.abs(done.dx) > done.w * 0.35, flick = Math.abs(v) > 0.35;
+    setOpen(done.open ? !((far || flick) && done.dx < 0 && v <= 0.1) : (far || flick) && done.dx > 0 && v >= -0.1);
+  };
+  document.addEventListener("touchend", end);
+  document.addEventListener("touchcancel", end);
 }
 
 // ───── tag editor: chips over a comma-separated input (works without JS) ─────
