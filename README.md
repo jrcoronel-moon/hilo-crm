@@ -2,6 +2,10 @@
 
 **El CRM agentic-first: los agentes de IA operan el pipeline, las personas miran.**
 
+<p align="center">
+  <img src="docs/img/hilo-agente.svg" width="760" alt="Las herramientas que ya usás (buzón, Gmail, calendario, videoconferencia, Drive, Docs, redes, formularios) se conectan al agente, y el agente registra todo en Hilo por MCP.">
+</p>
+
 Los CRM se diseñaron para que una persona haga clic en un tablero. Hilo está diseñado al revés: la vía principal es
 un servidor [MCP](https://modelcontextprotocol.io) remoto y la web es una ventana para ver lo que los agentes hicieron.
 
@@ -19,25 +23,156 @@ Hilo expone el CRM como herramientas MCP tipadas, y los `upsert` son idempotente
 sin duplicar nada. Cada llamada pasa por las mismas reglas de permisos y la misma auditoría que si la hubiera hecho
 una persona: no hay un camino "de agente" con menos control.
 
-## Cómo se ve, en la práctica
+| CRM de siempre | CRM con agente |
+|---|---|
+| Una persona carga los datos a mano. | El agente lee el mail, agenda la reunión, escribe la propuesta y registra cada paso. |
+| Los datos envejecen apenas se cargan. | Cada dato entra cuando pasa, con su fecha real. |
+| El pipeline refleja lo que alguien se acordó de escribir. | El pipeline refleja lo que pasó. |
 
-Ejemplo ilustrativo.
+## Qué hace un agente en un día de ventas
+
+Un día concreto, de punta a punta: en cada hito, qué superficie usa el agente y qué deja escrito en Hilo.
+
+> Ejemplo ilustrativo: las empresas, personas y montos son inventados. Algunas superficies dependen de que estén
+> conectadas al agente y de que la otra parte lo permita.
+
+| Hora | Qué hace el agente | Superficie | Qué queda en Hilo |
+|---|---|---|---|
+| 08:40 | **Revisa el buzón.** Llega una consulta de Marina Ríos, de Talleres Andinos. La clasifica como consulta comercial y la carga. | Buzón propio del agente | `upsert_company` + `upsert_contact` + `upsert_opportunity` en la etapa inicial, y `log_interaction` de tipo email, entrante, con el id del mensaje como `external_id`. |
+| 09:15 | **Busca antecedentes.** Talleres Andinos ya existía: hay un deal viejo, perdido por precio. Lo anota en la oportunidad nueva para que nadie llegue a la reunión sin saberlo. | Hilo | `search_crm`, `get_company`, `get_timeline` y `upsert_opportunity` con la descripción actualizada. |
+| 10:00 | **Arma la propuesta.** Completa la plantilla de Drive con monto, contactos y fecha estimada de cierre, y la guarda como Doc. | Drive y Docs | `upsert_opportunity` con el monto, la fecha de cierre y el link del documento en `links`. |
+| 11:30 | **Agenda la reunión.** Crea el evento con el link de Meet y avanza la oportunidad de etapa. | Calendario y Meet | `move_opportunity_stage`, `next_step_at` con la fecha y `log_interaction` de tipo meeting, saliente. |
+| 15:00 | **Entra a la reunión.** Si la herramienta está conectada y los participantes lo permiten, toma notas y escribe el resumen: pedidos, objeciones, próximo paso y fecha. | Videoconferencia | `log_interaction` con la duración y el resumen. |
+| 16:20 | **Actualiza el deal.** Cambió el alcance: ajusta el monto, sube la probabilidad y deja el próximo paso con fecha. | Hilo | `upsert_opportunity` con `amount`, `probability`, `next_step` y `next_step_at`. |
+| 17:45 | **Revisa qué quedó trabado.** Sin próximo paso, con cierre vencido o sin actividad hace dos semanas: le pasa la lista a la persona, con el motivo de cada una. | Hilo y el canal de la persona | `needs_attention`, que devuelve cada oportunidad con su motivo. |
+| 18:10 | **Cierra el día.** Registra un resumen interno de lo que hizo. Nada se cargó a mano. | Hilo | `log_interaction` de tipo note, interna. |
+
+En vez de ocho pedidos, un solo encargo al agente:
 
 ```text
-Vos:    Llegó un mail de Laura Méndez, de Acme, pidiendo una propuesta por 20 licencias.
-        Cargala y movela a Propuesta.
+Contexto: vendemos mantenimiento industrial a talleres medianos.
+Un buen lead tiene planta propia y más de una máquina.
 
-Agente: (search_crm "Acme")         → la empresa existe, el contacto Laura Méndez no
-        (upsert_contact)            → Laura Méndez, Acme, laura@acme.com
-        (upsert_opportunity)        → "Acme / 20 licencias", external_id mail-83921
-        (move_opportunity_stage)    → Propuesta
-        (log_interaction)           → email entrante, con el resumen del pedido
+Hoy quiero que:
+1. Revises el buzón y cargues en Hilo cada consulta nueva,
+   con empresa, contacto y oportunidad en la etapa inicial.
+2. Antes de responder, busques si el cliente ya existía
+   y dejes anotado en la oportunidad lo que encuentres.
+3. Armes la propuesta desde la plantilla de Drive
+   y adjuntes el link al deal.
+4. Agendes la reunión y dejes el próximo paso con fecha.
+5. Al cierre del día, me pases la lista de oportunidades
+   sin próximo paso o sin actividad hace dos semanas,
+   con el motivo de cada una.
 
-        Listo: un contacto, una oportunidad en Propuesta y la interacción registrada.
+Reglas: no mandes ningún mail sin mostrármelo.
+No prometas descuentos. Registrá cada interacción con su fecha real.
 ```
 
-Nada de eso necesitó abrir el navegador. Y si el agente se corta a la mitad y reintenta, los `upsert` resuelven por
-`id`, `external_id`, dominio o email: no se duplica nada.
+Cada uno de esos pasos es una llamada a una herramienta MCP: no hay un paso escondido donde alguien copia y pega. Y
+si algo se corta a la mitad, el agente reintenta sin duplicar: los `upsert` resuelven por `id`, `external_id`,
+dominio o email, y las interacciones aceptan un `external_id`, así que la segunda vez actualiza lo mismo en lugar de
+crear otra copia.
+
+## Las superficies
+
+Hilo no lee mails ni entra a reuniones: eso lo hace el agente con las herramientas que tenga conectadas. Hilo es
+donde termina el resultado.
+
+| Superficie | Qué hace el agente | Qué escribe en Hilo |
+|---|---|---|
+| Buzón propio del agente | Con una dirección dedicada: recibe consultas, las clasifica, responde e hila las conversaciones. | Contacto, oportunidad e interacción, con el id del mensaje como `external_id` para que reintentar no duplique. Canal: Email. |
+| Gmail u otro mail de la empresa | Busca conversaciones viejas para reconstruir el historial de un cliente y redacta respuestas para que la persona las apruebe. | Interacciones entrantes y salientes con su fecha real en `occurred_at`, no con la fecha en que se cargaron. |
+| Calendario | Propone horarios, crea el evento y lo mueve si se cancela. | El `next_step_at` de la oportunidad y la interacción de tipo meeting. |
+| Videoconferencia (Meet, Zoom, Teams) | Si la herramienta está conectada y los participantes lo permiten: entra, toma notas y saca el resumen. | La interacción con duración y el resumen de objeciones y próximos pasos. Canal: Videoconferencia. |
+| Drive, Docs y Sheets | Lee plantillas, escribe la propuesta, mantiene una planilla de seguimiento y exporta el pipeline a CSV. | El link del documento en la oportunidad, y los montos y fechas de la planilla. Una planilla vieja se migra con `bulk_upsert`. |
+| Redes sociales (X, LinkedIn, Reddit) | Publica, responde comentarios y detecta quién mostró interés, en las cuentas a las que tenga acceso. | Un contacto o una oportunidad con canal social (por ejemplo, LinkedIn), para medir qué canal trae deals y no solo visitas. |
+| Formularios | Los completa una persona en tu web; el agente no interviene. | Contacto, oportunidad e interacción de tipo form, con canal Formulario. La auditoría registra que vino de un formulario, no de una persona ni de un agente. |
+
+La gracia no es cada superficie por separado: es que todo termina en el mismo lugar. El agente usa las herramientas
+que ya usa una persona, y Hilo es donde el resultado queda medido.
+
+## Cómo se le pide algo
+
+Un agente no es una app con botones: es alguien a quien le pedís cosas por escrito y que trabaja con las herramientas
+que le diste. Funciona bien con cinco pasos.
+
+1. **Contexto.** El agente no adivina: decile quién sos, qué vendés, qué es un buen lead y qué no. En Hilo eso se
+   traduce en un pipeline con etapas claras y canales bien nombrados; si las etapas confunden a una persona, también
+   confunden al agente.
+   *"Vendemos mantenimiento industrial a talleres medianos. Un buen lead tiene planta propia y más de una máquina.
+   Los estudiantes y proveedores no son leads."*
+2. **Permiso.** El agente solo toca lo que le diste: sin calendario no agenda, sin buzón no lee mails. Un token de
+   Hilo se puede restringir a solo lectura y nunca amplía lo que permite el rol de quien lo creó. Para empezar, uno de
+   solo lectura alcanza para responder "cómo viene el mes" sin poder cambiar nada.
+3. **Pedido concreto.** Qué mirar, qué hacer y qué devolver.
+   Funciona: *"Buscá en el buzón las consultas de esta semana, cargalas en Hilo y decime cuáles necesitan respuesta
+   hoy."* No funciona: *"Ocupate de las ventas."*
+4. **Borrador antes de enviar.** Todo lo que sale hacia afuera se revisa: el agente redacta, la persona aprueba.
+   *"Redactá la respuesta a Talleres Andinos con la propuesta adjunta. No la mandes, mostrámela."*
+5. **Registro.** Lo que pasó queda en la interacción, con fecha. Si no quedó registrado, no pasó.
+   *"Cuando la mande, registrala en Hilo como email saliente y dejá como próximo paso llamar el jueves."*
+
+| Pedirle | No pedirle |
+|---|---|
+| Reconstruir el historial de un cliente desde el mail. | Prometer descuentos. |
+| Preparar el resumen de una reunión. | Cerrar un deal. |
+| Armar la propuesta desde una plantilla. | Mandar un mail sin revisión. |
+| Mover deals trabados. | Decidir a qué cliente priorizar sin datos. |
+| Avisar qué está por vencer. | |
+
+**Qué sigue decidiendo la persona:** el precio, los compromisos, qué se manda hacia afuera y con quién conviene
+invertir tiempo. El agente prepara, ordena y registra. La persona decide.
+
+**El error más común** es pedirle que "mantenga el CRM al día" sin darle acceso al lugar donde pasa la información.
+El CRM se mantiene porque el agente ve el mail y la reunión; sin eso tiene lo mismo que tenía la persona: nada que
+cargar.
+
+## Cómo se crea una rutina
+
+Hasta acá el agente trabaja cuando le hablás. La diferencia grande aparece cuando no hace falta: una rutina es un
+pedido que queda guardado y se vuelve a ejecutar solo, a la hora que digas o cuando pasa algo. No se configura en
+ninguna pantalla: se pide en la misma conversación, tal cual.
+
+```text
+Todos los lunes a las 8:30, revisá Hilo y mandame por acá
+las oportunidades que necesitan algo: próximas acciones
+vencidas, cierres pasados y deals sin actividad hace más
+de dos semanas. Para cada una decime el motivo y qué
+propondrías hacer.
+
+Si la semana no tiene nada para avisar, no me escribas.
+```
+
+El agente la guarda con día, hora y zona horaria, y se dispara sola aunque no estés mirando el chat. Se pausa, se
+cambia o se borra pidiéndolo igual: *"pasá la rutina de los lunes a los martes a las 9"*.
+
+Un pedido de rutina tiene que decir tres cosas:
+
+1. **Cuándo:** un día y una hora, o una frecuencia (todos los lunes, cada mañana a las 8, el 1 de cada mes).
+2. **Qué mirar:** Hilo, el buzón, el calendario. Sin esto el agente adivina, y adivinar es lo que sale mal.
+3. **Qué devolver:** el formato, a dónde va (un mensaje, un correo, una nota en el deal) y cuándo callarse.
+
+Cuatro rutinas que valen la pena el primer día:
+
+| Rutina | Cuándo | Qué hace |
+|---|---|---|
+| El arranque del lunes | lunes 8:30 | Las oportunidades que necesitan algo, con el motivo y una propuesta de próximo paso. Usa `needs_attention`. |
+| El cierre del día | todos los días 18:30 | Qué se movió hoy, qué se cargó y qué quedó sin registrar. Usa `list_changes` con el cursor de ayer. |
+| El resumen del viernes | viernes 17:00 | Cómo viene el mes contra la meta, qué se ganó, qué se estancó y qué canales trajeron deals. Usa `get_metrics`. |
+| El barrido del buzón | cada dos horas | Si entró una consulta nueva, la carga en Hilo y te avisa. Si no entró nada, no dice nada. |
+
+Además del horario, una rutina puede esperar un evento:
+
+```text
+Cuando alguien complete el formulario de la web,
+cargalo en Hilo con canal Formulario, avisame en el
+momento y proponeme el primer mensaje de respuesta.
+No lo mandes: mostrámelo.
+```
+
+Lo que hace que una rutina sirva es la última línea: cuándo no escribir. Un agente que avisa todos los días que no
+pasó nada se vuelve ruido; el que solo aparece cuando hay algo, se lee.
 
 ## Qué ve la persona
 
@@ -83,22 +218,41 @@ URL del servidor MCP: `https://<tu-dominio>/mcp`
 
 ### Herramientas MCP
 
-| Lectura | Escritura | Administración |
-|---|---|---|
-| `search_crm`, `list_pipelines`, `list_channels`, `get_company`, `get_contact`, `get_opportunity`, `list_companies`, `list_contacts`, `list_opportunities`, `get_timeline`, `list_interactions`, `list_tags`, `list_changes`, `needs_attention`, `get_metrics` | `upsert_company`, `upsert_contact`, `upsert_opportunity`, `move_opportunity_stage`, `log_interaction`, `bulk_upsert`, `archive_record` | `configure_pipeline`, `upsert_channel` |
+El servidor expone 24 herramientas: todo lo que un agente necesita para operar el CRM, y nada más.
+
+| Para qué | Herramientas |
+|---|---|
+| **Buscar y leer** (13): saber qué pasó antes de hacer algo | `search_crm` por nombre, dominio, email o título · `list_companies`, `list_contacts` filtrables por texto, dueño o etiqueta · `list_opportunities` por etapa, estado, dueño, canal, cierre o días sin actividad · `list_interactions` · `list_pipelines`, `list_channels`, `list_tags` para no inventar duplicados · `get_company`, `get_contact`, `get_opportunity` · `get_timeline` (interacciones y cambios de etapa) · `get_metrics` |
+| **Escribir** (6): dejar asentado lo que el agente hizo o vio | `upsert_company`, `upsert_contact` (por id, `external_id`, dominio o email) · `upsert_opportunity` (monto, probabilidad, cierre, próximo paso, dueño, canal y links) · `move_opportunity_stage` (pasar a perdida exige motivo) · `log_interaction` (email, llamada, reunión, nota, mensaje, social o formulario; entrante, saliente o interna) · `archive_record` (no borra: saca el registro de las listas y lo deja en el historial y la auditoría) |
+| **Trabajo en lote** (1): migrar en pocas llamadas | `bulk_upsert`: hasta 200 registros por llamada, con `dry_run` para validar una migración entera sin guardar |
+| **Agentes que vuelven solos** (2) | `needs_attention`: oportunidades abiertas que necesitan a alguien, con el motivo (próximo paso vencido, cierre pasado, sin actividad, sin dueño, sin próximo paso) · `list_changes`: todo lo que cambió, con cursor, distinguiendo si lo hizo una persona, un agente o un formulario |
+| **Administración** (2): solo admins | `configure_pipeline` (etapas en orden, con categoría y probabilidad) · `upsert_channel` |
 
 Las referencias entre registros aceptan el id de Hilo, la clave natural (dominio de la empresa, email del contacto) o
 el `external_id` del sistema de origen, así que un agente que sincroniza o migra no necesita guardar ids.
-`bulk_upsert` carga hasta 200 registros por llamada y tiene modo `dry_run` para validar sin guardar.
 
 Cada agente ve solo las herramientas que su rol y su token permiten. Un token OAuth o personal puede restringirse a
 solo lectura; nunca puede ampliar lo que permite el rol.
 
-### Pipelines
+### Pipelines y canales
 
-Cada etapa es `initial` (exactamente una), `in_progress` (al menos una), `won` o `lost` (al menos una de cada). El
-estado de una oportunidad sigue a la categoría de su etapa, así que las métricas no dependen de cómo nombraste las
-columnas.
+Cada etapa tiene un nombre libre y una de cuatro categorías: `initial` (exactamente una), `in_progress` (al menos
+una), `won` y `lost` (al menos una de cada). El estado de una oportunidad sigue a la categoría de su etapa, así que
+las métricas no dependen de cómo nombraste las columnas.
+
+Cada etapa tiene además una probabilidad, y eso es lo que hace que el monto ponderado signifique algo: el pipeline de
+ventas viene con Lead 10 %, Calificado 25 %, Propuesta 50 %, Negociación 75 %, Ganado 100 % y Perdido 0 %. Un
+pipeline se puede marcar como predeterminado y tener una meta mensual con moneda. Si se borra una etapa, hay que
+reasignar sus oportunidades.
+
+Los canales existen para responder una pregunta: qué trae deals, no solo visitas. Vienen diez de fábrica (Email,
+Evento, Formulario, LinkedIn, Outbound, Referido, Teléfono, Video, Videoconferencia y Web), y cada uno tiene un tipo:
+`web`, `form`, `email`, `phone`, `social`, `referral`, `event`, `outbound`, `partner`, `ads`, `videocall`, `video` u
+`other`.
+
+`get_metrics` mide volumen abierto y valor ponderado por etapa; ganadas y perdidas con montos y tasa de cierre; ciclo
+promedio y días en cada etapa; oportunidades estancadas (14 días sin actividad) y nuevas por canal; interacciones por
+semana y avance contra la meta del mes. La ventana por defecto es de 90 días.
 
 ### Formularios de leads
 
@@ -132,6 +286,20 @@ pendiente. Sin dominios configurados, solo superadmins e invitados. Los superadm
 | Admin | además, configurar pipelines, canales, formularios, miembros y dominios |
 | Propietario | además, gestionar propietarios |
 | Superadmin (plataforma) | dominios habilitados para entrar, marca de la aplicación y vista de todos los workspaces |
+
+### Un agente no tiene más permisos que una persona
+
+Cada llamada de un agente pasa por las mismas reglas de permisos y la misma auditoría que si la hubiera hecho una
+persona.
+
+- **Scopes separados.** El servidor distingue `crm:read`, `crm:write` y `crm:admin`. Admin incluye configurar
+  pipelines y canales, y usar fechas históricas para migraciones. Un token de solo lectura es de solo lectura de
+  verdad.
+- **Quién hizo qué.** `list_changes` y la auditoría distinguen si un cambio lo hizo una persona, un agente o un
+  formulario.
+- **Historia completa.** Todo se ve en el timeline de cada oportunidad y en el registro de auditoría del workspace.
+- **Archivar no es borrar.** `archive_record` saca el registro de las listas y lo deja en el historial y en la
+  auditoría.
 
 ## Administrar desde la terminal
 

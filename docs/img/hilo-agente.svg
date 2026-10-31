@@ -1,0 +1,440 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 320" width="760" height="320" role="img" aria-labelledby="t d">
+<title id="t">Hilo: el CRM que opera un agente</title>
+<desc id="d">Las herramientas (buzón, Gmail, calendario, videoconferencia, Drive, Docs, redes, formularios) se conectan al agente, y el agente registra todo en Hilo por MCP.</desc>
+<style>
+.bg{fill:#fafbf9} .card{fill:#fff;stroke:#d7e8dc} .dot{fill:#dfe7e1}
+.pill{fill:#fff;stroke:#e3e9e1} .pd{fill:#5aa07c}
+.pt{font:500 11.5px ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;fill:#54615a}
+.wire{fill:none;stroke:#bcd6c6;stroke-width:1.5;stroke-linecap:round}
+.flow{fill:none;stroke:#5aa07c;stroke-width:2.2;stroke-linecap:round;stroke-dasharray:14 100;stroke-dashoffset:0;
+  animation:dash 2.8s linear infinite}
+.rev{stroke:#77bf9b;stroke-width:2}
+@keyframes dash{to{stroke-dashoffset:-114}}
+.orb{animation:float 5.2s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.ring{fill:none;stroke:#5aa07c;stroke-width:2;opacity:0;transform-box:fill-box;transform-origin:center;
+  animation:pulse 3.4s ease-out infinite}
+@keyframes pulse{0%{transform:scale(1);opacity:.5}70%{transform:scale(1.34);opacity:0}100%{opacity:0}}
+.blink{animation:blink 2.6s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+.bar{fill:#d7e8dc} .fill{fill:url(#g);transform-box:fill-box;transform-origin:left;animation:grow 3.6s ease-in-out infinite}
+@keyframes grow{0%,100%{transform:scaleX(1)}50%{transform:scaleX(.72)}}
+.h{font:600 14px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;fill:#16201b} .s{font:500 11px ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;fill:#8b968f}
+.badge{fill:#e9f3ec} .bt{font:700 9.5px ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;fill:#3d7a5c;letter-spacing:.06em}
+.cap{font:400 12.5px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;fill:#8b968f}
+@media (prefers-reduced-motion:reduce){.flow,.orb,.ring,.blink,.fill{animation:none}.flow{display:none}}
+</style>
+<defs><linearGradient id="g" x1="0" x2="1"><stop offset="0" stop-color="#5aa07c"/><stop offset="1" stop-color="#3d7a5c"/></linearGradient><linearGradient id="og" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#e8f3ec"/></linearGradient><filter id="sh" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#16281e" flood-opacity=".09"/></filter></defs>
+<rect class="bg" x="1" y="1" width="758" height="318" rx="22" stroke="#e3e9e1"/>
+<circle class="dot" cx="30" cy="24" r="1"/>
+<circle class="dot" cx="30" cy="46" r="1"/>
+<circle class="dot" cx="30" cy="68" r="1"/>
+<circle class="dot" cx="30" cy="90" r="1"/>
+<circle class="dot" cx="30" cy="112" r="1"/>
+<circle class="dot" cx="30" cy="134" r="1"/>
+<circle class="dot" cx="30" cy="156" r="1"/>
+<circle class="dot" cx="30" cy="178" r="1"/>
+<circle class="dot" cx="30" cy="200" r="1"/>
+<circle class="dot" cx="30" cy="222" r="1"/>
+<circle class="dot" cx="30" cy="244" r="1"/>
+<circle class="dot" cx="52" cy="24" r="1"/>
+<circle class="dot" cx="52" cy="46" r="1"/>
+<circle class="dot" cx="52" cy="68" r="1"/>
+<circle class="dot" cx="52" cy="90" r="1"/>
+<circle class="dot" cx="52" cy="112" r="1"/>
+<circle class="dot" cx="52" cy="134" r="1"/>
+<circle class="dot" cx="52" cy="156" r="1"/>
+<circle class="dot" cx="52" cy="178" r="1"/>
+<circle class="dot" cx="52" cy="200" r="1"/>
+<circle class="dot" cx="52" cy="222" r="1"/>
+<circle class="dot" cx="52" cy="244" r="1"/>
+<circle class="dot" cx="74" cy="24" r="1"/>
+<circle class="dot" cx="74" cy="46" r="1"/>
+<circle class="dot" cx="74" cy="68" r="1"/>
+<circle class="dot" cx="74" cy="90" r="1"/>
+<circle class="dot" cx="74" cy="112" r="1"/>
+<circle class="dot" cx="74" cy="134" r="1"/>
+<circle class="dot" cx="74" cy="156" r="1"/>
+<circle class="dot" cx="74" cy="178" r="1"/>
+<circle class="dot" cx="74" cy="200" r="1"/>
+<circle class="dot" cx="74" cy="222" r="1"/>
+<circle class="dot" cx="74" cy="244" r="1"/>
+<circle class="dot" cx="96" cy="24" r="1"/>
+<circle class="dot" cx="96" cy="46" r="1"/>
+<circle class="dot" cx="96" cy="68" r="1"/>
+<circle class="dot" cx="96" cy="90" r="1"/>
+<circle class="dot" cx="96" cy="112" r="1"/>
+<circle class="dot" cx="96" cy="134" r="1"/>
+<circle class="dot" cx="96" cy="156" r="1"/>
+<circle class="dot" cx="96" cy="178" r="1"/>
+<circle class="dot" cx="96" cy="200" r="1"/>
+<circle class="dot" cx="96" cy="222" r="1"/>
+<circle class="dot" cx="96" cy="244" r="1"/>
+<circle class="dot" cx="118" cy="24" r="1"/>
+<circle class="dot" cx="118" cy="46" r="1"/>
+<circle class="dot" cx="118" cy="68" r="1"/>
+<circle class="dot" cx="118" cy="90" r="1"/>
+<circle class="dot" cx="118" cy="112" r="1"/>
+<circle class="dot" cx="118" cy="134" r="1"/>
+<circle class="dot" cx="118" cy="156" r="1"/>
+<circle class="dot" cx="118" cy="178" r="1"/>
+<circle class="dot" cx="118" cy="200" r="1"/>
+<circle class="dot" cx="118" cy="222" r="1"/>
+<circle class="dot" cx="118" cy="244" r="1"/>
+<circle class="dot" cx="140" cy="24" r="1"/>
+<circle class="dot" cx="140" cy="46" r="1"/>
+<circle class="dot" cx="140" cy="68" r="1"/>
+<circle class="dot" cx="140" cy="90" r="1"/>
+<circle class="dot" cx="140" cy="112" r="1"/>
+<circle class="dot" cx="140" cy="134" r="1"/>
+<circle class="dot" cx="140" cy="156" r="1"/>
+<circle class="dot" cx="140" cy="178" r="1"/>
+<circle class="dot" cx="140" cy="200" r="1"/>
+<circle class="dot" cx="140" cy="222" r="1"/>
+<circle class="dot" cx="140" cy="244" r="1"/>
+<circle class="dot" cx="162" cy="24" r="1"/>
+<circle class="dot" cx="162" cy="46" r="1"/>
+<circle class="dot" cx="162" cy="68" r="1"/>
+<circle class="dot" cx="162" cy="90" r="1"/>
+<circle class="dot" cx="162" cy="112" r="1"/>
+<circle class="dot" cx="162" cy="134" r="1"/>
+<circle class="dot" cx="162" cy="156" r="1"/>
+<circle class="dot" cx="162" cy="178" r="1"/>
+<circle class="dot" cx="162" cy="200" r="1"/>
+<circle class="dot" cx="162" cy="222" r="1"/>
+<circle class="dot" cx="162" cy="244" r="1"/>
+<circle class="dot" cx="184" cy="24" r="1"/>
+<circle class="dot" cx="184" cy="46" r="1"/>
+<circle class="dot" cx="184" cy="68" r="1"/>
+<circle class="dot" cx="184" cy="90" r="1"/>
+<circle class="dot" cx="184" cy="112" r="1"/>
+<circle class="dot" cx="184" cy="134" r="1"/>
+<circle class="dot" cx="184" cy="156" r="1"/>
+<circle class="dot" cx="184" cy="178" r="1"/>
+<circle class="dot" cx="184" cy="200" r="1"/>
+<circle class="dot" cx="184" cy="222" r="1"/>
+<circle class="dot" cx="184" cy="244" r="1"/>
+<circle class="dot" cx="206" cy="24" r="1"/>
+<circle class="dot" cx="206" cy="46" r="1"/>
+<circle class="dot" cx="206" cy="68" r="1"/>
+<circle class="dot" cx="206" cy="90" r="1"/>
+<circle class="dot" cx="206" cy="112" r="1"/>
+<circle class="dot" cx="206" cy="134" r="1"/>
+<circle class="dot" cx="206" cy="156" r="1"/>
+<circle class="dot" cx="206" cy="178" r="1"/>
+<circle class="dot" cx="206" cy="200" r="1"/>
+<circle class="dot" cx="206" cy="222" r="1"/>
+<circle class="dot" cx="206" cy="244" r="1"/>
+<circle class="dot" cx="228" cy="24" r="1"/>
+<circle class="dot" cx="228" cy="46" r="1"/>
+<circle class="dot" cx="228" cy="68" r="1"/>
+<circle class="dot" cx="228" cy="90" r="1"/>
+<circle class="dot" cx="228" cy="112" r="1"/>
+<circle class="dot" cx="228" cy="134" r="1"/>
+<circle class="dot" cx="228" cy="156" r="1"/>
+<circle class="dot" cx="228" cy="178" r="1"/>
+<circle class="dot" cx="228" cy="200" r="1"/>
+<circle class="dot" cx="228" cy="222" r="1"/>
+<circle class="dot" cx="228" cy="244" r="1"/>
+<circle class="dot" cx="250" cy="24" r="1"/>
+<circle class="dot" cx="250" cy="46" r="1"/>
+<circle class="dot" cx="250" cy="68" r="1"/>
+<circle class="dot" cx="250" cy="90" r="1"/>
+<circle class="dot" cx="250" cy="112" r="1"/>
+<circle class="dot" cx="250" cy="134" r="1"/>
+<circle class="dot" cx="250" cy="156" r="1"/>
+<circle class="dot" cx="250" cy="178" r="1"/>
+<circle class="dot" cx="250" cy="200" r="1"/>
+<circle class="dot" cx="250" cy="222" r="1"/>
+<circle class="dot" cx="250" cy="244" r="1"/>
+<circle class="dot" cx="272" cy="24" r="1"/>
+<circle class="dot" cx="272" cy="46" r="1"/>
+<circle class="dot" cx="272" cy="68" r="1"/>
+<circle class="dot" cx="272" cy="90" r="1"/>
+<circle class="dot" cx="272" cy="112" r="1"/>
+<circle class="dot" cx="272" cy="134" r="1"/>
+<circle class="dot" cx="272" cy="156" r="1"/>
+<circle class="dot" cx="272" cy="178" r="1"/>
+<circle class="dot" cx="272" cy="200" r="1"/>
+<circle class="dot" cx="272" cy="222" r="1"/>
+<circle class="dot" cx="272" cy="244" r="1"/>
+<circle class="dot" cx="294" cy="24" r="1"/>
+<circle class="dot" cx="294" cy="46" r="1"/>
+<circle class="dot" cx="294" cy="68" r="1"/>
+<circle class="dot" cx="294" cy="90" r="1"/>
+<circle class="dot" cx="294" cy="112" r="1"/>
+<circle class="dot" cx="294" cy="134" r="1"/>
+<circle class="dot" cx="294" cy="156" r="1"/>
+<circle class="dot" cx="294" cy="178" r="1"/>
+<circle class="dot" cx="294" cy="200" r="1"/>
+<circle class="dot" cx="294" cy="222" r="1"/>
+<circle class="dot" cx="294" cy="244" r="1"/>
+<circle class="dot" cx="316" cy="24" r="1"/>
+<circle class="dot" cx="316" cy="46" r="1"/>
+<circle class="dot" cx="316" cy="68" r="1"/>
+<circle class="dot" cx="316" cy="90" r="1"/>
+<circle class="dot" cx="316" cy="112" r="1"/>
+<circle class="dot" cx="316" cy="134" r="1"/>
+<circle class="dot" cx="316" cy="156" r="1"/>
+<circle class="dot" cx="316" cy="178" r="1"/>
+<circle class="dot" cx="316" cy="200" r="1"/>
+<circle class="dot" cx="316" cy="222" r="1"/>
+<circle class="dot" cx="316" cy="244" r="1"/>
+<circle class="dot" cx="338" cy="24" r="1"/>
+<circle class="dot" cx="338" cy="46" r="1"/>
+<circle class="dot" cx="338" cy="68" r="1"/>
+<circle class="dot" cx="338" cy="90" r="1"/>
+<circle class="dot" cx="338" cy="112" r="1"/>
+<circle class="dot" cx="338" cy="134" r="1"/>
+<circle class="dot" cx="338" cy="156" r="1"/>
+<circle class="dot" cx="338" cy="178" r="1"/>
+<circle class="dot" cx="338" cy="200" r="1"/>
+<circle class="dot" cx="338" cy="222" r="1"/>
+<circle class="dot" cx="338" cy="244" r="1"/>
+<circle class="dot" cx="360" cy="24" r="1"/>
+<circle class="dot" cx="360" cy="46" r="1"/>
+<circle class="dot" cx="360" cy="68" r="1"/>
+<circle class="dot" cx="360" cy="90" r="1"/>
+<circle class="dot" cx="360" cy="112" r="1"/>
+<circle class="dot" cx="360" cy="134" r="1"/>
+<circle class="dot" cx="360" cy="156" r="1"/>
+<circle class="dot" cx="360" cy="178" r="1"/>
+<circle class="dot" cx="360" cy="200" r="1"/>
+<circle class="dot" cx="360" cy="222" r="1"/>
+<circle class="dot" cx="360" cy="244" r="1"/>
+<circle class="dot" cx="382" cy="24" r="1"/>
+<circle class="dot" cx="382" cy="46" r="1"/>
+<circle class="dot" cx="382" cy="68" r="1"/>
+<circle class="dot" cx="382" cy="90" r="1"/>
+<circle class="dot" cx="382" cy="112" r="1"/>
+<circle class="dot" cx="382" cy="134" r="1"/>
+<circle class="dot" cx="382" cy="156" r="1"/>
+<circle class="dot" cx="382" cy="178" r="1"/>
+<circle class="dot" cx="382" cy="200" r="1"/>
+<circle class="dot" cx="382" cy="222" r="1"/>
+<circle class="dot" cx="382" cy="244" r="1"/>
+<circle class="dot" cx="404" cy="24" r="1"/>
+<circle class="dot" cx="404" cy="46" r="1"/>
+<circle class="dot" cx="404" cy="68" r="1"/>
+<circle class="dot" cx="404" cy="90" r="1"/>
+<circle class="dot" cx="404" cy="112" r="1"/>
+<circle class="dot" cx="404" cy="134" r="1"/>
+<circle class="dot" cx="404" cy="156" r="1"/>
+<circle class="dot" cx="404" cy="178" r="1"/>
+<circle class="dot" cx="404" cy="200" r="1"/>
+<circle class="dot" cx="404" cy="222" r="1"/>
+<circle class="dot" cx="404" cy="244" r="1"/>
+<circle class="dot" cx="426" cy="24" r="1"/>
+<circle class="dot" cx="426" cy="46" r="1"/>
+<circle class="dot" cx="426" cy="68" r="1"/>
+<circle class="dot" cx="426" cy="90" r="1"/>
+<circle class="dot" cx="426" cy="112" r="1"/>
+<circle class="dot" cx="426" cy="134" r="1"/>
+<circle class="dot" cx="426" cy="156" r="1"/>
+<circle class="dot" cx="426" cy="178" r="1"/>
+<circle class="dot" cx="426" cy="200" r="1"/>
+<circle class="dot" cx="426" cy="222" r="1"/>
+<circle class="dot" cx="426" cy="244" r="1"/>
+<circle class="dot" cx="448" cy="24" r="1"/>
+<circle class="dot" cx="448" cy="46" r="1"/>
+<circle class="dot" cx="448" cy="68" r="1"/>
+<circle class="dot" cx="448" cy="90" r="1"/>
+<circle class="dot" cx="448" cy="112" r="1"/>
+<circle class="dot" cx="448" cy="134" r="1"/>
+<circle class="dot" cx="448" cy="156" r="1"/>
+<circle class="dot" cx="448" cy="178" r="1"/>
+<circle class="dot" cx="448" cy="200" r="1"/>
+<circle class="dot" cx="448" cy="222" r="1"/>
+<circle class="dot" cx="448" cy="244" r="1"/>
+<circle class="dot" cx="470" cy="24" r="1"/>
+<circle class="dot" cx="470" cy="46" r="1"/>
+<circle class="dot" cx="470" cy="68" r="1"/>
+<circle class="dot" cx="470" cy="90" r="1"/>
+<circle class="dot" cx="470" cy="112" r="1"/>
+<circle class="dot" cx="470" cy="134" r="1"/>
+<circle class="dot" cx="470" cy="156" r="1"/>
+<circle class="dot" cx="470" cy="178" r="1"/>
+<circle class="dot" cx="470" cy="200" r="1"/>
+<circle class="dot" cx="470" cy="222" r="1"/>
+<circle class="dot" cx="470" cy="244" r="1"/>
+<circle class="dot" cx="492" cy="24" r="1"/>
+<circle class="dot" cx="492" cy="46" r="1"/>
+<circle class="dot" cx="492" cy="68" r="1"/>
+<circle class="dot" cx="492" cy="90" r="1"/>
+<circle class="dot" cx="492" cy="112" r="1"/>
+<circle class="dot" cx="492" cy="134" r="1"/>
+<circle class="dot" cx="492" cy="156" r="1"/>
+<circle class="dot" cx="492" cy="178" r="1"/>
+<circle class="dot" cx="492" cy="200" r="1"/>
+<circle class="dot" cx="492" cy="222" r="1"/>
+<circle class="dot" cx="492" cy="244" r="1"/>
+<circle class="dot" cx="514" cy="24" r="1"/>
+<circle class="dot" cx="514" cy="46" r="1"/>
+<circle class="dot" cx="514" cy="68" r="1"/>
+<circle class="dot" cx="514" cy="90" r="1"/>
+<circle class="dot" cx="514" cy="112" r="1"/>
+<circle class="dot" cx="514" cy="134" r="1"/>
+<circle class="dot" cx="514" cy="156" r="1"/>
+<circle class="dot" cx="514" cy="178" r="1"/>
+<circle class="dot" cx="514" cy="200" r="1"/>
+<circle class="dot" cx="514" cy="222" r="1"/>
+<circle class="dot" cx="514" cy="244" r="1"/>
+<circle class="dot" cx="536" cy="24" r="1"/>
+<circle class="dot" cx="536" cy="46" r="1"/>
+<circle class="dot" cx="536" cy="68" r="1"/>
+<circle class="dot" cx="536" cy="90" r="1"/>
+<circle class="dot" cx="536" cy="112" r="1"/>
+<circle class="dot" cx="536" cy="134" r="1"/>
+<circle class="dot" cx="536" cy="156" r="1"/>
+<circle class="dot" cx="536" cy="178" r="1"/>
+<circle class="dot" cx="536" cy="200" r="1"/>
+<circle class="dot" cx="536" cy="222" r="1"/>
+<circle class="dot" cx="536" cy="244" r="1"/>
+<circle class="dot" cx="558" cy="24" r="1"/>
+<circle class="dot" cx="558" cy="46" r="1"/>
+<circle class="dot" cx="558" cy="68" r="1"/>
+<circle class="dot" cx="558" cy="90" r="1"/>
+<circle class="dot" cx="558" cy="112" r="1"/>
+<circle class="dot" cx="558" cy="134" r="1"/>
+<circle class="dot" cx="558" cy="156" r="1"/>
+<circle class="dot" cx="558" cy="178" r="1"/>
+<circle class="dot" cx="558" cy="200" r="1"/>
+<circle class="dot" cx="558" cy="222" r="1"/>
+<circle class="dot" cx="558" cy="244" r="1"/>
+<circle class="dot" cx="580" cy="24" r="1"/>
+<circle class="dot" cx="580" cy="46" r="1"/>
+<circle class="dot" cx="580" cy="68" r="1"/>
+<circle class="dot" cx="580" cy="90" r="1"/>
+<circle class="dot" cx="580" cy="112" r="1"/>
+<circle class="dot" cx="580" cy="134" r="1"/>
+<circle class="dot" cx="580" cy="156" r="1"/>
+<circle class="dot" cx="580" cy="178" r="1"/>
+<circle class="dot" cx="580" cy="200" r="1"/>
+<circle class="dot" cx="580" cy="222" r="1"/>
+<circle class="dot" cx="580" cy="244" r="1"/>
+<circle class="dot" cx="602" cy="24" r="1"/>
+<circle class="dot" cx="602" cy="46" r="1"/>
+<circle class="dot" cx="602" cy="68" r="1"/>
+<circle class="dot" cx="602" cy="90" r="1"/>
+<circle class="dot" cx="602" cy="112" r="1"/>
+<circle class="dot" cx="602" cy="134" r="1"/>
+<circle class="dot" cx="602" cy="156" r="1"/>
+<circle class="dot" cx="602" cy="178" r="1"/>
+<circle class="dot" cx="602" cy="200" r="1"/>
+<circle class="dot" cx="602" cy="222" r="1"/>
+<circle class="dot" cx="602" cy="244" r="1"/>
+<circle class="dot" cx="624" cy="24" r="1"/>
+<circle class="dot" cx="624" cy="46" r="1"/>
+<circle class="dot" cx="624" cy="68" r="1"/>
+<circle class="dot" cx="624" cy="90" r="1"/>
+<circle class="dot" cx="624" cy="112" r="1"/>
+<circle class="dot" cx="624" cy="134" r="1"/>
+<circle class="dot" cx="624" cy="156" r="1"/>
+<circle class="dot" cx="624" cy="178" r="1"/>
+<circle class="dot" cx="624" cy="200" r="1"/>
+<circle class="dot" cx="624" cy="222" r="1"/>
+<circle class="dot" cx="624" cy="244" r="1"/>
+<circle class="dot" cx="646" cy="24" r="1"/>
+<circle class="dot" cx="646" cy="46" r="1"/>
+<circle class="dot" cx="646" cy="68" r="1"/>
+<circle class="dot" cx="646" cy="90" r="1"/>
+<circle class="dot" cx="646" cy="112" r="1"/>
+<circle class="dot" cx="646" cy="134" r="1"/>
+<circle class="dot" cx="646" cy="156" r="1"/>
+<circle class="dot" cx="646" cy="178" r="1"/>
+<circle class="dot" cx="646" cy="200" r="1"/>
+<circle class="dot" cx="646" cy="222" r="1"/>
+<circle class="dot" cx="646" cy="244" r="1"/>
+<circle class="dot" cx="668" cy="24" r="1"/>
+<circle class="dot" cx="668" cy="46" r="1"/>
+<circle class="dot" cx="668" cy="68" r="1"/>
+<circle class="dot" cx="668" cy="90" r="1"/>
+<circle class="dot" cx="668" cy="112" r="1"/>
+<circle class="dot" cx="668" cy="134" r="1"/>
+<circle class="dot" cx="668" cy="156" r="1"/>
+<circle class="dot" cx="668" cy="178" r="1"/>
+<circle class="dot" cx="668" cy="200" r="1"/>
+<circle class="dot" cx="668" cy="222" r="1"/>
+<circle class="dot" cx="668" cy="244" r="1"/>
+<circle class="dot" cx="690" cy="24" r="1"/>
+<circle class="dot" cx="690" cy="46" r="1"/>
+<circle class="dot" cx="690" cy="68" r="1"/>
+<circle class="dot" cx="690" cy="90" r="1"/>
+<circle class="dot" cx="690" cy="112" r="1"/>
+<circle class="dot" cx="690" cy="134" r="1"/>
+<circle class="dot" cx="690" cy="156" r="1"/>
+<circle class="dot" cx="690" cy="178" r="1"/>
+<circle class="dot" cx="690" cy="200" r="1"/>
+<circle class="dot" cx="690" cy="222" r="1"/>
+<circle class="dot" cx="690" cy="244" r="1"/>
+<circle class="dot" cx="712" cy="24" r="1"/>
+<circle class="dot" cx="712" cy="46" r="1"/>
+<circle class="dot" cx="712" cy="68" r="1"/>
+<circle class="dot" cx="712" cy="90" r="1"/>
+<circle class="dot" cx="712" cy="112" r="1"/>
+<circle class="dot" cx="712" cy="134" r="1"/>
+<circle class="dot" cx="712" cy="156" r="1"/>
+<circle class="dot" cx="712" cy="178" r="1"/>
+<circle class="dot" cx="712" cy="200" r="1"/>
+<circle class="dot" cx="712" cy="222" r="1"/>
+<circle class="dot" cx="712" cy="244" r="1"/>
+<circle class="dot" cx="734" cy="24" r="1"/>
+<circle class="dot" cx="734" cy="46" r="1"/>
+<circle class="dot" cx="734" cy="68" r="1"/>
+<circle class="dot" cx="734" cy="90" r="1"/>
+<circle class="dot" cx="734" cy="112" r="1"/>
+<circle class="dot" cx="734" cy="134" r="1"/>
+<circle class="dot" cx="734" cy="156" r="1"/>
+<circle class="dot" cx="734" cy="178" r="1"/>
+<circle class="dot" cx="734" cy="200" r="1"/>
+<circle class="dot" cx="734" cy="222" r="1"/>
+<circle class="dot" cx="734" cy="244" r="1"/>
+<rect class="pill" x="24" y="34" width="110" height="23" rx="11.5"/><circle class="pd" cx="36" cy="45.5" r="2.6"/><text class="pt" x="45" y="49.5">Buzón propio</text>
+<rect class="pill" x="24" y="65" width="61" height="23" rx="11.5"/><circle class="pd" cx="36" cy="76.5" r="2.6"/><text class="pt" x="45" y="80.5">Gmail</text>
+<rect class="pill" x="24" y="96" width="96" height="23" rx="11.5"/><circle class="pd" cx="36" cy="107.5" r="2.6"/><text class="pt" x="45" y="111.5">Calendario</text>
+<rect class="pill" x="24" y="127" width="159" height="23" rx="11.5"/><circle class="pd" cx="36" cy="138.5" r="2.6"/><text class="pt" x="45" y="142.5">Meet · Zoom · Teams</text>
+<rect class="pill" x="24" y="158" width="61" height="23" rx="11.5"/><circle class="pd" cx="36" cy="169.5" r="2.6"/><text class="pt" x="45" y="173.5">Drive</text>
+<rect class="pill" x="24" y="189" width="117" height="23" rx="11.5"/><circle class="pd" cx="36" cy="200.5" r="2.6"/><text class="pt" x="45" y="204.5">Docs · Sheets</text>
+<rect class="pill" x="24" y="220" width="124" height="23" rx="11.5"/><circle class="pd" cx="36" cy="231.5" r="2.6"/><text class="pt" x="45" y="235.5">Redes sociales</text>
+<rect class="pill" x="24" y="251" width="103" height="23" rx="11.5"/><circle class="pd" cx="36" cy="262.5" r="2.6"/><text class="pt" x="45" y="266.5">Formularios</text>
+<path class="wire" d="M136 45.5 C226 45.5 238 154.0 328 154.0"/>
+<path class="wire" d="M87 76.5 C177 76.5 238 154.0 328 154.0"/>
+<path class="wire" d="M122 107.5 C212 107.5 238 154.0 328 154.0"/>
+<path class="wire" d="M185 138.5 C275 138.5 238 154.0 328 154.0"/>
+<path class="wire" d="M87 169.5 C177 169.5 238 154.0 328 154.0"/>
+<path class="wire" d="M143 200.5 C233 200.5 238 154.0 328 154.0"/>
+<path class="wire" d="M150 231.5 C240 231.5 238 154.0 328 154.0"/>
+<path class="wire" d="M129 262.5 C219 262.5 238 154.0 328 154.0"/>
+<path class="wire" d="M416 154.0 C454 154.0 452 178.0 490 178.0"/>
+<path class="flow" d="M136 45.5 C226 45.5 238 154.0 328 154.0" pathLength="100" style="animation-delay:0.00s"/>
+<path class="flow rev" d="M328 154.0 C238 154.0 226 45.5 136 45.5" pathLength="100" style="animation-delay:1.40s"/>
+<path class="flow" d="M87 76.5 C177 76.5 238 154.0 328 154.0" pathLength="100" style="animation-delay:0.35s"/>
+<path class="flow rev" d="M328 154.0 C238 154.0 177 76.5 87 76.5" pathLength="100" style="animation-delay:1.75s"/>
+<path class="flow" d="M122 107.5 C212 107.5 238 154.0 328 154.0" pathLength="100" style="animation-delay:0.70s"/>
+<path class="flow rev" d="M328 154.0 C238 154.0 212 107.5 122 107.5" pathLength="100" style="animation-delay:2.10s"/>
+<path class="flow" d="M185 138.5 C275 138.5 238 154.0 328 154.0" pathLength="100" style="animation-delay:1.05s"/>
+<path class="flow rev" d="M328 154.0 C238 154.0 275 138.5 185 138.5" pathLength="100" style="animation-delay:2.45s"/>
+<path class="flow" d="M87 169.5 C177 169.5 238 154.0 328 154.0" pathLength="100" style="animation-delay:1.40s"/>
+<path class="flow rev" d="M328 154.0 C238 154.0 177 169.5 87 169.5" pathLength="100" style="animation-delay:2.80s"/>
+<path class="flow" d="M143 200.5 C233 200.5 238 154.0 328 154.0" pathLength="100" style="animation-delay:1.75s"/>
+<path class="flow rev" d="M328 154.0 C238 154.0 233 200.5 143 200.5" pathLength="100" style="animation-delay:3.15s"/>
+<path class="flow" d="M150 231.5 C240 231.5 238 154.0 328 154.0" pathLength="100" style="animation-delay:2.10s"/>
+<path class="flow rev" d="M328 154.0 C238 154.0 240 231.5 150 231.5" pathLength="100" style="animation-delay:3.50s"/>
+<path class="flow" d="M129 262.5 C219 262.5 238 154.0 328 154.0" pathLength="100" style="animation-delay:2.45s"/>
+<path class="flow rev" d="M328 154.0 C238 154.0 219 262.5 129 262.5" pathLength="100" style="animation-delay:3.85s"/>
+<path class="flow" d="M416 154.0 C454 154.0 452 178.0 490 178.0" pathLength="100" style="animation-delay:0.20s"/>
+<path class="flow rev" d="M490 178.0 C452 178.0 454 154.0 416 154.0" pathLength="100" style="animation-delay:1.60s"/>
+<g class="orb"><rect class="ring" x="330" y="112" width="84" height="84" rx="25"/><rect x="330" y="112" width="84" height="84" rx="25" fill="url(#og)" stroke="#d7e8dc" filter="url(#sh)"/><g transform="translate(352.0 134.0) scale(1.25)" fill="none" stroke="#3d7a5c" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="8" width="22" height="17" rx="5"/><path d="M16 8V4"/><circle cx="16" cy="3" r="1.6" fill="#3d7a5c" stroke="none"/><circle cx="11.5" cy="16" r="2.1" fill="#3d7a5c" stroke="none"/><circle cx="20.5" cy="16" r="2.1" fill="#3d7a5c" stroke="none"/><path d="M12.5 21.5h7"/></g></g>
+<text class="h" x="372.0" y="224" text-anchor="middle">Agente</text><text class="s" x="372.0" y="244" text-anchor="middle">cliente MCP</text>
+<rect class="card" x="492" y="92" width="240" height="172" rx="18" filter="url(#sh)"/>
+<circle class="pd blink" cx="514" cy="122" r="4.5"/><text class="h" x="526" y="127">Hilo Agentic CRM</text><rect class="badge" x="682" y="113" width="32" height="18" rx="5"/><text class="bt" x="698" y="125.5" text-anchor="middle">MCP</text><path d="M510 146H714" stroke="#e3e9e1"/>
+<rect class="bar" x="510" y="162" width="204" height="7" rx="3.5"/><rect class="fill" x="510" y="162" width="167" height="7" rx="3.5" style="animation-delay:0.0s"/>
+<rect class="bar" x="510" y="175" width="204" height="7" rx="3.5"/><rect class="fill" x="510" y="175" width="118" height="7" rx="3.5" style="animation-delay:0.3s"/>
+<rect class="bar" x="510" y="188" width="204" height="7" rx="3.5"/><rect class="fill" x="510" y="188" width="143" height="7" rx="3.5" style="animation-delay:0.6s"/>
+<rect class="bar" x="510" y="201" width="204" height="7" rx="3.5"/><rect class="fill" x="510" y="201" width="84" height="7" rx="3.5" style="animation-delay:0.9s"/>
+<path d="M510 224H714" stroke="#e3e9e1"/>
+<text class="s" x="510" y="245" text-anchor="start">pipeline</text>
+<text class="s" x="612" y="245" text-anchor="middle">24 tools</text>
+<text class="s" x="714" y="245" text-anchor="end">auditado</text>
+<text class="cap" x="380.0" y="296" text-anchor="middle">El agente hace el trabajo con las herramientas que ya tenés. Hilo es donde queda registrado y medido.</text>
+</svg>
