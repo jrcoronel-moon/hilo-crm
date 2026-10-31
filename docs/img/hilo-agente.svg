@@ -2,28 +2,28 @@
 <title id="t">Hilo: el CRM que opera un agente</title>
 <desc id="d">Las herramientas (buzón, Gmail, calendario, videoconferencia, Drive, Docs, redes, formularios) se conectan al agente, y el agente registra todo en Hilo por MCP.</desc>
 <style>
-.bg{fill:#fafbf9} .card{fill:#fff;stroke:#d7e8dc} .dot{fill:#dfe7e1}
-.pill{fill:#fff;stroke:#e3e9e1} .pd{fill:#5aa07c}
-.pt{font:500 11.5px ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;fill:#54615a}
-.wire{fill:none;stroke:#bcd6c6;stroke-width:1.5;stroke-linecap:round}
-.flow{fill:none;stroke:#5aa07c;stroke-width:2.2;stroke-linecap:round;stroke-dasharray:14 100;stroke-dashoffset:0;
-  animation:dash 2.8s linear infinite}
-.rev{stroke:#77bf9b;stroke-width:2}
-@keyframes dash{to{stroke-dashoffset:-114}}
-.orb{animation:float 5.2s ease-in-out infinite}
-@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
-.ring{fill:none;stroke:#5aa07c;stroke-width:2;opacity:0;transform-box:fill-box;transform-origin:center;
-  animation:pulse 3.4s ease-out infinite}
-@keyframes pulse{0%{transform:scale(1);opacity:.5}70%{transform:scale(1.34);opacity:0}100%{opacity:0}}
-.blink{animation:blink 2.6s ease-in-out infinite}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
-.bar{fill:#d7e8dc} .fill{fill:url(#g);transform-box:fill-box;transform-origin:left;animation:grow 3.6s ease-in-out infinite}
-@keyframes grow{0%,100%{transform:scaleX(1)}50%{transform:scaleX(.72)}}
-.h{font:600 14px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;fill:#16201b} .s{font:500 11px ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;fill:#8b968f}
-.badge{fill:#e9f3ec} .bt{font:700 9.5px ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;fill:#3d7a5c;letter-spacing:.06em}
-.cap{font:400 12.5px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;fill:#8b968f}
-@media (prefers-reduced-motion:reduce){.flow,.orb,.ring,.blink,.fill{animation:none}.flow{display:none}}
-</style>
+    .bg{fill:#fafbf9} .card{fill:#fff;stroke:#d7e8dc} .dot{fill:#dfe7e1}
+    .pill{fill:#fff;stroke:#e3e9e1} .pd{fill:#5aa07c}
+    .pt{font:500 11.5px ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;fill:#54615a}
+    .wire{fill:none;stroke:#bcd6c6;stroke-width:1.5;stroke-linecap:round}
+    .flow{fill:none;stroke:#5aa07c;stroke-width:2.2;stroke-linecap:round;stroke-dasharray:14 100;stroke-dashoffset:0;
+      animation:dash 2.8s linear infinite}
+    .rev{stroke:#77bf9b;stroke-width:2}
+    @keyframes dash{to{stroke-dashoffset:-114}}
+    .orb{animation:float 5.2s ease-in-out infinite}
+    @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+    .ring{fill:none;stroke:#5aa07c;stroke-width:2;opacity:0;transform-box:fill-box;transform-origin:center;
+      animation:pulse 3.4s ease-out infinite}
+    @keyframes pulse{0%{transform:scale(1);opacity:.5}70%{transform:scale(1.34);opacity:0}100%{opacity:0}}
+    .blink{animation:blink 2.6s ease-in-out infinite}
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+    .bar{fill:#d7e8dc} .fill{fill:url(#g);transform-box:fill-box;transform-origin:left;animation:grow 3.6s ease-in-out infinite}
+    @keyframes grow{0%,100%{transform:scaleX(1)}50%{transform:scaleX(.72)}}
+    .h{font:600 14px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;fill:#16201b} .s{font:500 11px ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;fill:#8b968f}
+    .badge{fill:#e9f3ec} .bt{font:700 9.5px ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;fill:#3d7a5c;letter-spacing:.06em}
+    .cap{font:400 12.5px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;fill:#8b968f}
+    @media (prefers-reduced-motion:reduce){.flow,.orb,.ring,.blink,.fill{animation:none}.flow{display:none}}
+    </style>
 <defs><linearGradient id="g" x1="0" x2="1"><stop offset="0" stop-color="#5aa07c"/><stop offset="1" stop-color="#3d7a5c"/></linearGradient><linearGradient id="og" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#e8f3ec"/></linearGradient><filter id="sh" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#16281e" flood-opacity=".09"/></filter></defs>
 <rect class="bg" x="1" y="1" width="758" height="318" rx="22" stroke="#e3e9e1"/>
 <circle class="dot" cx="30" cy="24" r="1"/>

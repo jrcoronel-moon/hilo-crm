@@ -1,400 +1,408 @@
 # Hilo Headless CRM
 
-**El CRM agentic-first: los agentes de IA operan el pipeline, las personas miran.**
+**English** · [Español](README.es.md)
+
+**The agentic-first CRM: AI agents run the pipeline, people watch.**
 
 <p align="center">
-  <img src="docs/img/hilo-agente.svg" width="760" alt="Las herramientas que ya usás (buzón, Gmail, calendario, videoconferencia, Drive, Docs, redes, formularios) se conectan al agente, y el agente registra todo en Hilo por MCP.">
+  <img src="docs/img/hilo-agent.svg" width="760" alt="The tools you already use (inbox, Gmail, calendar, video calls, Drive, Docs, social media, forms) connect to the agent, and the agent records everything in Hilo over MCP.">
 </p>
 
-Los CRM se diseñaron para que una persona haga clic en un tablero. Hilo está diseñado al revés: la vía principal es
-un servidor [MCP](https://modelcontextprotocol.io) remoto y la web es una ventana para ver lo que los agentes hicieron.
+CRMs were designed for a person clicking around a board. Hilo is built the other way around: the main way in is a
+remote [MCP](https://modelcontextprotocol.io) server, and the web is a window to see what the agents did.
 
-Conectás Claude, ChatGPT, Grok o Cursor, y el agente carga empresas, contactos y oportunidades, registra cada
-interacción y mueve el funnel. Entrás con Google o Microsoft cuando querés mirar.
+Connect Claude, ChatGPT, Grok or Cursor, and the agent loads companies, contacts and opportunities, logs every
+interaction and moves the funnel. You sign in with Google or Microsoft when you want to look.
 
-Código libre, [Apache-2.0](LICENSE). Un `docker compose up` y anda.
+Open source, [Apache-2.0](LICENSE). One `docker compose up` and it runs.
 
-## El problema
+## The problem
 
-Darle un CRM a un agente suele terminar de dos maneras: un agente que scrapea una interfaz pensada para dedos, o una
-persona copiando datos de un chat a un formulario.
+Giving a CRM to an agent usually ends one of two ways: an agent scraping an interface built for fingers, or a person
+copying data from a chat into a form.
 
-Hilo expone el CRM como herramientas MCP tipadas, y los `upsert` son idempotentes, así que el agente puede reintentar
-sin duplicar nada. Cada llamada pasa por las mismas reglas de permisos y la misma auditoría que si la hubiera hecho
-una persona: no hay un camino "de agente" con menos control.
+Hilo exposes the CRM as typed MCP tools, and the `upsert`s are idempotent, so the agent can retry without duplicating
+anything. Every call goes through the same permission rules and the same audit as if a person had made it: there is
+no "agent path" with less control.
 
-| CRM de siempre | CRM con agente |
+| The usual CRM | A CRM with an agent |
 |---|---|
-| Una persona carga los datos a mano. | El agente lee el mail, agenda la reunión, escribe la propuesta y registra cada paso. |
-| Los datos envejecen apenas se cargan. | Cada dato entra cuando pasa, con su fecha real. |
-| El pipeline refleja lo que alguien se acordó de escribir. | El pipeline refleja lo que pasó. |
+| A person types the data in by hand. | The agent reads the email, books the meeting, writes the proposal and records every step. |
+| Data goes stale as soon as it is entered. | Every fact comes in when it happens, with its real date. |
+| The pipeline shows what someone remembered to write down. | The pipeline shows what happened. |
 
-## Qué hace un agente en un día de ventas
+## What an agent does in a sales day
 
-Un día concreto, de punta a punta: en cada hito, qué superficie usa el agente y qué deja escrito en Hilo.
+One concrete day, end to end: at each step, which surface the agent uses and what it writes in Hilo.
 
-> Ejemplo ilustrativo: las empresas, personas y montos son inventados. Algunas superficies dependen de que estén
-> conectadas al agente y de que la otra parte lo permita.
+> Illustrative example: the companies, people and amounts are made up. Some surfaces depend on being connected to the
+> agent and on the other party allowing it.
 
-| Hora | Qué hace el agente | Superficie | Qué queda en Hilo |
+| Time | What the agent does | Surface | What lands in Hilo |
 |---|---|---|---|
-| 08:40 | **Revisa el buzón.** Llega una consulta de Marina Ríos, de Talleres Andinos. La clasifica como consulta comercial y la carga. | Buzón propio del agente | `upsert_company` + `upsert_contact` + `upsert_opportunity` en la etapa inicial, y `log_interaction` de tipo email, entrante, con el id del mensaje como `external_id`. |
-| 09:15 | **Busca antecedentes.** Talleres Andinos ya existía: hay un deal viejo, perdido por precio. Lo anota en la oportunidad nueva para que nadie llegue a la reunión sin saberlo. | Hilo | `search_crm`, `get_company`, `get_timeline` y `upsert_opportunity` con la descripción actualizada. |
-| 10:00 | **Arma la propuesta.** Completa la plantilla de Drive con monto, contactos y fecha estimada de cierre, y la guarda como Doc. | Drive y Docs | `upsert_opportunity` con el monto, la fecha de cierre y el link del documento en `links`. |
-| 11:30 | **Agenda la reunión.** Crea el evento con el link de Meet y avanza la oportunidad de etapa. | Calendario y Meet | `move_opportunity_stage`, `next_step_at` con la fecha y `log_interaction` de tipo meeting, saliente. |
-| 15:00 | **Entra a la reunión.** Si la herramienta está conectada y los participantes lo permiten, toma notas y escribe el resumen: pedidos, objeciones, próximo paso y fecha. | Videoconferencia | `log_interaction` con la duración y el resumen. |
-| 16:20 | **Actualiza el deal.** Cambió el alcance: ajusta el monto, sube la probabilidad y deja el próximo paso con fecha. | Hilo | `upsert_opportunity` con `amount`, `probability`, `next_step` y `next_step_at`. |
-| 17:45 | **Revisa qué quedó trabado.** Sin próximo paso, con cierre vencido o sin actividad hace dos semanas: le pasa la lista a la persona, con el motivo de cada una. | Hilo y el canal de la persona | `needs_attention`, que devuelve cada oportunidad con su motivo. |
-| 18:10 | **Cierra el día.** Registra un resumen interno de lo que hizo. Nada se cargó a mano. | Hilo | `log_interaction` de tipo note, interna. |
+| 08:40 | **Checks the inbox.** An inquiry arrives from Marina Ríos at Talleres Andinos. It classifies it as a sales inquiry and loads it. | The agent's own inbox | `upsert_company` + `upsert_contact` + `upsert_opportunity` in the initial stage, and `log_interaction` of type email, inbound, with the message id as `external_id`. |
+| 09:15 | **Looks for history.** Talleres Andinos already existed: there is an old deal, lost on price. It notes this on the new opportunity so nobody walks into the meeting without knowing. | Hilo | `search_crm`, `get_company`, `get_timeline` and `upsert_opportunity` with the updated description. |
+| 10:00 | **Drafts the proposal.** Fills in the Drive template with amount, contacts and expected close date, and saves it as a Doc. | Drive and Docs | `upsert_opportunity` with the amount, the close date and the document link in `links`. |
+| 11:30 | **Books the meeting.** Creates the event with the Meet link and moves the opportunity forward. | Calendar and Meet | `move_opportunity_stage`, `next_step_at` with the date and `log_interaction` of type meeting, outbound. |
+| 15:00 | **Joins the meeting.** If the tool is connected and the participants allow it, it takes notes and writes the summary: requests, objections, next step and date. | Video call | `log_interaction` with the duration and the summary. |
+| 16:20 | **Updates the deal.** The scope changed: it adjusts the amount, raises the probability and sets the next step with a date. | Hilo | `upsert_opportunity` with `amount`, `probability`, `next_step` and `next_step_at`. |
+| 17:45 | **Checks what got stuck.** No next step, close date passed or no activity for two weeks: it hands the list to the person, with the reason for each. | Hilo and the person's channel | `needs_attention`, which returns each opportunity with its reason. |
+| 18:10 | **Wraps up the day.** Logs an internal summary of what it did. Nothing was typed in by hand. | Hilo | `log_interaction` of type note, internal. |
 
-En vez de ocho pedidos, un solo encargo al agente:
+Instead of eight requests, a single brief to the agent:
 
 ```text
-Contexto: vendemos mantenimiento industrial a talleres medianos.
-Un buen lead tiene planta propia y más de una máquina.
+Context: we sell industrial maintenance to mid-sized workshops.
+A good lead has its own plant and more than one machine.
 
-Hoy quiero que:
-1. Revises el buzón y cargues en Hilo cada consulta nueva,
-   con empresa, contacto y oportunidad en la etapa inicial.
-2. Antes de responder, busques si el cliente ya existía
-   y dejes anotado en la oportunidad lo que encuentres.
-3. Armes la propuesta desde la plantilla de Drive
-   y adjuntes el link al deal.
-4. Agendes la reunión y dejes el próximo paso con fecha.
-5. Al cierre del día, me pases la lista de oportunidades
-   sin próximo paso o sin actividad hace dos semanas,
-   con el motivo de cada una.
+Today I want you to:
+1. Check the inbox and load every new inquiry into Hilo,
+   with company, contact and an opportunity in the initial stage.
+2. Before replying, check whether the customer already existed
+   and note on the opportunity what you find.
+3. Draft the proposal from the Drive template
+   and attach the link to the deal.
+4. Book the meeting and set the next step with a date.
+5. At the end of the day, send me the list of opportunities
+   with no next step or no activity for two weeks,
+   with the reason for each.
 
-Reglas: no mandes ningún mail sin mostrármelo.
-No prometas descuentos. Registrá cada interacción con su fecha real.
+Rules: don't send any email without showing it to me.
+Don't promise discounts. Log every interaction with its real date.
 ```
 
-Cada uno de esos pasos es una llamada a una herramienta MCP: no hay un paso escondido donde alguien copia y pega. Y
-si algo se corta a la mitad, el agente reintenta sin duplicar: los `upsert` resuelven por `id`, `external_id`,
-dominio o email, y las interacciones aceptan un `external_id`, así que la segunda vez actualiza lo mismo en lugar de
-crear otra copia.
+Each of those steps is a call to an MCP tool: there is no hidden step where someone copies and pastes. And if
+something breaks halfway, the agent retries without duplicating: the `upsert`s resolve by `id`, `external_id`,
+domain or email, and interactions accept an `external_id`, so the second time updates the same record instead of
+creating another copy.
 
-## Las superficies
+## The surfaces
 
-Hilo no lee mails ni entra a reuniones: eso lo hace el agente con las herramientas que tenga conectadas. Hilo es
-donde termina el resultado.
+Hilo does not read email or join meetings: the agent does that with the tools it has connected. Hilo is where the
+result ends up.
 
-| Superficie | Qué hace el agente | Qué escribe en Hilo |
+| Surface | What the agent does | What it writes in Hilo |
 |---|---|---|
-| Buzón propio del agente | Con una dirección dedicada: recibe consultas, las clasifica, responde e hila las conversaciones. | Contacto, oportunidad e interacción, con el id del mensaje como `external_id` para que reintentar no duplique. Canal: Email. |
-| Gmail u otro mail de la empresa | Busca conversaciones viejas para reconstruir el historial de un cliente y redacta respuestas para que la persona las apruebe. | Interacciones entrantes y salientes con su fecha real en `occurred_at`, no con la fecha en que se cargaron. |
-| Calendario | Propone horarios, crea el evento y lo mueve si se cancela. | El `next_step_at` de la oportunidad y la interacción de tipo meeting. |
-| Videoconferencia (Meet, Zoom, Teams) | Si la herramienta está conectada y los participantes lo permiten: entra, toma notas y saca el resumen. | La interacción con duración y el resumen de objeciones y próximos pasos. Canal: Videoconferencia. |
-| Drive, Docs y Sheets | Lee plantillas, escribe la propuesta, mantiene una planilla de seguimiento y exporta el pipeline a CSV. | El link del documento en la oportunidad, y los montos y fechas de la planilla. Una planilla vieja se migra con `bulk_upsert`. |
-| Redes sociales (X, LinkedIn, Reddit) | Publica, responde comentarios y detecta quién mostró interés, en las cuentas a las que tenga acceso. | Un contacto o una oportunidad con canal social (por ejemplo, LinkedIn), para medir qué canal trae deals y no solo visitas. |
-| Formularios | Los completa una persona en tu web; el agente no interviene. | Contacto, oportunidad e interacción de tipo form, con canal Formulario. La auditoría registra que vino de un formulario, no de una persona ni de un agente. |
+| The agent's own inbox | With a dedicated address: receives inquiries, classifies them, replies and threads conversations. | Contact, opportunity and interaction, with the message id as `external_id` so retries don't duplicate. Channel: Email. |
+| Gmail or another company mailbox | Searches old conversations to rebuild a customer's history and drafts replies for the person to approve. | Inbound and outbound interactions with their real date in `occurred_at`, not the date they were loaded. |
+| Calendar | Proposes times, creates the event and moves it if it is cancelled. | The opportunity's `next_step_at` and the meeting interaction. |
+| Video calls (Meet, Zoom, Teams) | If the tool is connected and the participants allow it: joins, takes notes and writes the summary. | The interaction with its duration and the summary of objections and next steps. Channel: Video call. |
+| Drive, Docs and Sheets | Reads templates, writes the proposal, keeps a tracking sheet and exports the pipeline to CSV. | The document link on the opportunity, and the amounts and dates from the sheet. An old spreadsheet is migrated with `bulk_upsert`. |
+| Social media (X, LinkedIn, Reddit) | Posts, answers comments and spots who showed interest, on the accounts it has access to. | A contact or an opportunity with a social channel (for example, LinkedIn), to measure which channel brings deals and not just visits. |
+| Forms | A person fills them in on your website; the agent is not involved. | Contact, opportunity and an interaction of type form, with the Form channel. The audit records that it came from a form, not from a person or an agent. |
 
-La gracia no es cada superficie por separado: es que todo termina en el mismo lugar. El agente usa las herramientas
-que ya usa una persona, y Hilo es donde el resultado queda medido.
+The point is not each surface on its own: it is that everything ends up in the same place. The agent uses the tools a
+person already uses, and Hilo is where the result is measured.
 
-## Cómo se le pide algo
+## How to ask an agent for something
 
-Un agente no es una app con botones: es alguien a quien le pedís cosas por escrito y que trabaja con las herramientas
-que le diste. Funciona bien con cinco pasos.
+An agent is not an app with buttons: it is someone you ask for things in writing and who works with the tools you gave
+it. It works well with five steps.
 
-1. **Contexto.** El agente no adivina: decile quién sos, qué vendés, qué es un buen lead y qué no. En Hilo eso se
-   traduce en un pipeline con etapas claras y canales bien nombrados; si las etapas confunden a una persona, también
-   confunden al agente.
-   *"Vendemos mantenimiento industrial a talleres medianos. Un buen lead tiene planta propia y más de una máquina.
-   Los estudiantes y proveedores no son leads."*
-2. **Permiso.** El agente solo toca lo que le diste: sin calendario no agenda, sin buzón no lee mails. Un token de
-   Hilo se puede restringir a solo lectura y nunca amplía lo que permite el rol de quien lo creó. Para empezar, uno de
-   solo lectura alcanza para responder "cómo viene el mes" sin poder cambiar nada.
-3. **Pedido concreto.** Qué mirar, qué hacer y qué devolver.
-   Funciona: *"Buscá en el buzón las consultas de esta semana, cargalas en Hilo y decime cuáles necesitan respuesta
-   hoy."* No funciona: *"Ocupate de las ventas."*
-4. **Borrador antes de enviar.** Todo lo que sale hacia afuera se revisa: el agente redacta, la persona aprueba.
-   *"Redactá la respuesta a Talleres Andinos con la propuesta adjunta. No la mandes, mostrámela."*
-5. **Registro.** Lo que pasó queda en la interacción, con fecha. Si no quedó registrado, no pasó.
-   *"Cuando la mande, registrala en Hilo como email saliente y dejá como próximo paso llamar el jueves."*
+1. **Context.** The agent doesn't guess: tell it who you are, what you sell, what a good lead is and what isn't. In
+   Hilo that translates into a pipeline with clear stages and well-named channels; if the stages confuse a person,
+   they confuse the agent too.
+   *"We sell industrial maintenance to mid-sized workshops. A good lead has its own plant and more than one machine.
+   Students and suppliers are not leads."*
+2. **Permission.** The agent only touches what you gave it: no calendar, no booking; no inbox, no reading email. A
+   Hilo token can be restricted to read-only and never widens what the role of its creator allows. To start, a
+   read-only one is enough to answer "how is the month going" without being able to change anything.
+3. **A concrete request.** What to look at, what to do and what to return.
+   Works: *"Search the inbox for this week's inquiries, load them into Hilo and tell me which need a reply today."*
+   Doesn't work: *"Take care of sales."*
+4. **Draft before sending.** Everything that goes out gets reviewed: the agent drafts, the person approves.
+   *"Draft the reply to Talleres Andinos with the proposal attached. Don't send it, show it to me."*
+5. **Record.** What happened goes into the interaction, with a date. If it wasn't recorded, it didn't happen.
+   *"When you send it, log it in Hilo as an outbound email and set calling on Thursday as the next step."*
 
-| Pedirle | No pedirle |
+| Ask it to | Don't ask it to |
 |---|---|
-| Reconstruir el historial de un cliente desde el mail. | Prometer descuentos. |
-| Preparar el resumen de una reunión. | Cerrar un deal. |
-| Armar la propuesta desde una plantilla. | Mandar un mail sin revisión. |
-| Mover deals trabados. | Decidir a qué cliente priorizar sin datos. |
-| Avisar qué está por vencer. | |
+| Rebuild a customer's history from email. | Promise discounts. |
+| Prepare a meeting summary. | Close a deal. |
+| Draft the proposal from a template. | Send an email without review. |
+| Move stuck deals. | Decide which customer to prioritize without data. |
+| Warn about what is about to expire. | |
 
-**Qué sigue decidiendo la persona:** el precio, los compromisos, qué se manda hacia afuera y con quién conviene
-invertir tiempo. El agente prepara, ordena y registra. La persona decide.
+**What the person still decides:** price, commitments, what goes out and where it is worth spending time. The agent
+prepares, organizes and records. The person decides.
 
-**El error más común** es pedirle que "mantenga el CRM al día" sin darle acceso al lugar donde pasa la información.
-El CRM se mantiene porque el agente ve el mail y la reunión; sin eso tiene lo mismo que tenía la persona: nada que
-cargar.
+**The most common mistake** is asking it to "keep the CRM up to date" without giving it access to where the
+information happens. The CRM stays current because the agent sees the email and the meeting; without that it has
+what the person had: nothing to load.
 
-## Cómo se crea una rutina
+## How to create a routine
 
-Hasta acá el agente trabaja cuando le hablás. La diferencia grande aparece cuando no hace falta: una rutina es un
-pedido que queda guardado y se vuelve a ejecutar solo, a la hora que digas o cuando pasa algo. No se configura en
-ninguna pantalla: se pide en la misma conversación, tal cual.
+So far the agent works when you talk to it. The big difference comes when you don't have to: a routine is a request
+that is saved and runs again on its own, at the time you say or when something happens. There is no settings screen:
+you ask for it in the same conversation, as is.
 
 ```text
-Todos los lunes a las 8:30, revisá Hilo y mandame por acá
-las oportunidades que necesitan algo: próximas acciones
-vencidas, cierres pasados y deals sin actividad hace más
-de dos semanas. Para cada una decime el motivo y qué
-propondrías hacer.
+Every Monday at 8:30, check Hilo and send me here
+the opportunities that need something: overdue next
+steps, passed close dates and deals with no activity
+for more than two weeks. For each one tell me the
+reason and what you would propose doing.
 
-Si la semana no tiene nada para avisar, no me escribas.
+If the week has nothing to report, don't write to me.
 ```
 
-El agente la guarda con día, hora y zona horaria, y se dispara sola aunque no estés mirando el chat. Se pausa, se
-cambia o se borra pidiéndolo igual: *"pasá la rutina de los lunes a los martes a las 9"*.
+The agent saves it with day, time and time zone, and it fires on its own even if you are not looking at the chat. It
+is paused, changed or deleted the same way: *"move the Monday routine to Tuesdays at 9"*.
 
-Un pedido de rutina tiene que decir tres cosas:
+A routine request has to say three things:
 
-1. **Cuándo:** un día y una hora, o una frecuencia (todos los lunes, cada mañana a las 8, el 1 de cada mes).
-2. **Qué mirar:** Hilo, el buzón, el calendario. Sin esto el agente adivina, y adivinar es lo que sale mal.
-3. **Qué devolver:** el formato, a dónde va (un mensaje, un correo, una nota en el deal) y cuándo callarse.
+1. **When:** a day and a time, or a frequency (every Monday, every morning at 8, the 1st of each month).
+2. **What to look at:** Hilo, the inbox, the calendar. Without this the agent guesses, and guessing is what goes wrong.
+3. **What to return:** the format, where it goes (a message, an email, a note on the deal) and when to stay quiet.
 
-Cuatro rutinas que valen la pena el primer día:
+Four routines worth having on day one:
 
-| Rutina | Cuándo | Qué hace |
+| Routine | When | What it does |
 |---|---|---|
-| El arranque del lunes | lunes 8:30 | Las oportunidades que necesitan algo, con el motivo y una propuesta de próximo paso. Usa `needs_attention`. |
-| El cierre del día | todos los días 18:30 | Qué se movió hoy, qué se cargó y qué quedó sin registrar. Usa `list_changes` con el cursor de ayer. |
-| El resumen del viernes | viernes 17:00 | Cómo viene el mes contra la meta, qué se ganó, qué se estancó y qué canales trajeron deals. Usa `get_metrics`. |
-| El barrido del buzón | cada dos horas | Si entró una consulta nueva, la carga en Hilo y te avisa. Si no entró nada, no dice nada. |
+| The Monday kickoff | Monday 8:30 | The opportunities that need something, with the reason and a proposed next step. Uses `needs_attention`. |
+| The end of the day | every day 18:30 | What moved today, what was loaded and what was left unrecorded. Uses `list_changes` with yesterday's cursor. |
+| The Friday summary | Friday 17:00 | How the month is doing against the goal, what was won, what stalled and which channels brought deals. Uses `get_metrics`. |
+| The inbox sweep | every two hours | If a new inquiry came in, it loads it into Hilo and tells you. If nothing came in, it says nothing. |
 
-Además del horario, una rutina puede esperar un evento:
+Besides a schedule, a routine can wait for an event:
 
 ```text
-Cuando alguien complete el formulario de la web,
-cargalo en Hilo con canal Formulario, avisame en el
-momento y proponeme el primer mensaje de respuesta.
-No lo mandes: mostrámelo.
+When someone fills in the form on the website,
+load it into Hilo with the Form channel, tell me
+right away and propose the first reply.
+Don't send it: show it to me.
 ```
 
-Lo que hace que una rutina sirva es la última línea: cuándo no escribir. Un agente que avisa todos los días que no
-pasó nada se vuelve ruido; el que solo aparece cuando hay algo, se lee.
+What makes a routine useful is the last line: when not to write. An agent that reports every day that nothing
+happened becomes noise; the one that only shows up when there is something gets read.
 
-## Qué ve la persona
+## What the person sees
 
-La web es deliberadamente chica y hace solo lo que un agente no debería hacer: que un humano mire y decida.
+The web is deliberately small and does only what an agent shouldn't: let a human look and decide.
 
-- **Funnel** con arrastre entre etapas, deshacer y motivo de pérdida.
-- **Dashboard** con volumen y valor ponderado por etapa, win rate, ciclo, tiempo en etapa, oportunidades estancadas,
-  leads por canal, interacciones por semana, monto ganado por mes y objetivo mensual por pipeline.
-- **Empresas, contactos y oportunidades**: listas, fichas con timeline, edición, tags con sugerencias, búsqueda,
-  filtros, acciones en lote y exportación CSV.
-- **Interacciones y auditoría** de todo lo que pasó, venga de un agente o de una persona.
-- **En tiempo real**: mientras un agente trabaja, el funnel, las listas, las fichas y el dashboard se actualizan
-  solos, con un aviso de quién hizo qué ("Claude movió «Planta solar» a Propuesta").
-- **Ajustes**: pipelines, canales, formularios, miembros, dominios habilitados y marca de la aplicación (nombre y
-  logo, configurables por el superadmin).
+- **Funnel** with drag between stages, undo and loss reason.
+- **Dashboard** with volume and weighted value per stage, win rate, cycle, time in stage, stalled opportunities,
+  leads by channel, interactions per week, amount won per month and a monthly goal per pipeline.
+- **Companies, contacts and opportunities**: lists, records with a timeline, editing, tags with suggestions, search,
+  filters, bulk actions and CSV export.
+- **Interactions and audit** of everything that happened, whether it came from an agent or a person.
+- **Real time**: while an agent works, the funnel, lists, records and dashboard update on their own, with a notice of
+  who did what ("Claude moved «Solar plant» to Proposal").
+- **Settings**: pipelines, channels, forms, members, allowed domains and application branding (name and logo,
+  configurable by the superadmin).
+- **Six languages**: English, Spanish, French, Italian, German and Portuguese. The interface follows the browser's
+  language or the one you pick in the selector; amounts and dates use each language's format, and a new workspace
+  starts with its pipeline and channels in its creator's language.
+- **Works on a phone**: one column, a menu drawer you open with a swipe from the left, and tables and the funnel that
+  scroll sideways inside their card.
 
-## Empezar en local
+## Run it locally
 
-Requisitos: Docker y Go 1.27+ (solo para desarrollar).
+Requirements: Docker, and Go 1.27+ (only to develop).
 
 ```sh
 cp .env.example .env
-# completá los secretos (el archivo explica cómo generarlos) y, para probar sin Google/Microsoft:
-#   DEV_LOGIN_ENABLED=true   SUPERADMIN_EMAILS=vos@tuempresa.com
+# fill in the secrets (the file explains how to generate them) and, to try it without Google/Microsoft:
+#   DEV_LOGIN_ENABLED=true   SUPERADMIN_EMAILS=you@yourcompany.com
 make up          # http://localhost:8080
 ```
 
-Entrás con tu email (modo desarrollo), creás un workspace y en **Ajustes → Agentes** está la URL MCP.
+You sign in with your email (development mode), create a workspace, and the MCP URL is in **Settings → Agents**.
 
-## Conectar un agente
+## Connect an agent
 
-URL del servidor MCP: `https://<tu-dominio>/mcp`
+MCP server URL: `https://<your-domain>/mcp`
 
-- **Claude (web/desktop)**: Ajustes → Conectores → *Agregar conector personalizado* → pegá la URL. Se abre Hilo para
-  iniciar sesión y autorizar; elegís el workspace y, si querés, acceso de solo lectura.
-- **Claude Code**: `claude mcp add --transport http hilo https://<tu-dominio>/mcp`
-- **Grok (API de xAI)**: herramienta `{"type": "mcp", "server_url": "https://<tu-dominio>/mcp", "authorization":
-  "hilo_pat_…"}` en `/v1/responses` (el token solo: xAI agrega `Bearer`). Para probarlo contra tu stack local, con
-  túnel incluido: `./scripts/try-grok.py`.
-- **ChatGPT, Cursor, Duet, Muse y otros**: agregá la URL como servidor MCP remoto ([compatibilidad y guía por
-  cliente](docs/AGENTS.md)). Si el cliente no soporta OAuth, creá un
-  token personal en *Ajustes → Agentes* y mandalo como `Authorization: Bearer hilo_pat_…`.
+- **Claude (web/desktop)**: Settings → Connectors → *Add custom connector* → paste the URL. Hilo opens so you can sign
+  in and authorize; you pick the workspace and, if you want, read-only access.
+- **Claude Code**: `claude mcp add --transport http hilo https://<your-domain>/mcp`
+- **Grok (xAI API)**: tool `{"type": "mcp", "server_url": "https://<your-domain>/mcp", "authorization":
+  "hilo_pat_…"}` in `/v1/responses` (the token alone: xAI adds `Bearer`). To try it against your local stack, tunnel
+  included: `./scripts/try-grok.py`.
+- **ChatGPT, Cursor, Duet, Muse and others**: add the URL as a remote MCP server ([compatibility and per-client
+  guide](docs/AGENTS.md), in Spanish). If the client doesn't support OAuth, create a personal token in
+  *Settings → Agents* and send it as `Authorization: Bearer hilo_pat_…`.
 
-### Herramientas MCP
+### MCP tools
 
-El servidor expone 24 herramientas: todo lo que un agente necesita para operar el CRM, y nada más.
+The server exposes 24 tools: everything an agent needs to run the CRM, and nothing more.
 
-| Para qué | Herramientas |
+| For | Tools |
 |---|---|
-| **Buscar y leer** (13): saber qué pasó antes de hacer algo | `search_crm` por nombre, dominio, email o título · `list_companies`, `list_contacts` filtrables por texto, dueño o etiqueta · `list_opportunities` por etapa, estado, dueño, canal, cierre o días sin actividad · `list_interactions` · `list_pipelines`, `list_channels`, `list_tags` para no inventar duplicados · `get_company`, `get_contact`, `get_opportunity` · `get_timeline` (interacciones y cambios de etapa) · `get_metrics` |
-| **Escribir** (6): dejar asentado lo que el agente hizo o vio | `upsert_company`, `upsert_contact` (por id, `external_id`, dominio o email) · `upsert_opportunity` (monto, probabilidad, cierre, próximo paso, dueño, canal y links) · `move_opportunity_stage` (pasar a perdida exige motivo) · `log_interaction` (email, llamada, reunión, nota, mensaje, social o formulario; entrante, saliente o interna) · `archive_record` (no borra: saca el registro de las listas y lo deja en el historial y la auditoría) |
-| **Trabajo en lote** (1): migrar en pocas llamadas | `bulk_upsert`: hasta 200 registros por llamada, con `dry_run` para validar una migración entera sin guardar |
-| **Agentes que vuelven solos** (2) | `needs_attention`: oportunidades abiertas que necesitan a alguien, con el motivo (próximo paso vencido, cierre pasado, sin actividad, sin dueño, sin próximo paso) · `list_changes`: todo lo que cambió, con cursor, distinguiendo si lo hizo una persona, un agente o un formulario |
-| **Administración** (2): solo admins | `configure_pipeline` (etapas en orden, con categoría y probabilidad) · `upsert_channel` |
+| **Search and read** (13): know what happened before acting | `search_crm` by name, domain, email or title · `list_companies`, `list_contacts` filterable by text, owner or tag · `list_opportunities` by stage, status, owner, channel, close date or days without activity · `list_interactions` · `list_pipelines`, `list_channels`, `list_tags` to avoid inventing duplicates · `get_company`, `get_contact`, `get_opportunity` · `get_timeline` (interactions and stage changes) · `get_metrics` |
+| **Write** (6): record what the agent did or saw | `upsert_company`, `upsert_contact` (by id, `external_id`, domain or email) · `upsert_opportunity` (amount, probability, close date, next step, owner, channel and links) · `move_opportunity_stage` (moving to lost requires a reason) · `log_interaction` (email, call, meeting, note, message, social or form; inbound, outbound or internal) · `archive_record` (deletes nothing: takes the record out of lists and keeps it in the history and the audit) |
+| **Batch work** (1): migrate in a few calls | `bulk_upsert`: up to 200 records per call, with `dry_run` to validate a whole migration without saving |
+| **Agents that come back on their own** (2) | `needs_attention`: open opportunities that need someone, with the reason (next step overdue, close date passed, no activity, no owner, no next step) · `list_changes`: everything that changed, with a cursor, telling apart whether a person, an agent or a form did it |
+| **Administration** (2): admins only | `configure_pipeline` (stages in order, with category and probability) · `upsert_channel` |
 
-Las referencias entre registros aceptan el id de Hilo, la clave natural (dominio de la empresa, email del contacto) o
-el `external_id` del sistema de origen, así que un agente que sincroniza o migra no necesita guardar ids.
+References between records accept Hilo's id, the natural key (company domain, contact email) or the source system's
+`external_id`, so an agent that syncs or migrates doesn't need to keep ids.
 
-Cada agente ve solo las herramientas que su rol y su token permiten. Un token OAuth o personal puede restringirse a
-solo lectura; nunca puede ampliar lo que permite el rol.
+Each agent sees only the tools its role and its token allow. An OAuth or personal token can be restricted to read-only;
+it can never widen what the role allows.
 
-### Pipelines y canales
+### Pipelines and channels
 
-Cada etapa tiene un nombre libre y una de cuatro categorías: `initial` (exactamente una), `in_progress` (al menos
-una), `won` y `lost` (al menos una de cada). El estado de una oportunidad sigue a la categoría de su etapa, así que
-las métricas no dependen de cómo nombraste las columnas.
+Each stage has a free name and one of four categories: `initial` (exactly one), `in_progress` (at least one), `won`
+and `lost` (at least one of each). An opportunity's status follows its stage's category, so metrics don't depend on
+what you named the columns.
 
-Cada etapa tiene además una probabilidad, y eso es lo que hace que el monto ponderado signifique algo: el pipeline de
-ventas viene con Lead 10 %, Calificado 25 %, Propuesta 50 %, Negociación 75 %, Ganado 100 % y Perdido 0 %. Un
-pipeline se puede marcar como predeterminado y tener una meta mensual con moneda. Si se borra una etapa, hay que
-reasignar sus oportunidades.
+Each stage also has a probability, and that is what makes the weighted amount mean something: the sales pipeline comes
+with Lead 10 %, Qualified 25 %, Proposal 50 %, Negotiation 75 %, Won 100 % and Lost 0 %. A pipeline can be marked as
+the default and have a monthly goal with a currency. If a stage is deleted, its opportunities have to be reassigned.
 
-Los canales existen para responder una pregunta: qué trae deals, no solo visitas. Vienen diez de fábrica (Email,
-Evento, Formulario, LinkedIn, Outbound, Referido, Teléfono, Video, Videoconferencia y Web), y cada uno tiene un tipo:
-`web`, `form`, `email`, `phone`, `social`, `referral`, `event`, `outbound`, `partner`, `ads`, `videocall`, `video` u
-`other`.
+Channels exist to answer one question: what brings deals, not just visits. Ten come out of the box (Email, Event,
+Form, LinkedIn, Outbound, Referral, Phone, Video, Video call and Web), and each has a type: `web`, `form`, `email`,
+`phone`, `social`, `referral`, `event`, `outbound`, `partner`, `ads`, `videocall`, `video` or `other`.
 
-`get_metrics` mide volumen abierto y valor ponderado por etapa; ganadas y perdidas con montos y tasa de cierre; ciclo
-promedio y días en cada etapa; oportunidades estancadas (14 días sin actividad) y nuevas por canal; interacciones por
-semana y avance contra la meta del mes. La ventana por defecto es de 90 días.
+`get_metrics` measures open volume and weighted value per stage; won and lost with amounts and win rate; average cycle
+and days in each stage; stalled opportunities (14 days without activity) and new ones per channel; interactions per
+week and progress against the month's goal. The default window is 90 days.
 
-### Formularios de leads
+### Lead forms
 
-Los formularios públicos de leads crean contacto + oportunidad + interacción, sin poder sobrescribir datos existentes.
-Cada formulario puede exigir un captcha de Cloudflare Turnstile (gratis), que Hilo verifica en el servidor antes de
-guardar. Las claves son de cada workspace y las carga un admin desde la interfaz, sin tocar el servidor. Si el formulario tiene orígenes permitidos, el captcha tiene que haberse resuelto en uno de esos sitios.
+Public lead forms create contact + opportunity + interaction, without being able to overwrite existing data. Each form
+can require a Cloudflare Turnstile captcha (free), which Hilo verifies on the server before saving. The keys belong to
+each workspace and an admin enters them in the interface, without touching the server. If the form has allowed
+origins, the captcha must have been solved on one of those sites.
 
-Para activarlo, un admin del workspace:
+To turn it on, a workspace admin:
 
-1. En [dash.cloudflare.com](https://dash.cloudflare.com), entra a **Turnstile → Add widget** con los dominios de las
-   webs donde van los formularios. Cloudflare le da una clave pública (site key) y una secreta (secret key).
-2. En **Ajustes → Formularios → Captcha**, pega las dos claves y toca **Guardar claves**. La secreta se guarda
-   cifrada y no se vuelve a mostrar: la pantalla indica que está guardada y sus últimos 4 caracteres.
-3. Copia el snippet del formulario a su web (ya incluye el script y el widget de Turnstile) y después toca
-   **Exigir captcha** en ese formulario.
+1. At [dash.cloudflare.com](https://dash.cloudflare.com), goes to **Turnstile → Add widget** with the domains of the
+   websites where the forms live. Cloudflare gives a public key (site key) and a secret one (secret key).
+2. In **Settings → Forms → Captcha**, pastes both keys and presses **Save keys**. The secret is stored encrypted and is
+   never shown again: the screen says it is saved and shows its last 4 characters.
+3. Copies the form's snippet to the website (it already includes the Turnstile script and widget) and then presses
+   **Require captcha** on that form.
 
-Conviene respetar ese orden: si el captcha se activa antes de que la web tenga el widget, el formulario rechaza todos
-los envíos. Sin claves guardadas, Hilo no deja activarlo, y no deja quitarlas mientras algún formulario lo exija. Los
-formularios nuevos traen el captcha activado; los que ya existían siguen sin captcha hasta que se active.
+Keep that order: if the captcha is turned on before the website has the widget, the form rejects every submission.
+Without saved keys Hilo won't let you turn it on, and it won't let you remove them while a form requires it. New forms
+come with the captcha on; existing ones stay without it until it is turned on.
 
-## Quién puede entrar
+## Who can sign in
 
-Un email verificado por Google o Microsoft cuyo dominio esté habilitado por un superadmin, o con una invitación
-pendiente. Sin dominios configurados, solo superadmins e invitados. Los superadmins se definen con
-`SUPERADMIN_EMAILS` o con `hiloctl superadmin grant <email>`.
+A Google- or Microsoft-verified email whose domain is enabled by a superadmin, or one with a pending invitation.
+Without configured domains, only superadmins and invited people. Superadmins are defined with `SUPERADMIN_EMAILS` or
+with `hiloctl superadmin grant <email>`.
 
-| Rol | Puede |
+| Role | Can |
 |---|---|
-| Lector | leer |
-| Miembro | leer y escribir datos del CRM |
-| Admin | además, configurar pipelines, canales, formularios, miembros y dominios |
-| Propietario | además, gestionar propietarios |
-| Superadmin (plataforma) | dominios habilitados para entrar, marca de la aplicación y vista de todos los workspaces |
+| Viewer | read |
+| Member | read and write CRM data |
+| Admin | also configure pipelines, channels, forms, members and domains |
+| Owner | also manage owners |
+| Superadmin (platform) | domains allowed to sign in, application branding and a view of every workspace |
 
-### Un agente no tiene más permisos que una persona
+### An agent has no more permissions than a person
 
-Cada llamada de un agente pasa por las mismas reglas de permisos y la misma auditoría que si la hubiera hecho una
-persona.
+Every agent call goes through the same permission rules and the same audit as if a person had made it.
 
-- **Scopes separados.** El servidor distingue `crm:read`, `crm:write` y `crm:admin`. Admin incluye configurar
-  pipelines y canales, y usar fechas históricas para migraciones. Un token de solo lectura es de solo lectura de
-  verdad.
-- **Quién hizo qué.** `list_changes` y la auditoría distinguen si un cambio lo hizo una persona, un agente o un
-  formulario.
-- **Historia completa.** Todo se ve en el timeline de cada oportunidad y en el registro de auditoría del workspace.
-- **Archivar no es borrar.** `archive_record` saca el registro de las listas y lo deja en el historial y en la
-  auditoría.
+- **Separate scopes.** The server distinguishes `crm:read`, `crm:write` and `crm:admin`. Admin includes configuring
+  pipelines and channels, and using historical dates for migrations. A read-only token really is read-only.
+- **Who did what.** `list_changes` and the audit tell apart whether a change was made by a person, an agent or a form.
+- **Full history.** Everything shows in each opportunity's timeline and in the workspace audit log.
+- **Archiving is not deleting.** `archive_record` takes the record out of lists and keeps it in the history and the
+  audit.
 
-## Administrar desde la terminal
+## Administer from the terminal
 
-Todo lo de workspaces, miembros y tokens se puede hacer sin abrir la web, con `hiloctl` dentro del contenedor
-`web` (en el servidor, por SSH):
+Everything about workspaces, members and tokens can be done without opening the web, with `hiloctl` inside the `web`
+container (on the server, over SSH):
 
 ```sh
-docker compose exec web hiloctl workspace create "Acme" --owner ana@acme.com
-docker compose exec web hiloctl member add acme bob@acme.com member      # si nunca entró, queda invitado
+docker compose exec web hiloctl workspace create "Acme" --owner ana@acme.com --lang en
+docker compose exec web hiloctl member add acme bob@acme.com member      # if they never signed in, they are invited
 docker compose exec web hiloctl token create acme ana@acme.com grok --read-only --ttl 90d
 docker compose exec web hiloctl --json member list acme
-docker compose exec web hiloctl client preapprove acme <client-id-url>     # copiado de Ajustes → Agentes
-docker compose exec web hiloctl watch acme                                # lo que hacen los agentes, en vivo
-docker compose exec -T web hiloctl pipeline apply acme < pipeline.json    # pipelines, canales, auditoría, marca…
-docker compose exec -T web hiloctl export acme > acme.json                 # todo el workspace, en JSON
-docker compose exec -T web hiloctl import otro --dry-run < acme.json       # validar; sin --dry-run, cargar
-docker compose exec -T web hiloctl import-csv acme contact --source hubspot --dry-run < contacts.csv   # un CSV de otro CRM
+docker compose exec web hiloctl client preapprove acme <client-id-url>     # copied from Settings → Agents
+docker compose exec web hiloctl watch acme                                # what agents are doing, live
+docker compose exec -T web hiloctl pipeline apply acme < pipeline.json    # pipelines, channels, audit, branding…
+docker compose exec -T web hiloctl export acme > acme.json                 # the whole workspace, as JSON
+docker compose exec -T web hiloctl import other --dry-run < acme.json      # validate; without --dry-run, load
+docker compose exec -T web hiloctl import-csv acme contact --source hubspot --dry-run < contacts.csv   # a CSV from another CRM
 ```
 
-Manual completo, con pasos y recetas: [docs/HILOCTL.md](docs/HILOCTL.md).
+Full manual, with steps and recipes: [docs/HILOCTL.md](docs/HILOCTL.md) (in Spanish).
 
-`export` produce el mismo formato que lee `import` (y la herramienta `bulk_upsert`): sirve de backup legible, para
-mover un workspace a otro Hilo y como formato de migraciones grandes sin agente. Importarlo de nuevo nunca duplica.
+`export` produces the same format `import` reads (and the `bulk_upsert` tool): it works as a readable backup, to move a
+workspace to another Hilo and as the format for large migrations without an agent. Importing it again never
+duplicates.
 
-Un CSV de otro CRM o de una planilla se carga desde *Ajustes → Importar* (un tipo de registro por archivo: Hilo
-reconoce las columnas en español o inglés, te deja ajustarlas y valida todo con una prueba antes de guardar) o con
-`hiloctl import-csv` para archivos grandes. Ambos pasan por los mismos `upsert` que usan los agentes.
+A CSV from another CRM or a spreadsheet is loaded from *Settings → Import* (one record type per file: Hilo recognizes
+columns in Spanish or English, lets you adjust them and validates everything with a dry run before saving) or with
+`hiloctl import-csv` for large files. Both go through the same `upsert`s the agents use.
 
-`hiloctl` sin argumentos lista todos los comandos. Actúa como operador del servidor, con las mismas reglas que la
-web (por ejemplo, ningún workspace se queda sin propietario). El token se muestra una sola vez.
+`hiloctl` with no arguments lists every command. It acts as the server operator, with the same rules as the web (for
+example, no workspace is ever left without an owner). The token is shown only once.
 
-Con `HILO_UI=minimal` la web queda reducida a lo que necesita el OAuth de los agentes (iniciar sesión y
-consentimiento) y todo lo demás se administra con `hiloctl`; con `HILO_UI=off` no hay páginas ni OAuth, y los agentes
-entran con tokens personales emitidos por `hiloctl`.
+With `HILO_UI=minimal` the web is reduced to what agents' OAuth needs (sign-in and consent) and everything else is
+administered with `hiloctl`; with `HILO_UI=off` there are no pages and no OAuth, and agents sign in with personal
+tokens issued by `hiloctl`.
 
-Un agente pre-aprobado se conecta sin pantalla de consentimiento: la persona solo elige su cuenta de Google o
-Microsoft (si hay un único proveedor configurado, Hilo la lleva directo). Se pre-aprueba con la URL que identifica al
-agente (su `client_id`, visible en *Ajustes → Agentes* después de conectarlo una vez), con lectura y escritura o
-solo lectura, y nunca con permisos de administración.
+A pre-approved agent connects without a consent screen: the person only picks their Google or Microsoft account (if a
+single provider is configured, Hilo goes straight to it). It is pre-approved with the URL that identifies the agent
+(its `client_id`, visible in *Settings → Agents* after connecting it once), with read and write or read-only, and never
+with administration permissions.
 
-## Arquitectura
+## Architecture
 
 ```
-                 ┌──────────── edge ─────────────┐        ┌──────── data (interna) ────────┐
- navegador ─┐    │  caddy ──► web  (UI, OAuth,   │        │                                │
- agentes ───┴──► │   TLS       formularios)  ────┼────────┼──► postgres (RLS)  ◄── migrate │
+                 ┌──────────── edge ─────────────┐        ┌──────── data (internal) ───────┐
+ browser ───┐    │  caddy ──► web  (UI, OAuth,   │        │                                │
+ agents ────┴──► │   TLS       forms)        ────┼────────┼──► postgres (RLS)  ◄── migrate │
    (MCP)         │        └─► mcp  (/mcp)    ────┼────────┼──►                 ◄── backup  │
                  └───────────────────────────────┘        └────────────────────────────────┘
 ```
 
-| Contenedor | Rol |
+| Container | Role |
 |---|---|
-| `caddy` | Único punto expuesto. TLS automático (Let's Encrypt), límite de cuerpo, compresión. |
-| `web` | Login Google/Microsoft, consentimiento OAuth, tablero, dashboard, ajustes, superadmin, endpoint de formularios. |
-| `mcp` | Servidor MCP sin estado. Solo valida tokens; nunca los emite. |
-| `db` | Postgres 18. Sin puertos publicados, en una red sin salida a internet. |
-| `migrate` | Aplica migraciones con el rol `hilo_migrator` y termina. |
-| `backup` | `pg_dump` diario comprimido, con retención configurable. |
+| `caddy` | The only exposed endpoint. Automatic TLS (Let's Encrypt), body limit, compression. |
+| `web` | Google/Microsoft sign-in, OAuth consent, board, dashboard, settings, superadmin, form endpoint. |
+| `mcp` | Stateless MCP server. It only validates tokens; it never issues them. |
+| `db` | Postgres 18. No published ports, on a network with no internet access. |
+| `migrate` | Applies migrations with the `hilo_migrator` role and exits. |
+| `backup` | Daily compressed `pg_dump`, with configurable retention. |
 
-Stack: Go 1.27, `net/http`, pgx + sqlc (SQL tipado, sin SQL dinámico), el SDK oficial de MCP para Go,
-`html/template`, Postgres 18, Caddy 2.
+Stack: Go 1.27, `net/http`, pgx + sqlc (typed SQL, no dynamic SQL), the official MCP Go SDK, `html/template`,
+Postgres 18, Caddy 2.
 
-## Seguridad
+## Security
 
-Está pensado para correr expuesto a internet, porque un servidor MCP remoto tiene que estarlo.
+It is meant to run exposed to the internet, because a remote MCP server has to be.
 
-- MCP remoto (Streamable HTTP) con **OAuth 2.1**: registro dinámico de clientes, Client ID Metadata Documents, PKCE
-  obligatorio, rotación de refresh tokens y tokens personales para clientes sin OAuth.
-- **Multi-workspace** con Postgres Row-Level Security y FKs compuestas por workspace.
-- Roles de base de datos de mínimo privilegio, contenedores sin root y de solo lectura.
-- CSP estricta.
+- Remote MCP (Streamable HTTP) with **OAuth 2.1**: dynamic client registration, Client ID Metadata Documents,
+  mandatory PKCE, refresh token rotation and personal tokens for clients without OAuth.
+- **Multi-workspace** with Postgres Row-Level Security and composite per-workspace foreign keys.
+- Least-privilege database roles, rootless read-only containers.
+- Strict CSP.
+- Third-party secrets that admins enter in the UI (such as the captcha key) are stored encrypted with AES-256-GCM.
 
-## Desarrollo y harness de calidad
+## Development and quality harness
 
 ```sh
-make hooks     # pre-commit: formato, secretos en lo staged, lint
-make test      # tests unitarios, de integración y E2E contra Postgres real (con -race y cobertura)
-make check     # todo lo de CI: formato, código generado, lint, tests, govulncheck, gitleaks, hadolint, Trivy
-make dast      # OWASP ZAP baseline contra el stack levantado (make up)
+make hooks     # pre-commit: formatting, secrets in staged files, lint
+make test      # unit, integration and E2E tests against real Postgres (with -race and coverage)
+make check     # everything CI runs: formatting, generated code, lint, tests, govulncheck, gitleaks, hadolint, Trivy
+make dast      # OWASP ZAP baseline against the running stack (make up)
 ```
 
-| Capa | Herramienta |
+| Layer | Tool |
 |---|---|
-| Lint y seguridad estática | golangci-lint: gosec, errcheck, dupl (código repetido), gocognit, staticcheck, revive… |
-| Secretos | gitleaks (árbol y todo el historial) con reglas para los tokens de Hilo |
-| Dependencias | govulncheck, Trivy, Dependabot |
-| Contenedores | hadolint, Trivy sobre las imágenes |
-| Tests | aislamiento entre tenants, matriz de permisos, flujo OAuth completo con ataques, CSRF, XSS, open redirect, fuzzing |
+| Lint and static security | golangci-lint: gosec, errcheck, dupl (repeated code), gocognit, staticcheck, revive… |
+| Secrets | gitleaks (tree and full history) with rules for Hilo's tokens |
+| Dependencies | govulncheck, Trivy, Dependabot |
+| Containers | hadolint, Trivy on the images |
+| Tests | tenant isolation, permission matrix, full OAuth flow with attacks, CSRF, XSS, open redirect, fuzzing, translation catalogs |
 | DAST | OWASP ZAP baseline |
 
-## Licencia
+The interface translations live in `internal/i18n/locales/*.json`, keyed by the Spanish text. A test fails if any
+message lacks a translation in any language.
 
-[Apache-2.0](LICENSE): uso libre, comercial y privado.
+## License
 
-Documentación: [despliegue (Docker, Lightsail, EC2 + Aurora)](docs/DEPLOY.md) · [manual de hiloctl](docs/HILOCTL.md) · [seguridad y modelo de amenazas](SECURITY.md) ·
-[banner de arranque](docs/STARTUP_BANNER.md) · [migrar desde otro CRM con un agente](docs/migrate/README.md) ·
-[cómo contribuir](CONTRIBUTING.md) ·
-[plan de próximos features](docs/PLAN_FEATURES.md).
+[Apache-2.0](LICENSE): free for commercial and private use.
+
+Documentation (in Spanish): [deployment (Docker, Lightsail, EC2 + Aurora)](docs/DEPLOY.md) ·
+[hiloctl manual](docs/HILOCTL.md) · [security and threat model](SECURITY.md) ·
+[startup banner](docs/STARTUP_BANNER.md) · [migrating from another CRM with an agent](docs/migrate/README.md) ·
+[contributing](CONTRIBUTING.md) · [feature roadmap](docs/PLAN_FEATURES.md).

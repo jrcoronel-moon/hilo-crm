@@ -15,3 +15,8 @@ Reglas:
 - Los mensajes de error que ve el usuario o el agente no exponen detalles internos; esos van al log.
 - `//nolint` solo con el linter concreto y la razón.
 - Los commits mencionan la asistencia de IA cuando la hubo, con un trailer `Assisted-by:`.
+- **Textos de la interfaz traducibles**: en las plantillas, `{{t "Texto"}}` (o `{{t "Archivar %s?" .Name}}` con
+  valores); en Go, `i18n.M("Texto")` para lo que se muestra al renderizar o `i18n.T(lang, "Texto")` para traducir en
+  el momento. El texto en español es la clave. Cada mensaje nuevo necesita su traducción en
+  `internal/i18n/locales/{en,fr,it,de,pt}.json`: `go test ./internal/i18n` falla si falta alguna, si cambian los `%s`
+  o `%d`, o si queda una entrada sin uso.
