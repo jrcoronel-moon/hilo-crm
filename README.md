@@ -100,9 +100,33 @@ Cada etapa es `initial` (exactamente una), `in_progress` (al menos una), `won` o
 estado de una oportunidad sigue a la categoría de su etapa, así que las métricas no dependen de cómo nombraste las
 columnas.
 
+### Formularios de leads
+
 Los formularios públicos de leads crean contacto + oportunidad + interacción, sin poder sobrescribir datos existentes.
-Cada formulario puede exigir un captcha de Cloudflare Turnstile (gratis), que Hilo verifica antes de guardar: se
-activa con `TURNSTILE_SITE_KEY` y `TURNSTILE_SECRET_KEY` (ver `.env.example`).
+Cada formulario puede exigir un captcha de Cloudflare Turnstile (gratis), que Hilo verifica en el servidor antes de
+guardar. Si el formulario tiene orígenes permitidos, el captcha tiene que haberse resuelto en uno de esos sitios.
+
+Para activarlo:
+
+1. En [dash.cloudflare.com](https://dash.cloudflare.com), entrá a **Turnstile → Add widget** con los dominios de las
+   webs donde van los formularios. Te da una clave pública (site key) y una secreta (secret key).
+2. Cargalas en el `.env` del servidor y reiniciá:
+
+   ```sh
+   TURNSTILE_SITE_KEY=...
+   TURNSTILE_SECRET_KEY=...
+   ```
+
+   ```sh
+   docker compose up -d --wait
+   ```
+
+3. En **Ajustes → Formularios**, copiá el snippet a tu web (ya incluye el script y el widget de Turnstile) y después
+   tocá **Exigir captcha**.
+
+Respetá ese orden: si activás el captcha antes de que la web tenga el widget, el formulario rechaza todos los envíos.
+Sin las dos claves cargadas, Hilo no deja activarlo. Los formularios nuevos traen el captcha activado; los que ya
+existían siguen sin captcha hasta que lo actives.
 
 ## Quién puede entrar
 
