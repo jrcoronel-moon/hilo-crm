@@ -114,6 +114,7 @@ type LeadForm struct {
 	RedirectUrl    string    `json:"redirect_url"`
 	IsActive       bool      `json:"is_active"`
 	CreatedAt      time.Time `json:"created_at"`
+	RequireCaptcha bool      `json:"require_captcha"`
 }
 
 type OauthClient struct {

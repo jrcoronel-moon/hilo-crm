@@ -71,7 +71,7 @@ var settingsSections = map[string]settingsSection{
 var actionSection = map[string]string{
 	"pipeline": "pipelines", "pipeline-archive": "pipelines",
 	"channel": "channels", "channel-archive": "channels",
-	"form": "forms", "form-toggle": "forms",
+	"form": "forms", "form-toggle": "forms", "form-captcha": "forms",
 	"invite": "members", "role": "members", "remove": "members", "invitation-revoke": "members",
 	"domain": "members", "domain-remove": "members",
 	"token": "agents", "token-revoke": "agents", "connection-revoke": "agents",
@@ -150,10 +150,18 @@ func (h *Handler) settingsAction(w http.ResponseWriter, r *http.Request, v view)
 	case "channel-archive":
 		err = h.crm.ArchiveChannel(ctx, a, f("id"))
 	case "form":
-		_, err = h.crm.CreateLeadForm(ctx, a, crm.LeadFormInput{Name: f("name"), Pipeline: f("pipeline"), Channel: f("channel"),
-			AllowedOrigins: strings.Fields(f("origins")), RedirectURL: f("redirect_url")})
+		captcha := f("captcha") == "1"
+		if err = h.captchaAvailable(captcha); err == nil {
+			_, err = h.crm.CreateLeadForm(ctx, a, crm.LeadFormInput{Name: f("name"), Pipeline: f("pipeline"), Channel: f("channel"),
+				AllowedOrigins: strings.Fields(f("origins")), RedirectURL: f("redirect_url"), RequireCaptcha: captcha})
+		}
 	case "form-toggle":
 		err = withID(f("id"), func(id uuid.UUID) error { return h.crm.SetLeadFormActive(ctx, a, id, f("active") == "1") })
+	case "form-captcha":
+		captcha := f("captcha") == "1"
+		if err = h.captchaAvailable(captcha); err == nil {
+			err = withID(f("id"), func(id uuid.UUID) error { return h.crm.SetLeadFormCaptcha(ctx, a, id, captcha) })
+		}
 	case "invite":
 		err, ok = h.id.Invite(ctx, c, f("email"), f("role")), "invited"
 	case "role":
@@ -185,6 +193,15 @@ func (h *Handler) settingsAction(w http.ResponseWriter, r *http.Request, v view)
 		return
 	}
 	http.Redirect(w, r, "/settings/"+section+"?ok="+ok, http.StatusSeeOther)
+}
+
+// captchaAvailable refuses to require a captcha the server cannot verify:
+// every submission to that form would be rejected.
+func (h *Handler) captchaAvailable(required bool) error {
+	if required && h.captcha == nil {
+		return &crm.ValidationError{Field: "captcha", Msg: "configure TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY on the server first"}
+	}
+	return nil
 }
 
 func withID(s string, fn func(uuid.UUID) error) error {

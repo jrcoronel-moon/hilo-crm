@@ -101,6 +101,8 @@ estado de una oportunidad sigue a la categoría de su etapa, así que las métri
 columnas.
 
 Los formularios públicos de leads crean contacto + oportunidad + interacción, sin poder sobrescribir datos existentes.
+Cada formulario puede exigir un captcha de Cloudflare Turnstile (gratis), que Hilo verifica antes de guardar: se
+activa con `TURNSTILE_SITE_KEY` y `TURNSTILE_SECRET_KEY` (ver `.env.example`).
 
 ## Quién puede entrar
 

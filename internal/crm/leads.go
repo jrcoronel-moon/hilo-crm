@@ -30,6 +30,7 @@ type FormInfo struct {
 	Name           string
 	AllowedOrigins []string
 	RedirectURL    string
+	RequireCaptcha bool
 }
 
 // LookupForm finds an active form by its public key.
@@ -40,7 +41,8 @@ func (s *Service) LookupForm(ctx context.Context, publicKey string) (FormInfo, e
 		if err != nil {
 			return notFound("form", err)
 		}
-		f = FormInfo{ID: row.ID, WorkspaceID: row.WorkspaceID, Name: row.Name, AllowedOrigins: row.AllowedOrigins, RedirectURL: row.RedirectUrl}
+		f = FormInfo{ID: row.ID, WorkspaceID: row.WorkspaceID, Name: row.Name, AllowedOrigins: row.AllowedOrigins, RedirectURL: row.RedirectUrl,
+			RequireCaptcha: row.RequireCaptcha}
 		return nil
 	})
 	return f, err
@@ -219,6 +221,7 @@ type LeadFormInput struct {
 	Channel        string   `json:"channel"`
 	AllowedOrigins []string `json:"allowed_origins,omitempty"`
 	RedirectURL    string   `json:"redirect_url,omitempty"`
+	RequireCaptcha bool     `json:"require_captcha,omitempty"`
 }
 
 // CreateLeadForm creates a form with a fresh unguessable public key.
@@ -258,12 +261,12 @@ func (s *Service) CreateLeadForm(ctx context.Context, a Actor, in LeadFormInput)
 		}
 		out, err = q.CreateLeadForm(ctx, store.CreateLeadFormParams{
 			WorkspaceID: a.WorkspaceID, Name: name, PublicKey: secure.Token("lf_", 24), PipelineID: pipe.ID,
-			ChannelID: ch, AllowedOrigins: origins, RedirectUrl: redirect,
+			ChannelID: ch, AllowedOrigins: origins, RedirectUrl: redirect, RequireCaptcha: in.RequireCaptcha,
 		})
 		if err != nil {
 			return err
 		}
-		return s.audit(ctx, q, a, "form.create", "form", out.ID, map[string]any{"name": name})
+		return s.audit(ctx, q, a, "form.create", "form", out.ID, map[string]any{"name": name, "require_captcha": in.RequireCaptcha})
 	})
 	return out, err
 }
@@ -290,5 +293,19 @@ func (s *Service) SetLeadFormActive(ctx context.Context, a Actor, id uuid.UUID, 
 			return &notFoundError{what: "form"}
 		}
 		return s.audit(ctx, q, a, "form.update", "form", id, map[string]any{"active": active})
+	})
+}
+
+// SetLeadFormCaptcha turns the Turnstile requirement on or off (admin).
+func (s *Service) SetLeadFormCaptcha(ctx context.Context, a Actor, id uuid.UUID, required bool) error {
+	return s.tx(ctx, a, PermAdmin, func(q *store.Queries) error {
+		n, err := q.SetLeadFormCaptcha(ctx, store.SetLeadFormCaptchaParams{WorkspaceID: a.WorkspaceID, ID: id, RequireCaptcha: required})
+		if err != nil {
+			return err
+		}
+		if n == 0 {
+			return &notFoundError{what: "form"}
+		}
+		return s.audit(ctx, q, a, "form.update", "form", id, map[string]any{"require_captcha": required})
 	})
 }

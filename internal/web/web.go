@@ -26,6 +26,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/jrcoronel-moon/hilo-crm/internal/branding"
+	"github.com/jrcoronel-moon/hilo-crm/internal/captcha"
 	"github.com/jrcoronel-moon/hilo-crm/internal/config"
 	"github.com/jrcoronel-moon/hilo-crm/internal/crm"
 	"github.com/jrcoronel-moon/hilo-crm/internal/events"
@@ -54,7 +55,8 @@ type Handler struct {
 
 	loginLimit *httpx.RateLimiter
 	formLimit  *httpx.RateLimiter
-	http       *http.Client // to the identity providers
+	captcha    captchaVerifier // nil: no Turnstile keys configured
+	http       *http.Client    // to the identity providers
 
 	hub  *events.Hub     // live updates (nil: disabled)
 	done <-chan struct{} // closed when the process shuts down
@@ -66,6 +68,9 @@ func New(cfg *config.Config, brand *branding.Service, crmSvc *crm.Service, idSvc
 		cfg: cfg, brand: brand, crm: crmSvc, id: idSvc, oauth: oa, log: log, ips: httpx.NewClientIP(cfg.TrustedProxies),
 		loginLimit: httpx.NewRateLimiter(30, 30), formLimit: httpx.NewRateLimiter(10, 10),
 		http: &http.Client{Timeout: 15 * time.Second},
+	}
+	if t := captcha.NewTurnstile(cfg.TurnstileSecretKey, cfg.TurnstileVerifyURL); t != nil {
+		h.captcha = t
 	}
 	return h, h.parseTemplates()
 }

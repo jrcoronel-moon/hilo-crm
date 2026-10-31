@@ -136,8 +136,8 @@ func (q *Queries) CountStale(ctx context.Context, arg CountStaleParams) (int32, 
 }
 
 const createLeadForm = `-- name: CreateLeadForm :one
-INSERT INTO lead_forms (workspace_id, name, public_key, pipeline_id, channel_id, allowed_origins, redirect_url)
-VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, workspace_id, name, public_key, pipeline_id, channel_id, allowed_origins, redirect_url, is_active, created_at
+INSERT INTO lead_forms (workspace_id, name, public_key, pipeline_id, channel_id, allowed_origins, redirect_url, require_captcha)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, workspace_id, name, public_key, pipeline_id, channel_id, allowed_origins, redirect_url, is_active, created_at, require_captcha
 `
 
 type CreateLeadFormParams struct {
@@ -148,6 +148,7 @@ type CreateLeadFormParams struct {
 	ChannelID      uuid.UUID `json:"channel_id"`
 	AllowedOrigins []string  `json:"allowed_origins"`
 	RedirectUrl    string    `json:"redirect_url"`
+	RequireCaptcha bool      `json:"require_captcha"`
 }
 
 func (q *Queries) CreateLeadForm(ctx context.Context, arg CreateLeadFormParams) (LeadForm, error) {
@@ -159,6 +160,7 @@ func (q *Queries) CreateLeadForm(ctx context.Context, arg CreateLeadFormParams) 
 		arg.ChannelID,
 		arg.AllowedOrigins,
 		arg.RedirectUrl,
+		arg.RequireCaptcha,
 	)
 	var i LeadForm
 	err := row.Scan(
@@ -172,6 +174,7 @@ func (q *Queries) CreateLeadForm(ctx context.Context, arg CreateLeadFormParams) 
 		&i.RedirectUrl,
 		&i.IsActive,
 		&i.CreatedAt,
+		&i.RequireCaptcha,
 	)
 	return i, err
 }
@@ -221,7 +224,7 @@ func (q *Queries) GetAuditEntry(ctx context.Context, arg GetAuditEntryParams) (G
 }
 
 const getLeadForm = `-- name: GetLeadForm :one
-SELECT id, workspace_id, name, public_key, pipeline_id, channel_id, allowed_origins, redirect_url, is_active, created_at FROM lead_forms WHERE workspace_id = $1 AND id = $2
+SELECT id, workspace_id, name, public_key, pipeline_id, channel_id, allowed_origins, redirect_url, is_active, created_at, require_captcha FROM lead_forms WHERE workspace_id = $1 AND id = $2
 `
 
 type GetLeadFormParams struct {
@@ -243,6 +246,7 @@ func (q *Queries) GetLeadForm(ctx context.Context, arg GetLeadFormParams) (LeadF
 		&i.RedirectUrl,
 		&i.IsActive,
 		&i.CreatedAt,
+		&i.RequireCaptcha,
 	)
 	return i, err
 }
@@ -505,7 +509,7 @@ func (q *Queries) ListChanges(ctx context.Context, arg ListChangesParams) ([]Lis
 
 const listLeadForms = `-- name: ListLeadForms :many
 
-SELECT id, workspace_id, name, public_key, pipeline_id, channel_id, allowed_origins, redirect_url, is_active, created_at FROM lead_forms WHERE workspace_id = $1 ORDER BY name
+SELECT id, workspace_id, name, public_key, pipeline_id, channel_id, allowed_origins, redirect_url, is_active, created_at, require_captcha FROM lead_forms WHERE workspace_id = $1 ORDER BY name
 `
 
 // ───────────── lead forms ─────────────
@@ -529,6 +533,7 @@ func (q *Queries) ListLeadForms(ctx context.Context, workspaceID uuid.UUID) ([]L
 			&i.RedirectUrl,
 			&i.IsActive,
 			&i.CreatedAt,
+			&i.RequireCaptcha,
 		); err != nil {
 			return nil, err
 		}
@@ -541,7 +546,7 @@ func (q *Queries) ListLeadForms(ctx context.Context, workspaceID uuid.UUID) ([]L
 }
 
 const lookupLeadForm = `-- name: LookupLeadForm :one
-SELECT id, workspace_id, name, public_key, pipeline_id, channel_id, allowed_origins, redirect_url, is_active, created_at FROM lead_forms WHERE public_key = $1 AND is_active
+SELECT id, workspace_id, name, public_key, pipeline_id, channel_id, allowed_origins, redirect_url, is_active, created_at, require_captcha FROM lead_forms WHERE public_key = $1 AND is_active
 `
 
 // Only visible through the form_lookup policy (app.form_key bound).
@@ -559,6 +564,7 @@ func (q *Queries) LookupLeadForm(ctx context.Context, publicKey string) (LeadFor
 		&i.RedirectUrl,
 		&i.IsActive,
 		&i.CreatedAt,
+		&i.RequireCaptcha,
 	)
 	return i, err
 }
@@ -575,6 +581,24 @@ type SetLeadFormActiveParams struct {
 
 func (q *Queries) SetLeadFormActive(ctx context.Context, arg SetLeadFormActiveParams) (int64, error) {
 	result, err := q.db.Exec(ctx, setLeadFormActive, arg.WorkspaceID, arg.ID, arg.IsActive)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const setLeadFormCaptcha = `-- name: SetLeadFormCaptcha :execrows
+UPDATE lead_forms SET require_captcha = $3 WHERE workspace_id = $1 AND id = $2
+`
+
+type SetLeadFormCaptchaParams struct {
+	WorkspaceID    uuid.UUID `json:"workspace_id"`
+	ID             uuid.UUID `json:"id"`
+	RequireCaptcha bool      `json:"require_captcha"`
+}
+
+func (q *Queries) SetLeadFormCaptcha(ctx context.Context, arg SetLeadFormCaptchaParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setLeadFormCaptcha, arg.WorkspaceID, arg.ID, arg.RequireCaptcha)
 	if err != nil {
 		return 0, err
 	}

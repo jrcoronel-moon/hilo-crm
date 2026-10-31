@@ -93,11 +93,14 @@ SELECT * FROM lead_forms WHERE workspace_id = $1 ORDER BY name;
 SELECT * FROM lead_forms WHERE workspace_id = $1 AND id = $2;
 
 -- name: CreateLeadForm :one
-INSERT INTO lead_forms (workspace_id, name, public_key, pipeline_id, channel_id, allowed_origins, redirect_url)
-VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *;
+INSERT INTO lead_forms (workspace_id, name, public_key, pipeline_id, channel_id, allowed_origins, redirect_url, require_captcha)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *;
 
 -- name: SetLeadFormActive :execrows
 UPDATE lead_forms SET is_active = $3 WHERE workspace_id = $1 AND id = $2;
+
+-- name: SetLeadFormCaptcha :execrows
+UPDATE lead_forms SET require_captcha = $3 WHERE workspace_id = $1 AND id = $2;
 
 -- Only visible through the form_lookup policy (app.form_key bound).
 -- name: LookupLeadForm :one

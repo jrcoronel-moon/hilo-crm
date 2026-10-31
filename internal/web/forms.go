@@ -1,11 +1,14 @@
 package web
 
 import (
+	"context"
 	"errors"
 	"net/http"
+	"net/url"
 	"slices"
 	"strings"
 
+	"github.com/jrcoronel-moon/hilo-crm/internal/captcha"
 	"github.com/jrcoronel-moon/hilo-crm/internal/crm"
 	"github.com/jrcoronel-moon/hilo-crm/internal/httpx"
 )
@@ -13,12 +16,18 @@ import (
 // Public lead-form endpoint: POST /f/{key}, urlencoded or multipart. Websites
 // post here directly (a plain HTML form) or with fetch from an allowed origin.
 // Protections: unguessable key, per-IP rate limit, small body limit, honeypot
-// field, origin allow-list, and the "never overwrite" rule in CaptureLead.
+// field, origin allow-list, an optional Cloudflare Turnstile captcha, and the
+// "never overwrite" rule in CaptureLead.
 
 const formMaxBody = 32 << 10
 
 var formKnown = map[string]bool{"email": true, "first_name": true, "last_name": true, "name": true, "company": true,
-	"phone": true, "message": true, "website": true, "_redirect": true}
+	"phone": true, "message": true, "website": true, "_redirect": true, captcha.Field: true}
+
+// captchaVerifier checks a Turnstile token (captcha.Turnstile; a fake in tests).
+type captchaVerifier interface {
+	Verify(ctx context.Context, token, remoteIP string) (captcha.Result, error)
+}
 
 func (h *Handler) submitForm(w http.ResponseWriter, r *http.Request) {
 	if !h.formLimit.Allow(h.ips.Of(r)) {
@@ -50,6 +59,9 @@ func (h *Handler) submitForm(w http.ResponseWriter, r *http.Request) {
 		h.formDone(w, r, form)
 		return
 	}
+	if form.RequireCaptcha && !h.checkCaptcha(w, r, form) {
+		return
+	}
 	sub := crm.LeadSubmission{
 		Email: r.PostFormValue("email"), FirstName: r.PostFormValue("first_name"), LastName: r.PostFormValue("last_name"),
 		Company: r.PostFormValue("company"), Phone: r.PostFormValue("phone"), Message: r.PostFormValue("message"),
@@ -74,6 +86,38 @@ func (h *Handler) submitForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.formDone(w, r, form)
+}
+
+// checkCaptcha verifies the Turnstile token and, when the form has an origin
+// allow-list, that the widget was solved on one of those sites. It writes the
+// error response itself and reports whether the submission may go on.
+func (h *Handler) checkCaptcha(w http.ResponseWriter, r *http.Request, form crm.FormInfo) bool {
+	if h.captcha == nil {
+		h.log.Error("lead form requires a captcha but TURNSTILE keys are not configured", "form_id", form.ID)
+		httpx.WriteError(w, http.StatusServiceUnavailable, "captcha is not configured on the server")
+		return false
+	}
+	res, err := h.captcha.Verify(r.Context(), r.PostFormValue(captcha.Field), h.ips.Of(r))
+	switch {
+	case errors.Is(err, captcha.ErrMissing):
+		httpx.WriteError(w, http.StatusBadRequest, "complete the captcha and send the form again")
+		return false
+	case errors.Is(err, captcha.ErrRejected):
+		httpx.WriteError(w, http.StatusForbidden, "captcha verification failed, try again")
+		return false
+	case err != nil:
+		h.log.Error("captcha verify", "form_id", form.ID, "err", err)
+		httpx.WriteError(w, http.StatusServiceUnavailable, "could not verify the captcha, try again later")
+		return false
+	}
+	if len(form.AllowedOrigins) > 0 && !slices.ContainsFunc(form.AllowedOrigins, func(o string) bool {
+		u, err := url.Parse(o)
+		return err == nil && strings.EqualFold(u.Hostname(), res.Hostname)
+	}) {
+		httpx.WriteError(w, http.StatusForbidden, "captcha was solved on a site not allowed for this form")
+		return false
+	}
+	return true
 }
 
 // formDone redirects plain HTML posts to the form's configured thank-you URL
