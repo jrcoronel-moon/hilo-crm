@@ -63,7 +63,7 @@ type command struct {
 
 // commands is the whole CLI, in the order the usage lists it.
 var commands = []command{
-	{"workspace create", []string{"<name>"}, []string{"--owner <email>"}, workspaceCreate},
+	{"workspace create", []string{"<name>"}, []string{"--owner <email>", "--lang en|es|fr|it|de|pt"}, workspaceCreate},
 	{"workspace list", nil, nil, workspaceList},
 	{"member list", []string{"<workspace>"}, nil, memberList},
 	{"member add", []string{"<workspace>", "<email>", "<admin|member|viewer>"}, nil, memberAdd},
@@ -109,7 +109,7 @@ func usage() string {
 }
 
 // valueFlags take the next argument as their value; the rest are booleans.
-var valueFlags = map[string]bool{"owner": true, "ttl": true, "limit": true, "source": true, "map": true, "set": true, "dates": true, "tags": true}
+var valueFlags = map[string]bool{"owner": true, "ttl": true, "limit": true, "source": true, "map": true, "set": true, "dates": true, "tags": true, "lang": true}
 
 type input struct {
 	pos   []string          // positional arguments after the command name

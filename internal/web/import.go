@@ -8,6 +8,7 @@ import (
 
 	"github.com/jrcoronel-moon/hilo-crm/internal/crm"
 	"github.com/jrcoronel-moon/hilo-crm/internal/httpx"
+	"github.com/jrcoronel-moon/hilo-crm/internal/i18n"
 	"github.com/jrcoronel-moon/hilo-crm/internal/importer"
 )
 
@@ -98,7 +99,7 @@ func (h *Handler) importForm(w http.ResponseWriter, r *http.Request, v view) {
 		h.fail(w, r, err)
 		return
 	}
-	h.renderImport(w, v, d, "")
+	h.renderImport(w, r, v, d, "")
 }
 
 // importCSV handles every step: a fresh upload (multipart with "file") gets a
@@ -115,7 +116,7 @@ func (h *Handler) importCSV(w http.ResponseWriter, r *http.Request, v view) {
 		return
 	}
 	if r.ContentLength > httpx.MaxBody {
-		h.renderImport(w, v, d, "El archivo supera "+strconv.Itoa(importMaxCSV>>10)+" KB; para archivos grandes usá hiloctl import-csv.")
+		h.renderImport(w, r, v, d, i18n.T(h.lang(r), "El archivo supera %d KB; para archivos grandes usá hiloctl import-csv.", importMaxCSV>>10))
 		return
 	}
 	if k := r.PostFormValue("kind"); importer.ValidKind(k) {
@@ -133,12 +134,12 @@ func (h *Handler) importCSV(w http.ResponseWriter, r *http.Request, v view) {
 	}
 	csvText, fresh, err := importFile(r)
 	if err != nil {
-		h.renderImport(w, v, d, err.Error())
+		h.renderImport(w, r, v, d, err.Error())
 		return
 	}
 	t, err := importer.Parse(strings.NewReader(csvText), importMaxCSV, importMaxRows)
 	if err != nil {
-		h.renderImport(w, v, d, "No se pudo leer el archivo: "+err.Error())
+		h.renderImport(w, r, v, d, i18n.T(h.lang(r), "No se pudo leer el archivo: %s", err))
 		return
 	}
 	d.CSV, d.Rows, d.Fields = csvText, len(t.Rows), importer.Fields(d.Kind)
@@ -161,7 +162,7 @@ func (h *Handler) importCSV(w http.ResponseWriter, r *http.Request, v view) {
 		d.Columns = append(d.Columns, col)
 	}
 	if err := importer.Validate(d.Kind, t.Header, m, d.Defaults); err != nil {
-		h.renderImport(w, v, d, "Revisá el mapeo: "+err.Error())
+		h.renderImport(w, r, v, d, i18n.T(h.lang(r), "Revisá el mapeo: %s", err))
 		return
 	}
 	opts := importer.Options{Source: d.Source, DateOrder: d.DateOrder, Defaults: d.Defaults, Tags: splitTags(d.Tags)}
@@ -182,7 +183,7 @@ func (h *Handler) importCSV(w http.ResponseWriter, r *http.Request, v view) {
 	if d.Done {
 		h.log.Info("csv import", "workspace", v.Current.ID, "user_id", v.Sess.UserID, "kind", d.Kind, "ok", s.OK, "failed", s.Failed, "skipped", s.Skipped)
 	}
-	h.renderImport(w, v, d, "")
+	h.renderImport(w, r, v, d, "")
 }
 
 // importFile returns the CSV text: the uploaded file on a fresh upload (fresh
@@ -191,7 +192,7 @@ func importFile(r *http.Request) (text string, fresh bool, err error) {
 	f, _, ferr := r.FormFile("file")
 	if ferr != nil {
 		if text = r.PostFormValue("csv"); text == "" {
-			return "", false, &crm.ValidationError{Field: "file", Msg: "elegí un archivo CSV"}
+			return "", false, &crm.ValidationError{Field: "file", Msg: i18n.M("elegí un archivo CSV")}
 		}
 		return text, false, nil
 	}
@@ -201,15 +202,15 @@ func importFile(r *http.Request) (text string, fresh bool, err error) {
 		return "", false, err
 	}
 	if len(data) > importMaxCSV {
-		return "", false, &crm.ValidationError{Field: "file", Msg: "el archivo supera " + strconv.Itoa(importMaxCSV>>10) + " KB; para archivos grandes usá hiloctl import-csv"}
+		return "", false, &crm.ValidationError{Field: "file", Msg: i18n.M("el archivo supera 700 KB; para archivos grandes usá hiloctl import-csv")}
 	}
 	return string(data), true, nil
 }
 
-func (h *Handler) renderImport(w http.ResponseWriter, v view, d importData, errMsg string) {
+func (h *Handler) renderImport(w http.ResponseWriter, r *http.Request, v view, d importData, errMsg string) {
 	status := http.StatusOK
 	if errMsg != "" {
 		status = http.StatusBadRequest
 	}
-	h.render(w, status, "settings_import", page{Title: "Ajustes", Crumb: "Importar", View: &v, Nav: "import", Error: errMsg, Data: d})
+	h.render(w, r, status, "settings_import", page{Title: i18n.M("Ajustes"), Crumb: i18n.M("Importar"), CrumbUI: true, View: &v, Nav: "import", Error: errMsg, Data: d})
 }

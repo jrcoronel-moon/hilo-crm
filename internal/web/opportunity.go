@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/jrcoronel-moon/hilo-crm/internal/crm"
+	"github.com/jrcoronel-moon/hilo-crm/internal/i18n"
 	"github.com/jrcoronel-moon/hilo-crm/internal/store"
 )
 
@@ -57,7 +58,7 @@ func (h *Handler) opportunity(w http.ResponseWriter, r *http.Request, v view) {
 		h.fail(w, r, err)
 		return
 	}
-	h.render(w, http.StatusOK, "opportunity", page{Title: "Oportunidades", Crumb: o.Title, View: &v, Nav: "opportunities",
+	h.render(w, r, http.StatusOK, "opportunity", page{Title: i18n.M("Oportunidades"), Crumb: o.Title, View: &v, Nav: "opportunities",
 		Flash: flashes[r.URL.Query().Get("ok")], Data: d})
 }
 

@@ -31,6 +31,7 @@ import (
 	"github.com/jrcoronel-moon/hilo-crm/internal/crm"
 	"github.com/jrcoronel-moon/hilo-crm/internal/events"
 	"github.com/jrcoronel-moon/hilo-crm/internal/httpx"
+	"github.com/jrcoronel-moon/hilo-crm/internal/i18n"
 	"github.com/jrcoronel-moon/hilo-crm/internal/identity"
 	"github.com/jrcoronel-moon/hilo-crm/internal/oauth"
 	"github.com/jrcoronel-moon/hilo-crm/internal/secure"
@@ -51,7 +52,7 @@ type Handler struct {
 	oauth *oauth.Server
 	log   *slog.Logger
 	ips   *httpx.ClientIP
-	tpl   map[string]*template.Template
+	tpl   map[string]map[string]*template.Template // language → page
 
 	loginLimit *httpx.RateLimiter
 	formLimit  *httpx.RateLimiter
@@ -78,17 +79,21 @@ func (h *Handler) parseTemplates() error {
 	if err != nil {
 		return err
 	}
-	h.tpl = map[string]*template.Template{}
-	for _, p := range pages {
-		name := strings.TrimSuffix(strings.TrimPrefix(p, "templates/"), ".html")
-		if name == "layout" || name == "partials" {
-			continue
+	h.tpl = map[string]map[string]*template.Template{}
+	for _, lang := range i18n.Supported {
+		fm := funcsFor(lang)
+		h.tpl[lang] = map[string]*template.Template{}
+		for _, p := range pages {
+			name := strings.TrimSuffix(strings.TrimPrefix(p, "templates/"), ".html")
+			if name == "layout" || name == "partials" {
+				continue
+			}
+			t, err := template.New("layout.html").Funcs(fm).ParseFS(templateFS, "templates/layout.html", "templates/partials.html", p)
+			if err != nil {
+				return err
+			}
+			h.tpl[lang][name] = t
 		}
-		t, err := template.New("layout.html").Funcs(funcs).ParseFS(templateFS, "templates/layout.html", "templates/partials.html", p)
-		if err != nil {
-			return err
-		}
-		h.tpl[name] = t
 	}
 	return nil
 }
@@ -98,6 +103,7 @@ func (h *Handler) Routes(mux *http.ServeMux) {
 	static, _ := fs.Sub(staticFS, "static")
 	mux.Handle("GET /static/", http.StripPrefix("/static/", cacheStatic(http.FileServerFS(static))))
 	mux.HandleFunc("GET /branding/logo", h.logo)
+	mux.HandleFunc("GET /lang", h.setLang)
 	mux.HandleFunc("POST /f/{key}", h.submitForm)
 	mux.HandleFunc("OPTIONS /f/{key}", h.formPreflight)
 	if h.cfg.UIMode() != config.UIFull {
@@ -322,20 +328,71 @@ func (h *Handler) loadView(ctx context.Context, sess identity.Session) (view, er
 // ───────────── rendering ─────────────
 
 type page struct {
-	Title string
-	Crumb string // secondary title ("Funnel · Ventas")
-	Bare  bool   // full-page screens without the sidebar (consent)
-	View  *view
-	Nav   string
-	Flash string
-	Error string
-	Data  any
-	Cfg   *config.Config
-	Brand branding.Brand
+	Title   string
+	Crumb   string // secondary title ("Funnel · Ventas")
+	CrumbUI bool   // Crumb is interface text (a settings section), not data: translate it
+	Bare    bool   // full-page screens without the sidebar (consent)
+	View    *view
+	Nav     string
+	Flash   string
+	Error   string
+	Data    any
+	Cfg     *config.Config
+	Brand   branding.Brand
+	Lang    string       // interface language
+	Langs   []langOption // for the language selector
+	Path    string       // current URL, so the selector comes back here
+	JSi18n  template.JS  // the strings app.js shows, in this language (JSON)
 }
 
-func (h *Handler) render(w http.ResponseWriter, status int, name string, p page) {
-	t, ok := h.tpl[name]
+type langOption struct{ Code, Name string }
+
+var langOptions = func() []langOption {
+	out := make([]langOption, 0, len(i18n.Supported))
+	for _, l := range i18n.Supported {
+		out = append(out, langOption{l, i18n.Names[l]})
+	}
+	return out
+}()
+
+// langCookie holds the language picked in the selector.
+const langCookie = "hilo_lang"
+
+// lang is the request's interface language: the selector's choice, else the
+// browser's Accept-Language, else English.
+func (h *Handler) lang(r *http.Request) string {
+	choice := ""
+	if c, err := r.Cookie(langCookie); err == nil {
+		choice = c.Value
+	}
+	return i18n.Match(choice, r.Header.Get("Accept-Language"))
+}
+
+// setLang stores the selector's choice and goes back to the page it came from.
+func (h *Handler) setLang(w http.ResponseWriter, r *http.Request) {
+	l := r.URL.Query().Get("l")
+	if i18n.Valid(l) {
+		http.SetCookie(w, &http.Cookie{Name: langCookie, Value: l, Path: "/", MaxAge: 365 * 24 * 3600, //nolint:gosec // G124: Secure follows APP_BASE_URL (https in production), like every cookie here
+			HttpOnly: true, Secure: h.cfg.SecureCookies(), SameSite: http.SameSiteLaxMode})
+	}
+	next := localPath(r.URL.Query().Get("next"))
+	http.Redirect(w, r, next, http.StatusSeeOther) //nolint:gosec // G710: localPath keeps only a same-origin path
+}
+
+// localPath returns p when it is a path on this site, "/" otherwise: no
+// scheme, no host, no protocol-relative or backslash tricks.
+func localPath(p string) string {
+	u, err := url.Parse(p)
+	if err != nil || u.Scheme != "" || u.Host != "" || !strings.HasPrefix(p, "/") ||
+		strings.HasPrefix(p, "//") || strings.Contains(p, "\\") {
+		return "/"
+	}
+	return u.RequestURI()
+}
+
+func (h *Handler) render(w http.ResponseWriter, r *http.Request, status int, name string, p page) {
+	lang := h.lang(r)
+	t, ok := h.tpl[lang][name]
 	if !ok {
 		h.log.Error("unknown template", "name", name)
 		http.Error(w, "internal error", http.StatusInternalServerError)
@@ -343,6 +400,13 @@ func (h *Handler) render(w http.ResponseWriter, status int, name string, p page)
 	}
 	p.Cfg = h.cfg
 	p.Brand = h.brand.Get(context.Background())
+	p.Lang, p.Langs, p.Path = lang, langOptions, r.URL.RequestURI()
+	p.Title, p.Flash, p.Error = i18n.T(lang, p.Title), i18n.T(lang, p.Flash), i18n.T(lang, p.Error)
+	if p.CrumbUI {
+		p.Crumb = i18n.T(lang, p.Crumb)
+	}
+	p.JSi18n = jsStrings(lang)
+	w.Header().Set("Content-Language", lang)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(status)
 	if err := t.Execute(w, p); err != nil {
@@ -352,31 +416,32 @@ func (h *Handler) render(w http.ResponseWriter, status int, name string, p page)
 
 // fail renders a safe error page; details go to the log only.
 func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
-	status, msg := http.StatusInternalServerError, "Algo salió mal. Probá de nuevo en un momento."
+	lang := h.lang(r)
+	status, msg := http.StatusInternalServerError, i18n.M("Algo salió mal. Probá de nuevo en un momento.")
 	var ve *crm.ValidationError
 	switch {
 	case errors.As(err, &ve):
-		status, msg = http.StatusBadRequest, ve.Error()
+		status, msg = http.StatusBadRequest, ve.Field+": "+i18n.T(lang, ve.Msg)
 	case errors.Is(err, crm.ErrNotFound), errors.Is(err, identity.ErrNotFound):
-		status, msg = http.StatusNotFound, "No encontrado."
+		status, msg = http.StatusNotFound, i18n.M("No encontrado.")
 	case errors.Is(err, crm.ErrForbidden), errors.Is(err, identity.ErrForbidden):
-		status, msg = http.StatusForbidden, "No tenés permiso para hacer esto."
+		status, msg = http.StatusForbidden, i18n.M("No tenés permiso para hacer esto.")
 	case errors.Is(err, branding.ErrName), errors.Is(err, branding.ErrLogo):
 		status, msg = http.StatusBadRequest, err.Error()
 	case errors.Is(err, branding.ErrForbidden):
-		status, msg = http.StatusForbidden, "Solo un superadmin puede cambiar la marca."
+		status, msg = http.StatusForbidden, i18n.M("Solo un superadmin puede cambiar la marca.")
 	case errors.Is(err, crm.ErrConflict), errors.Is(err, identity.ErrLastOwner):
 		status, msg = http.StatusConflict, err.Error()
 	default:
 		h.log.Error("web", "path", r.URL.Path, "err", err)
 	}
-	h.render(w, status, "error", page{Title: "Error", Error: msg})
+	h.render(w, r, status, "error", page{Title: i18n.M("Error"), Error: msg})
 }
 
 // headless is the home page when the UI is minimal or off: where to point an
 // agent, and how it authenticates.
-func (h *Handler) headless(w http.ResponseWriter, _ *http.Request) {
-	h.render(w, http.StatusOK, "headless", page{Title: "Modo headless", Data: struct {
+func (h *Handler) headless(w http.ResponseWriter, r *http.Request) {
+	h.render(w, r, http.StatusOK, "headless", page{Title: i18n.M("Modo headless"), Data: struct {
 		MCP   string
 		OAuth bool
 	}{h.cfg.MCPResource(), h.cfg.UIMode() != config.UIOff}})

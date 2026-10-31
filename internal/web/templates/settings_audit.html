@@ -1,14 +1,14 @@
 {{define "content"}}
 {{$d := .Data}}
 <section class="card" data-live="audit">
-  <div class="card-head"><h2>Auditoría</h2><span class="aside">últimos 100 cambios</span></div>
+  <div class="card-head"><h2>{{t "Auditoría"}}</h2><span class="aside">{{t "últimos 100 cambios"}}</span></div>
   {{if $d.Audit}}
   <table class="table">
-    <tr><th>Fecha</th><th>Quién</th><th>Vía</th><th>Acción</th></tr>
+    <tr><th>{{t "Fecha"}}</th><th>{{t "Quién"}}</th><th>{{t "Vía"}}</th><th>{{t "Acción"}}</th></tr>
     {{range $d.Audit}}<tr><td class="small">{{date .CreatedAt}} <span class="muted">{{.CreatedAt.Format "15:04"}}</span></td>
       <td><div class="cellflex"><span class="av {{if ne .ActorKind "session"}}agent2{{end}}">{{initials .ActorClient .ActorEmail}}</span>{{or .ActorEmail "formulario público"}}</div></td>
       <td><span class="tag outline">{{.ActorKind}}</span>{{with .ActorClient}} <span class="muted small">{{.}}</span>{{end}}</td><td><code>{{.Action}}</code></td></tr>{{end}}
   </table>
-  {{else}}<div class="empty"><span class="ic"><svg class="i"><use href="#i-shield"/></svg></span><h2>Sin actividad todavía</h2><p>Cada cambio de personas y agentes queda registrado acá.</p></div>{{end}}
+  {{else}}<div class="empty"><span class="ic"><svg class="i"><use href="#i-shield"/></svg></span><h2>{{t "Sin actividad todavía"}}</h2><p>{{t "Cada cambio de personas y agentes queda registrado acá."}}</p></div>{{end}}
 </section>
 {{end}}

@@ -11,6 +11,7 @@ import (
 
 	"github.com/jrcoronel-moon/hilo-crm/internal/crm"
 	"github.com/jrcoronel-moon/hilo-crm/internal/httpx"
+	"github.com/jrcoronel-moon/hilo-crm/internal/i18n"
 )
 
 type boardData struct {
@@ -109,7 +110,7 @@ func (h *Handler) board(w http.ResponseWriter, r *http.Request, v view) {
 	for _, c := range cols {
 		d.Stages = append(d.Stages, c.Stage)
 	}
-	h.render(w, http.StatusOK, "board", page{Title: "Funnel", Crumb: pv.Name, View: &v, Nav: "board", Flash: flashes[r.URL.Query().Get("ok")], Data: d})
+	h.render(w, r, http.StatusOK, "board", page{Title: i18n.M("Funnel"), Crumb: pv.Name, View: &v, Nav: "board", Flash: flashes[r.URL.Query().Get("ok")], Data: d})
 }
 
 // boardMove handles a card dropped on another column (fetch from app.js).
@@ -120,19 +121,19 @@ func (h *Handler) boardMove(w http.ResponseWriter, r *http.Request, v view) {
 		Opportunity: r.PostFormValue("opportunity"), Stage: r.PostFormValue("stage"), Reason: r.PostFormValue("reason"),
 	})
 	if err != nil {
-		status, msg := http.StatusInternalServerError, "No se pudo mover la oportunidad."
+		status, msg := http.StatusInternalServerError, i18n.M("No se pudo mover la oportunidad.")
 		var ve *crm.ValidationError
 		switch {
 		case errors.As(err, &ve):
-			status, msg = http.StatusBadRequest, ve.Error()
+			status, msg = http.StatusBadRequest, ve.Field+": "+ve.Msg
 		case errors.Is(err, crm.ErrForbidden):
-			status, msg = http.StatusForbidden, "Tu rol no permite mover oportunidades."
+			status, msg = http.StatusForbidden, i18n.M("Tu rol no permite mover oportunidades.")
 		case errors.Is(err, crm.ErrNotFound):
-			status, msg = http.StatusNotFound, "La oportunidad ya no existe."
+			status, msg = http.StatusNotFound, i18n.M("La oportunidad ya no existe.")
 		default:
 			h.log.Error("board move", "err", err)
 		}
-		httpx.WriteError(w, status, msg)
+		httpx.WriteError(w, status, i18n.T(h.lang(r), msg))
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"status": out.Status, "stage": out.StageName})
@@ -167,7 +168,8 @@ type actorRow struct {
 	Changes, Created            int
 }
 
-var monthNames = []string{"Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"}
+var monthNames = []string{i18n.M("Ene"), i18n.M("Feb"), i18n.M("Mar"), i18n.M("Abr"), i18n.M("May"), i18n.M("Jun"),
+	i18n.M("Jul"), i18n.M("Ago"), i18n.M("Sep"), i18n.M("Oct"), i18n.M("Nov"), i18n.M("Dic")}
 
 // monthBars draws the won-per-month chart; the goal line shares its scale.
 func monthBars(m crm.Metrics) ([]vbar, float64, float64) {
@@ -222,9 +224,9 @@ func actorRows(acts []crm.ActorCount) []actorRow {
 		case "pat":
 			r.Title, r.Sub, r.Class = strings.TrimPrefix(a.Client, "PAT: "), "token personal", "agent"
 		case "form":
-			r.Title, r.Sub = a.Client, "formulario público"
+			r.Title, r.Sub = a.Client, i18n.M("formulario público")
 		default:
-			r.Title, r.Sub = firstNonEmpty(a.Name, a.Email), "sesión web"
+			r.Title, r.Sub = firstNonEmpty(a.Name, a.Email), i18n.M("sesión web")
 		}
 		r.Initials = initials(r.Title, a.Email)
 		out = append(out, r)
@@ -327,15 +329,15 @@ func (h *Handler) dashboard(w http.ResponseWriter, r *http.Request, v view) {
 		d.NewTotal += c.Count
 	}
 	d.Actors = actorRows(m.Activity)
-	h.render(w, http.StatusOK, "dashboard", page{Title: "Dashboard", Crumb: m.PipelineName, View: &v, Nav: "dashboard", Data: d})
+	h.render(w, r, http.StatusOK, "dashboard", page{Title: i18n.M("Dashboard"), Crumb: m.PipelineName, View: &v, Nav: "dashboard", Data: d})
 }
 
-func (h *Handler) newWorkspacePage(w http.ResponseWriter, _ *http.Request, v view) {
-	h.render(w, http.StatusOK, "workspace_new", page{Title: "Nuevo workspace", View: &v})
+func (h *Handler) newWorkspacePage(w http.ResponseWriter, r *http.Request, v view) {
+	h.render(w, r, http.StatusOK, "workspace_new", page{Title: i18n.M("Nuevo workspace"), View: &v})
 }
 
 func (h *Handler) createWorkspace(w http.ResponseWriter, r *http.Request, v view) {
-	ws, err := h.id.CreateWorkspace(r.Context(), v.Sess.UserID, r.PostFormValue("name"))
+	ws, err := h.id.CreateWorkspaceIn(r.Context(), v.Sess.UserID, r.PostFormValue("name"), h.lang(r))
 	if err != nil {
 		h.fail(w, r, err)
 		return

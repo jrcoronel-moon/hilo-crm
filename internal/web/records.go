@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/jrcoronel-moon/hilo-crm/internal/crm"
+	"github.com/jrcoronel-moon/hilo-crm/internal/i18n"
 )
 
 // ───────────── create from the web ─────────────
@@ -157,7 +158,7 @@ func (h *Handler) renderOpportunities(w http.ResponseWriter, r *http.Request, v 
 		h.fail(w, r, err)
 		return
 	}
-	h.render(w, http.StatusOK, "opportunities", page{Title: "Oportunidades", View: &v, Nav: "opportunities", Data: d})
+	h.render(w, r, http.StatusOK, "opportunities", page{Title: i18n.M("Oportunidades"), View: &v, Nav: "opportunities", Data: d})
 }
 
 // bulk applies an action to the selected rows, then shows the list again
@@ -253,5 +254,5 @@ func (h *Handler) interactions(w http.ResponseWriter, r *http.Request, v view) {
 		q.Set("cursor", d.Page.NextCursor)
 		d.Next = "?" + q.Encode()
 	}
-	h.render(w, http.StatusOK, "interactions", page{Title: "Interacciones", View: &v, Nav: "interactions", Data: d})
+	h.render(w, r, http.StatusOK, "interactions", page{Title: i18n.M("Interacciones"), View: &v, Nav: "interactions", Data: d})
 }

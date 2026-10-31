@@ -6,6 +6,7 @@ import (
 
 	"github.com/jrcoronel-moon/hilo-crm/internal/branding"
 	"github.com/jrcoronel-moon/hilo-crm/internal/crm"
+	"github.com/jrcoronel-moon/hilo-crm/internal/i18n"
 	"github.com/jrcoronel-moon/hilo-crm/internal/identity"
 	"github.com/jrcoronel-moon/hilo-crm/internal/store"
 )
@@ -31,7 +32,7 @@ func (h *Handler) adminPage(w http.ResponseWriter, r *http.Request, v view) {
 		h.fail(w, r, err)
 		return
 	}
-	h.render(w, http.StatusOK, "admin", page{Title: "Superadmin", View: &v, Nav: "admin", Flash: flashes[r.URL.Query().Get("ok")],
+	h.render(w, r, http.StatusOK, "admin", page{Title: i18n.M("Superadmin"), View: &v, Nav: "admin", Flash: flashes[r.URL.Query().Get("ok")],
 		Data: adminData{CSRF: v.Sess.CSRFToken, Domains: doms, Workspaces: wss}})
 }
 
@@ -65,7 +66,7 @@ func (h *Handler) adminAction(w http.ResponseWriter, r *http.Request, v view) {
 func (h *Handler) uploadLogo(r *http.Request, v view) error {
 	f, _, err := r.FormFile("logo")
 	if err != nil {
-		return &crm.ValidationError{Field: "logo", Msg: "elegí un archivo de imagen"}
+		return &crm.ValidationError{Field: "logo", Msg: i18n.M("elegí un archivo de imagen")}
 	}
 	defer func() { _ = f.Close() }()
 	data, err := io.ReadAll(io.LimitReader(f, branding.MaxLogo+1))

@@ -184,6 +184,12 @@ var slugUnsafe = regexp.MustCompile(`[^a-z0-9]+`)
 // CreateWorkspace creates a workspace owned by userID and seeds its default
 // pipeline and channels, all in one transaction.
 func (s *Service) CreateWorkspace(ctx context.Context, userID uuid.UUID, name string) (store.Workspace, error) {
+	return s.CreateWorkspaceIn(ctx, userID, name, "es")
+}
+
+// CreateWorkspaceIn creates a workspace whose default pipeline and channels
+// are named in lang (the creator's interface language).
+func (s *Service) CreateWorkspaceIn(ctx context.Context, userID uuid.UUID, name, lang string) (store.Workspace, error) {
 	name = strings.TrimSpace(name)
 	if name == "" || len([]rune(name)) > 120 {
 		return store.Workspace{}, &crm.ValidationError{Field: "name", Msg: "must be 1-120 characters"}
@@ -222,7 +228,7 @@ func (s *Service) CreateWorkspace(ctx context.Context, userID uuid.UUID, name st
 		if err := q.BindWorkspace(ctx, ws.ID.String()); err != nil {
 			return err
 		}
-		return crm.SeedWorkspace(ctx, q, ws.ID)
+		return crm.SeedWorkspace(ctx, q, ws.ID, lang)
 	})
 	return ws, err
 }

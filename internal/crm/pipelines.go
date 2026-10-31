@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/jrcoronel-moon/hilo-crm/internal/i18n"
 	"github.com/jrcoronel-moon/hilo-crm/internal/store"
 )
 
@@ -341,30 +342,35 @@ func (s *Service) pipelineView(ctx context.Context, a Actor, id uuid.UUID) (Pipe
 func DefaultStages() []StageInput {
 	p := func(v int) *int { return &v }
 	return []StageInput{
-		{Name: "Lead", Category: CatInitial, Probability: p(10)},
-		{Name: "Calificado", Category: CatInProgress, Probability: p(25)},
-		{Name: "Propuesta", Category: CatInProgress, Probability: p(50)},
-		{Name: "Negociación", Category: CatInProgress, Probability: p(75)},
-		{Name: "Ganado", Category: CatWon, Probability: p(100)},
-		{Name: "Perdido", Category: CatLost, Probability: p(0)},
+		{Name: i18n.M("Lead"), Category: CatInitial, Probability: p(10)},
+		{Name: i18n.M("Calificado"), Category: CatInProgress, Probability: p(25)},
+		{Name: i18n.M("Propuesta"), Category: CatInProgress, Probability: p(50)},
+		{Name: i18n.M("Negociación"), Category: CatInProgress, Probability: p(75)},
+		{Name: i18n.M("Ganado"), Category: CatWon, Probability: p(100)},
+		{Name: i18n.M("Perdido"), Category: CatLost, Probability: p(0)},
 	}
 }
 
 // DefaultChannels are created with every new workspace.
 var DefaultChannels = []struct{ Name, Kind string }{
-	{"Web", "web"}, {"Formulario", "form"}, {"Email", "email"}, {"Teléfono", "phone"},
-	{"LinkedIn", "social"}, {"Referido", "referral"}, {"Evento", "event"}, {"Outbound", "outbound"},
-	{"Videoconferencia", "videocall"}, {"Video", "video"},
+	{i18n.M("Web"), "web"}, {i18n.M("Formulario"), "form"}, {i18n.M("Email"), "email"}, {i18n.M("Teléfono"), "phone"},
+	{i18n.M("LinkedIn"), "social"}, {i18n.M("Referido"), "referral"}, {i18n.M("Evento"), "event"}, {i18n.M("Outbound"), "outbound"},
+	{i18n.M("Videoconferencia"), "videocall"}, {i18n.M("Video"), "video"},
 }
 
-// SeedWorkspace creates the default pipeline and channels. It runs inside the
-// transaction that created the workspace, with RLS already bound to it.
-func SeedWorkspace(ctx context.Context, q *store.Queries, ws uuid.UUID) error {
-	p, err := q.CreatePipeline(ctx, store.CreatePipelineParams{WorkspaceID: ws, Name: "Ventas", IsDefault: true})
+// SeedWorkspace creates the default pipeline and channels, named in lang. It
+// runs inside the transaction that created the workspace, with RLS already
+// bound to it.
+func SeedWorkspace(ctx context.Context, q *store.Queries, ws uuid.UUID, lang string) error {
+	p, err := q.CreatePipeline(ctx, store.CreatePipelineParams{WorkspaceID: ws, Name: i18n.T(lang, "Ventas"), IsDefault: true})
 	if err != nil {
 		return err
 	}
-	stages, err := validateStages(DefaultStages())
+	defaults := DefaultStages()
+	for i := range defaults {
+		defaults[i].Name = i18n.T(lang, defaults[i].Name)
+	}
+	stages, err := validateStages(defaults)
 	if err != nil {
 		return err
 	}
@@ -372,7 +378,7 @@ func SeedWorkspace(ctx context.Context, q *store.Queries, ws uuid.UUID) error {
 		return err
 	}
 	for _, ch := range DefaultChannels {
-		if _, err := q.CreateChannel(ctx, store.CreateChannelParams{WorkspaceID: ws, Name: ch.Name, Kind: ch.Kind}); err != nil {
+		if _, err := q.CreateChannel(ctx, store.CreateChannelParams{WorkspaceID: ws, Name: i18n.T(lang, ch.Name), Kind: ch.Kind}); err != nil {
 			return err
 		}
 	}

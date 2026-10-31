@@ -234,7 +234,7 @@ Pendiente, si hace falta:
 |---|---|---|
 | D ⏸ | Adaptadores HubSpot y Pipedrive dentro de Hilo. En pausa: las guías para agentes ya cubren estos orígenes y los adaptadores no se pueden probar sin cuentas reales. Se retoma si aparece un caso concreto | M |
 | E.2 ⏳ | Cola de aprobaciones dentro de Hilo: acciones delicadas de agentes (archivar, pasar a perdida, cambios masivos) quedan pendientes hasta que una persona las apruebe por web, `hiloctl` o el propio agente. Hoy la confirmación la pide el cliente MCP según las anotaciones de las herramientas. Requiere decidir qué acciones y quién aprueba | M |
-| I18N ⏳ | Multiidioma: la interfaz y los textos de la auditoría en español hoy; pasar los textos a un catálogo (`es`, `en` primero), idioma por usuario con fallback al del workspace, y mensajes de validación traducibles. Los valores internos (tipos, categorías, roles) siguen en inglés para agentes y API | M |
+| I18N ✅ | Interfaz en inglés, español, francés, italiano, alemán y portugués (`internal/i18n`, catálogos en `locales/*.json`). El idioma sale del selector (cookie) o del navegador, con inglés por defecto; montos, fechas y avisos en vivo siguen el idioma, y un workspace nuevo nace con pipeline y canales en el idioma de quien lo crea. Pendiente: traducir los mensajes de validación que vienen del núcleo (hoy en inglés). Los valores internos (tipos, categorías, roles) siguen en inglés para agentes y API | M |
 | — | Lightsail y publicación en directorios de conectores, cuando se decida | — |
 
 Decisión tomada por defecto (cambiable): `HILO_UI` es `full` salvo que lo configures; para producción headless,

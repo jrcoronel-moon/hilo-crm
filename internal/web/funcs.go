@@ -13,20 +13,40 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/jrcoronel-moon/hilo-crm/internal/crm"
+	"github.com/jrcoronel-moon/hilo-crm/internal/i18n"
 	"github.com/jrcoronel-moon/hilo-crm/internal/store"
 )
 
+// funcsFor returns the template functions for one language: translation
+// ("t"), and every formatter whose output depends on the language.
+func funcsFor(lang string) template.FuncMap {
+	f := template.FuncMap{
+		"t":          func(msg string, args ...any) string { return i18n.T(lang, msg, args...) },
+		"lang":       func() string { return lang },
+		"money":      func(v float64, cur string) string { return money(lang, v, cur) },
+		"minor":      func(m int64, cur string) string { return money(lang, crm.MinorToAmount(m), cur) },
+		"moneyMap":   func(m crm.Money) string { return moneyMap(lang, m) },
+		"moneyShort": func(m crm.Money) string { return moneyShort(lang, m) },
+		"short":      func(v float64) string { return short(lang, v) },
+		"date":       func(t time.Time) string { return t.Format(i18n.DateLayout(lang)) },
+		"datep":      func(t *time.Time) string { return datep(lang, t) },
+		"ago":        func(t *time.Time) string { return ago(lang, t) },
+		"agoT":       func(t time.Time) string { return ago(lang, &t) },
+		"catLabel":   func(c string) string { return i18n.T(lang, catLabel(c)) },
+		"roleLabel":  func(r string) string { return i18n.T(lang, roleLabel(r)) },
+		"typeLabel":  func(t string) string { return i18n.T(lang, orSelf(typeLabels, t)) },
+		"kindLabel":  func(k string) string { return i18n.T(lang, orSelf(kindLabels, k)) },
+	}
+	for k, v := range funcs {
+		f[k] = v
+	}
+	return f
+}
+
+// funcs are the language-independent template functions.
 var funcs = template.FuncMap{
-	"money":      money,
-	"minor":      func(m int64, cur string) string { return money(crm.MinorToAmount(m), cur) },
-	"moneyMap":   moneyMap,
 	"pct":        func(f float64) string { return fmt.Sprintf("%.0f%%", f*100) },
 	"bar":        bar,
-	"date":       func(t time.Time) string { return t.Format("02/01/2006") },
-	"datep":      datep,
-	"ago":        ago,
-	"catLabel":   catLabel,
-	"roleLabel":  roleLabel,
 	"currencies": crm.SortedCurrencies,
 	"deref":      derefStr,
 	"add":        func(a, b int) int { return a + b },
@@ -34,13 +54,10 @@ var funcs = template.FuncMap{
 	"initials":   initials,
 	"tagClass":   tagClass,
 	"stageClass": stageClass,
-	"short":      short,
-	"moneyShort": moneyShort,
 	"firstTags":  firstTags,
 	"scopeClass": scopeClass,
 	"stale":      func(t time.Time) bool { return time.Since(t) > staleAfter },
 	"fresh":      func(t time.Time) bool { return time.Since(t) < 2*time.Minute },
-	"agoT":       func(t time.Time) string { return ago(&t) },
 	"addf":       func(a, b float64) float64 { return a + b },
 	"divf":       func(a, b float64) float64 { return a / b },
 	"mulf":       func(a, b float64) float64 { return a * b },
@@ -48,19 +65,17 @@ var funcs = template.FuncMap{
 	"trim":       strings.TrimSpace,
 	"ownerSel":   ownerSel,
 	"tagField":   tagField,
-	"typeLabel":  func(t string) string { return orSelf(typeLabels, t) },
-	"kindLabel":  func(k string) string { return orSelf(kindLabels, k) },
 	"host":       urlHost,
 	"asset":      asset,
 }
 
 // Stored values are English (agents and the API see those); people see these.
 var (
-	typeLabels = map[string]string{"email": "Email", "call": "Llamada", "meeting": "Reunión", "note": "Nota", "message": "Mensaje",
-		"social": "Red social", "form": "Formulario"}
-	kindLabels = map[string]string{"web": "Web", "form": "Formulario", "email": "Email", "phone": "Teléfono", "social": "Red social",
-		"referral": "Referido", "event": "Evento", "outbound": "Outbound", "partner": "Partner", "ads": "Publicidad",
-		"videocall": "Videoconferencia", "video": "Video", "other": "Otro"}
+	typeLabels = map[string]string{"email": i18n.M("Email"), "call": i18n.M("Llamada"), "meeting": i18n.M("Reunión"), "note": i18n.M("Nota"), "message": i18n.M("Mensaje"),
+		"social": i18n.M("Red social"), "form": i18n.M("Formulario")}
+	kindLabels = map[string]string{"web": i18n.M("Web"), "form": i18n.M("Formulario"), "email": i18n.M("Email"), "phone": i18n.M("Teléfono"), "social": i18n.M("Red social"),
+		"referral": i18n.M("Referido"), "event": i18n.M("Evento"), "outbound": i18n.M("Outbound"), "partner": i18n.M("Partner"), "ads": i18n.M("Publicidad"),
+		"videocall": i18n.M("Videoconferencia"), "video": i18n.M("Video"), "other": i18n.M("Otro")}
 )
 
 func orSelf(m map[string]string, k string) string {
@@ -126,25 +141,25 @@ func stageClass(category string, position int) string {
 }
 
 // short abbreviates large numbers: 530800 → "530,8k", 1250000 → "1,3M".
-func short(v float64) string {
+func short(lang string, v float64) string {
 	switch {
 	case math.Abs(v) >= 1e6:
-		return strings.Replace(fmt.Sprintf("%.1fM", v/1e6), ".", ",", 1)
+		return strings.Replace(fmt.Sprintf("%.1fM", v/1e6), ".", i18n.Decimal(lang), 1)
 	case math.Abs(v) >= 1e4:
-		return strings.Replace(fmt.Sprintf("%.1fk", v/1e3), ".", ",", 1)
+		return strings.Replace(fmt.Sprintf("%.1fk", v/1e3), ".", i18n.Decimal(lang), 1)
 	default:
-		return money(v, "")
+		return money(lang, v, "")
 	}
 }
 
 // moneyShort renders a per-currency map abbreviated ("USD 530,8k").
-func moneyShort(m crm.Money) string {
+func moneyShort(lang string, m crm.Money) string {
 	if len(m) == 0 {
 		return "—"
 	}
 	parts := make([]string, 0, len(m))
 	for _, c := range crm.SortedCurrencies(m) {
-		parts = append(parts, c+" "+short(m[c]))
+		parts = append(parts, c+" "+short(lang, m[c]))
 	}
 	return strings.Join(parts, " · ")
 }
@@ -185,9 +200,9 @@ func derefStr(s *string) string {
 	return *s
 }
 
-// money formats 1234567.5 as "USD 1.234.567,50" (es-AR style), dropping
-// decimals on whole amounts.
-func money(v float64, cur string) string {
+// money formats 1234567.5 as "USD 1.234.567,50" (separators per language),
+// dropping decimals on whole amounts.
+func money(lang string, v float64, cur string) string {
 	neg := v < 0
 	v = math.Abs(v)
 	whole := int64(v)
@@ -195,17 +210,9 @@ func money(v float64, cur string) string {
 	if cents == 100 {
 		whole, cents = whole+1, 0
 	}
-	s := fmt.Sprintf("%d", whole)
-	var b strings.Builder
-	for i, r := range s {
-		if i > 0 && (len(s)-i)%3 == 0 {
-			b.WriteByte('.')
-		}
-		b.WriteRune(r)
-	}
-	out := b.String()
+	out := i18n.Number(lang, whole)
 	if cents != 0 {
-		out += fmt.Sprintf(",%02d", cents)
+		out += fmt.Sprintf("%s%02d", i18n.Decimal(lang), cents)
 	}
 	if neg {
 		out = "-" + out
@@ -213,13 +220,13 @@ func money(v float64, cur string) string {
 	return strings.TrimSpace(cur + " " + out)
 }
 
-func moneyMap(m crm.Money) string {
+func moneyMap(lang string, m crm.Money) string {
 	if len(m) == 0 {
 		return "—"
 	}
 	parts := make([]string, 0, len(m))
 	for _, c := range crm.SortedCurrencies(m) {
-		parts = append(parts, money(m[c], c))
+		parts = append(parts, money(lang, m[c], c))
 	}
 	return strings.Join(parts, " · ")
 }
@@ -232,38 +239,38 @@ func bar(n, maxN int) string {
 	return fmt.Sprintf("%d%%", max(2, n*100/maxN))
 }
 
-func datep(t *time.Time) string {
+func datep(lang string, t *time.Time) string {
 	if t == nil {
 		return ""
 	}
-	return t.Format("02/01/2006")
+	return t.Format(i18n.DateLayout(lang))
 }
 
-func ago(t *time.Time) string {
+func ago(lang string, t *time.Time) string {
 	if t == nil {
-		return "sin actividad"
+		return i18n.T(lang, "sin actividad")
 	}
 	d := time.Since(*t)
 	switch {
 	case d < time.Hour:
-		return "hace minutos"
+		return i18n.T(lang, "hace minutos")
 	case d < 24*time.Hour:
-		return fmt.Sprintf("hace %d h", int(d.Hours()))
+		return i18n.T(lang, "hace %d h", int(d.Hours()))
 	default:
-		return fmt.Sprintf("hace %d d", int(d.Hours()/24))
+		return i18n.T(lang, "hace %d d", int(d.Hours()/24))
 	}
 }
 
 func catLabel(c string) string {
 	switch c {
 	case crm.CatInitial:
-		return "Inicial"
+		return i18n.M("Inicial")
 	case crm.CatInProgress:
-		return "En progreso"
+		return i18n.M("En progreso")
 	case crm.CatWon:
-		return "Ganado"
+		return i18n.M("Ganado")
 	case crm.CatLost:
-		return "Perdido"
+		return i18n.M("Perdido")
 	}
 	return c
 }
@@ -271,13 +278,13 @@ func catLabel(c string) string {
 func roleLabel(r string) string {
 	switch r {
 	case "owner":
-		return "Propietario"
+		return i18n.M("Propietario")
 	case "admin":
-		return "Admin"
+		return i18n.M("Admin")
 	case "member":
-		return "Miembro"
+		return i18n.M("Miembro")
 	case "viewer":
-		return "Lector"
+		return i18n.M("Lector")
 	}
 	return r
 }

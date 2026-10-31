@@ -2,6 +2,16 @@
 // dependencies. Every feature degrades: without JS, forms still submit.
 "use strict";
 
+// Interface strings in the page's language (a JSON block the server writes,
+// keyed by the Spanish text). "%s" and "%d" are filled in order.
+const I18N = (() => {
+  try { return JSON.parse(document.getElementById("i18n")?.textContent || "{}"); } catch { return {}; }
+})();
+function tr(msg, ...args) {
+  let i = 0;
+  return (I18N[msg] || msg).replace(/%[sd]/g, () => String(args[i++] ?? ""));
+}
+
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
@@ -54,7 +64,7 @@ document.addEventListener("submit", (e) => {
   if (e.submitter instanceof Element && e.submitter.hasAttribute("data-noconfirm")) return; // e.g. "validate" next to "import"
   e.preventDefault();
   const [title, body] = form.dataset.confirm.split("|");
-  $("[data-title]", dlg).textContent = title || "¿Confirmar?";
+  $("[data-title]", dlg).textContent = title || tr("¿Confirmar?");
   $("[data-body]", dlg).textContent = body || "";
   dlg.returnValue = "";
   dlg.showModal();
@@ -76,7 +86,7 @@ document.addEventListener("click", async (e) => {
   if (!el) return;
   try {
     await navigator.clipboard.writeText(el.getAttribute("data-copy") || "");
-    toast(el.getAttribute("data-copied") || "Copiado");
+    toast(el.getAttribute("data-copied") || tr("Copiado"));
   } catch { /* clipboard unavailable: the text stays selectable */ }
 });
 // OAuth hand-back: script navigation is not subject to CSP form-action.
@@ -120,7 +130,7 @@ $$("form[data-pipeline]").forEach((form) => {
     if (!id) { row.remove(); return; }
     // Existing stage: an empty name tells the server to delete it.
     const removed = row.classList.toggle("removed");
-    if (removed) { name.dataset.original = name.value; name.value = ""; name.placeholder = name.dataset.original + " (se elimina)"; }
+    if (removed) { name.dataset.original = name.value; name.value = ""; name.placeholder = tr("%s (se elimina)", name.dataset.original); }
     else { name.value = name.dataset.original || ""; }
   });
 });
@@ -173,7 +183,7 @@ function setupBoard(board) {
     } catch { res = null; }
     if (!res || !res.ok) {
       $("ol", from).prepend(card); recount(from); recount(to);
-      let msg = "No se pudo mover la oportunidad.";
+      let msg = tr("No se pudo mover la oportunidad.");
       try { msg = (await res.json()).error || msg; } catch { /* keep generic */ }
       toast(msg, { error: true });
       return;
@@ -182,7 +192,7 @@ function setupBoard(board) {
     setTimeout(() => card.classList.remove("fresh"), 4000);
     const title = $(".t", card)?.textContent || "Oportunidad";
     toast(`${title} → ${to.dataset.stageName}`, undoable ? {
-      action: { label: "Deshacer", run: () => move(card, to, from, "", false) },
+      action: { label: tr("Deshacer"), run: () => move(card, to, from, "", false) },
     } : {});
   }
 
@@ -237,7 +247,7 @@ function setupBulk(form) {
   form.addEventListener("submit", (e) => {
     if (e.submitter?.value === "lost" && !$("input[name=reason]", form)?.value.trim()) {
       e.preventDefault();
-      toast("Escribí el motivo de pérdida antes de marcar.", { error: true });
+      toast(tr("Escribí el motivo de pérdida antes de marcar."), { error: true });
       $("input[name=reason]", form)?.focus();
     }
   });
@@ -312,7 +322,7 @@ function phoneMenu() {
     shell.classList.toggle("menu-open", open);
     document.documentElement.classList.toggle("menu-lock", open);
     menu.setAttribute("aria-expanded", String(open));
-    menu.setAttribute("aria-label", open ? "Cerrar el menú" : "Abrir el menú");
+    menu.setAttribute("aria-label", open ? tr("Cerrar el menú") : tr("Abrir el menú"));
     drawer.inert = phone.matches && !open; // off-screen links are not tabbable
   };
   setOpen(false);
@@ -398,7 +408,7 @@ $$("[data-tag-editor]").forEach((box) => {
     chip.dataset.tag = t;
     chip.append(t);
     const x = document.createElement("button");
-    x.type = "button"; x.textContent = "×"; x.setAttribute("aria-label", "Quitar " + t);
+    x.type = "button"; x.textContent = "×"; x.setAttribute("aria-label", tr("Quitar %s", t));
     x.addEventListener("click", () => { chip.remove(); sync(); });
     chip.append(x);
     box.insertBefore(chip, source);
@@ -419,7 +429,7 @@ $$("form[data-move]").forEach((form) => form.addEventListener("submit", (e) => {
   const opt = $("select[name=stage]", form).selectedOptions[0];
   if (opt?.dataset.category === "lost" && !$("input[name=reason]", form).value.trim()) {
     e.preventDefault();
-    toast("Escribí el motivo de pérdida.", { error: true });
+    toast(tr("Escribí el motivo de pérdida."), { error: true });
     $("input[name=reason]", form).focus();
   }
 }));
@@ -473,7 +483,7 @@ if (window.EventSource && $("[data-live]")) {
     burstTimer = null;
     const actors = new Set(burst.map((ev) => ev.actor));
     if (burst.length === 1) toast(`${burst[0].actor} ${burst[0].summary}`);
-    else toast(actors.size === 1 ? `${burst[0].actor} hizo ${burst.length} cambios` : `${burst.length} cambios de ${actors.size} personas o agentes`);
+    else toast(actors.size === 1 ? tr("%s hizo %d cambios", burst[0].actor, burst.length) : tr("%d cambios de %d personas o agentes", burst.length, actors.size));
     burst = [];
   };
   // Newest change this page has seen. The stream keeps it current; a slow

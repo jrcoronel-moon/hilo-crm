@@ -1,80 +1,80 @@
-{{define "actions"}}{{if .View.CanWrite}}<form method="post" action="/opportunities/{{.Data.O.ID}}/archive" data-confirm="¿Archivar esta oportunidad?|Deja de aparecer en el funnel, listas y métricas. Su historial se conserva."><input type="hidden" name="csrf" value="{{.Data.CSRF}}"><button class="btn ghost danger"><svg class="i sm"><use href="#i-trash"/></svg>Archivar</button></form>{{end}}{{end}}
+{{define "actions"}}{{if .View.CanWrite}}<form method="post" action="/opportunities/{{.Data.O.ID}}/archive" data-confirm="{{t "¿Archivar esta oportunidad?|Deja de aparecer en el funnel, listas y métricas. Su historial se conserva."}}"><input type="hidden" name="csrf" value="{{.Data.CSRF}}"><button class="btn ghost danger"><svg class="i sm"><use href="#i-trash"/></svg>{{t "Archivar"}}</button></form>{{end}}{{end}}
 {{define "content"}}
 {{$d := .Data}}{{$o := $d.O}}
 <div class="record-head" data-live="head">
   <span class="av lg agent2">{{initials $o.Title ""}}</span>
   <div class="grow"><h1>{{$o.Title}}</h1>
-    <p class="muted"><span class="dot {{stageClass $o.StageCategory 1}}"></span> {{$o.StageName}} · {{if eq $o.Status "open"}}abierta{{else if eq $o.Status "won"}}ganada{{else}}perdida{{end}}{{if $o.CompanyID}} · <a href="/companies/{{$o.CompanyID}}">{{$o.CompanyName}}</a>{{end}}</p>
+    <p class="muted"><span class="dot {{stageClass $o.StageCategory 1}}"></span> {{$o.StageName}} · {{if eq $o.Status "open"}}{{t "abierta"}}{{else if eq $o.Status "won"}}{{t "ganada"}}{{else}}{{t "perdida"}}{{end}}{{if $o.CompanyID}} · <a href="/companies/{{$o.CompanyID}}">{{$o.CompanyName}}</a>{{end}}</p>
     {{if $o.Tags}}<p class="row">{{range $o.Tags}}<span class="tag {{tagClass .}}">{{.}}</span>{{end}}</p>{{end}}</div>
   <div class="kpis mini">
-    <div class="kpi"><span>Monto</span><strong>{{money $o.Amount $o.Currency}}</strong></div>
-    <div class="kpi"><span>Probabilidad</span><strong>{{$o.Probability}}%</strong></div>
-    <div class="kpi"><span>Interacciones</span><strong>{{$o.Interactions}}</strong></div>
+    <div class="kpi"><span>{{t "Monto"}}</span><strong>{{money $o.Amount $o.Currency}}</strong></div>
+    <div class="kpi"><span>{{t "Probabilidad"}}</span><strong>{{$o.Probability}}%</strong></div>
+    <div class="kpi"><span>{{t "Interacciones"}}</span><strong>{{$o.Interactions}}</strong></div>
   </div>
 </div>
-{{if eq $o.Status "lost"}}{{with $o.LostReason}}<div class="notice warn"><svg class="i sm"><use href="#i-alert"/></svg>Perdida: {{.}}</div>{{end}}{{end}}
+{{if eq $o.Status "lost"}}{{with $o.LostReason}}<div class="notice warn"><svg class="i sm"><use href="#i-alert"/></svg>{{t "Perdida:"}} {{.}}</div>{{end}}{{end}}
 <div class="grid2">
   <div class="gcol">
     {{if $.View.CanWrite}}
     <section class="card">
-      <h2>Etapa</h2>
+      <h2>{{t "Etapa"}}</h2>
       <form method="post" action="/opportunities/{{$o.ID}}/move" class="row" data-move>
         <input type="hidden" name="csrf" value="{{$d.CSRF}}">
-        <select name="stage" aria-label="Etapa">{{range $d.Stages}}<option value="{{.ID}}" data-category="{{.Category}}" {{if eq .ID $o.StageID}}selected{{end}}>{{.Name}} · {{catLabel .Category}}</option>{{end}}</select>
-        <input name="reason" placeholder="motivo (obligatorio si se pierde)" class="grow" maxlength="1000" aria-label="Motivo">
-        <button class="btn strong">Mover</button>
+        <select name="stage" aria-label="{{t "Etapa"}}">{{range $d.Stages}}<option value="{{.ID}}" data-category="{{.Category}}" {{if eq .ID $o.StageID}}selected{{end}}>{{.Name}} · {{catLabel .Category}}</option>{{end}}</select>
+        <input name="reason" placeholder="{{t "motivo (obligatorio si se pierde)"}}" class="grow" maxlength="1000" aria-label="{{t "Motivo"}}">
+        <button class="btn strong">{{t "Mover"}}</button>
       </form>
     </section>
     {{end}}
     <div class="live-region" data-live="links">{{- if $o.Links}}
     <section class="card">
-      <div class="card-head"><h2>Archivos y links</h2><span class="aside">{{len $o.Links}}</span></div>
+      <div class="card-head"><h2>{{t "Archivos y links"}}</h2><span class="aside">{{len $o.Links}}</span></div>
       <div class="row">{{range $o.Links}}<a class="btn sm link-btn" href="{{.URL}}" target="_blank" rel="noopener noreferrer" title="{{.URL}}"><svg class="i sm"><use href="#i-file"/></svg><span>{{or .Label (host .URL)}}</span></a>{{end}}</div>
     </section>
     {{- end}}</div>
     <section class="card">
-      <div class="card-head"><h2>Contactos</h2></div>
+      <div class="card-head"><h2>{{t "Contactos"}}</h2></div>
       {{if $o.Contacts}}<table class="table">{{range $o.Contacts}}<tr><td><a class="cellflex" href="/contacts/{{.ID}}"><span class="av">{{initials (printf "%s %s" .FirstName .LastName) (deref .Email)}}</span><span class="who"><b>{{or (trim (printf "%s %s" .FirstName .LastName)) (deref .Email)}}</b><small>{{.Title}}</small></span></a></td><td>{{with .Role}}<span class="tag outline">{{.}}</span>{{end}}</td></tr>{{end}}</table>
-      {{else}}<p class="muted">Sin contactos vinculados.</p>{{end}}
+      {{else}}<p class="muted">{{t "Sin contactos vinculados."}}</p>{{end}}
       {{if $.View.CanWrite}}
       <form method="post" action="/opportunities/{{$o.ID}}/contacts" class="row">
         <input type="hidden" name="csrf" value="{{$d.CSRF}}">
-        <input name="contact" type="email" placeholder="email del contacto existente" required class="grow" aria-label="Contacto">
-        <input name="role" placeholder="rol (decisor, champion…)" maxlength="50" aria-label="Rol">
-        <button class="btn">Vincular</button>
+        <input name="contact" type="email" placeholder="{{t "email del contacto existente"}}" required class="grow" aria-label="{{t "Contacto"}}">
+        <input name="role" placeholder="{{t "rol (decisor, champion…)"}}" maxlength="50" aria-label="{{t "Rol"}}">
+        <button class="btn">{{t "Vincular"}}</button>
       </form>
       {{end}}
     </section>
-    <section class="card" data-live="activity"><div class="card-head"><h2>Actividad</h2></div>{{template "timeline" $d.Timeline}}</section>
+    <section class="card" data-live="activity"><div class="card-head"><h2>{{t "Actividad"}}</h2></div>{{template "timeline" $d.Timeline}}</section>
   </div>
   <div class="gcol">
     <section class="card">
-      <h2>Datos</h2>
+      <h2>{{t "Datos"}}</h2>
       {{if $.View.CanWrite}}
       <form method="post" action="/opportunities/{{$o.ID}}" class="stack">
         <input type="hidden" name="csrf" value="{{$d.CSRF}}">
-        <label class="field">Título<input name="title" value="{{$o.Title}}" required maxlength="200"></label>
-        <div class="row"><label class="field grow">Tipo<select name="kind"><option value="deal" {{if eq $o.Kind "deal"}}selected{{end}}>Negocio</option><option value="project" {{if eq $o.Kind "project"}}selected{{end}}>Proyecto</option></select></label>
-          <label class="field grow">Monto<input name="amount" inputmode="decimal" value="{{$o.Amount}}"></label>
-          <label class="field">Moneda<input name="currency" value="{{$o.Currency}}" maxlength="3" size="4"></label></div>
-        <div class="row"><label class="field grow">Probabilidad %<input name="probability" type="number" min="0" max="100" value="{{$o.Probability}}"></label>
-          <label class="field grow">Cierre esperado<input name="expected_close_date" type="date" value="{{$o.ExpectedCloseDate}}"></label></div>
-        <label class="field">Empresa (nombre o dominio)<input name="company" value="{{$d.Company}}"></label>
-        <label class="field">Contacto principal (email)<input name="primary_contact" type="email" value="{{$d.Contact}}"></label>
-        <label class="field">Próximo paso<input name="next_step" value="{{$o.NextStep}}" maxlength="500"></label>
-        <label class="field">Fecha del próximo paso<input name="next_step_at" type="date" value="{{with $o.NextStepAt}}{{.Format "2006-01-02"}}{{end}}"></label>
-        <div class="row"><label class="field grow">Canal de origen<select name="channel"><option value="">—</option>{{$ch := $o.SourceChannelID}}{{range $d.Channels}}<option value="{{.ID}}" {{if and $ch (eq .ID.String $ch.String)}}selected{{end}}>{{.Name}}</option>{{end}}</select></label>
+        <label class="field">{{t "Título"}}<input name="title" value="{{$o.Title}}" required maxlength="200"></label>
+        <div class="row"><label class="field grow">{{t "Tipo"}}<select name="kind"><option value="deal" {{if eq $o.Kind "deal"}}selected{{end}}>{{t "Negocio"}}</option><option value="project" {{if eq $o.Kind "project"}}selected{{end}}>{{t "Proyecto"}}</option></select></label>
+          <label class="field grow">{{t "Monto"}}<input name="amount" inputmode="decimal" value="{{$o.Amount}}"></label>
+          <label class="field">{{t "Moneda"}}<input name="currency" value="{{$o.Currency}}" maxlength="3" size="4"></label></div>
+        <div class="row"><label class="field grow">{{t "Probabilidad %"}}<input name="probability" type="number" min="0" max="100" value="{{$o.Probability}}"></label>
+          <label class="field grow">{{t "Cierre esperado"}}<input name="expected_close_date" type="date" value="{{$o.ExpectedCloseDate}}"></label></div>
+        <label class="field">{{t "Empresa (nombre o dominio)"}}<input name="company" value="{{$d.Company}}"></label>
+        <label class="field">{{t "Contacto principal (email)"}}<input name="primary_contact" type="email" value="{{$d.Contact}}"></label>
+        <label class="field">{{t "Próximo paso"}}<input name="next_step" value="{{$o.NextStep}}" maxlength="500"></label>
+        <label class="field">{{t "Fecha del próximo paso"}}<input name="next_step_at" type="date" value="{{with $o.NextStepAt}}{{.Format "2006-01-02"}}{{end}}"></label>
+        <div class="row"><label class="field grow">{{t "Canal de origen"}}<select name="channel"><option value="">—</option>{{$ch := $o.SourceChannelID}}{{range $d.Channels}}<option value="{{.ID}}" {{if and $ch (eq .ID.String $ch.String)}}selected{{end}}>{{.Name}}</option>{{end}}</select></label>
           <div class="grow">{{template "owner-select" (ownerSel $d.Members $o.OwnerID)}}</div></div>
         {{template "tag-field" (tagField $o.Tags $d.Suggest)}}
-        <label class="field">Descripción<textarea name="description" rows="4" maxlength="5000">{{$o.Description}}</textarea></label>
-        <label class="field">Links (uno por línea: URL | etiqueta)<textarea name="links" rows="3" placeholder="https://drive.google.com/… | Propuesta v2&#10;https://… | Grabación de la reunión">{{range $o.Links}}{{.URL}}{{with .Label}} | {{.}}{{end}}{{"\n"}}{{end}}</textarea></label>
-        <div><button class="btn primary">Guardar</button></div>
+        <label class="field">{{t "Descripción"}}<textarea name="description" rows="4" maxlength="5000">{{$o.Description}}</textarea></label>
+        <label class="field">{{t "Links (uno por línea: URL | etiqueta)"}}<textarea name="links" rows="3" placeholder="{{t "https://drive.google.com/… | Propuesta v2\nhttps://… | Grabación de la reunión"}}">{{range $o.Links}}{{.URL}}{{with .Label}} | {{.}}{{end}}{{"\n"}}{{end}}</textarea></label>
+        <div><button class="btn primary">{{t "Guardar"}}</button></div>
       </form>
       {{else}}
-      <dl class="facts"><dt>Próximo paso</dt><dd>{{or $o.NextStep "—"}}</dd><dt>Cierre</dt><dd>{{or $o.ExpectedCloseDate "—"}}</dd></dl>
+      <dl class="facts"><dt>{{t "Próximo paso"}}</dt><dd>{{or $o.NextStep "—"}}</dd><dt>{{t "Cierre"}}</dt><dd>{{or $o.ExpectedCloseDate "—"}}</dd></dl>
       {{with $o.Description}}<p class="pre">{{.}}</p>{{end}}
       {{end}}
-      <p class="muted small">Creada {{date $o.CreatedAt}} · en esta etapa desde {{date $o.StageEnteredAt}}{{with $o.ExternalID}} · id externo <code>{{.}}</code>{{end}}</p>
+      <p class="muted small">{{t "Creada"}} {{date $o.CreatedAt}} {{t "· en esta etapa desde"}} {{date $o.StageEnteredAt}}{{with $o.ExternalID}} {{t "· id externo"}} <code>{{.}}</code>{{end}}</p>
     </section>
   </div>
 </div>

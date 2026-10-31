@@ -86,6 +86,7 @@ func (s *stack) do(method, path string, form url.Values, hdr ...string) (*http.R
 	if form != nil {
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	}
+	req.Header.Set("Accept-Language", "es-AR,es;q=0.9") // the assertions read Spanish; i18n_test covers the rest
 	for i := 0; i+1 < len(hdr); i += 2 {
 		if hdr[i] == "Host" {
 			req.Host = hdr[i+1]

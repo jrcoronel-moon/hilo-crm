@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/jrcoronel-moon/hilo-crm/internal/i18n"
 	"github.com/jrcoronel-moon/hilo-crm/internal/identity"
 	"github.com/jrcoronel-moon/hilo-crm/internal/secure"
 )
@@ -32,11 +33,11 @@ func (h *Handler) loginPage(w http.ResponseWriter, r *http.Request) {
 	case "not_allowed":
 		msg = identity.ErrNotAllowed.Error()
 	case "unverified":
-		msg = "Tu proveedor no verificó este email. Si usás Microsoft con una cuenta de trabajo, tu organización tiene que verificar el dominio."
+		msg = i18n.M("Tu proveedor no verificó este email. Si usás Microsoft con una cuenta de trabajo, tu organización tiene que verificar el dominio.")
 	case "disabled":
 		msg = identity.ErrDisabled.Error()
 	default:
-		msg = "No pudimos completar el inicio de sesión. Probá de nuevo."
+		msg = i18n.M("No pudimos completar el inicio de sesión. Probá de nuevo.")
 	}
 	d := loginData{Google: h.cfg.GoogleEnabled(), Microsoft: h.cfg.MicrosoftEnabled(), Dev: h.devLoginAllowed(r),
 		ReturnTo: safeReturn(r.URL.Query().Get("return_to"))}
@@ -57,7 +58,7 @@ func (h *Handler) loginPage(w http.ResponseWriter, r *http.Request) {
 			Secure: h.cfg.SecureCookies(), SameSite: http.SameSiteStrictMode})
 	}
 	w.Header().Set("Cache-Control", "no-store")
-	h.render(w, http.StatusOK, "login", page{Title: "Entrar", Error: msg, Data: d})
+	h.render(w, r, http.StatusOK, "login", page{Title: i18n.M("Entrar"), Error: msg, Data: d})
 }
 
 func (h *Handler) authStart(w http.ResponseWriter, r *http.Request) {

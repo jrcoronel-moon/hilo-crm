@@ -1,30 +1,30 @@
-{{define "actions"}}{{if .View.IsAdmin}}<a class="btn" href="#nuevo"><svg class="i sm"><use href="#i-plus"/></svg>Nuevo pipeline</a>{{end}}{{end}}
+{{define "actions"}}{{if .View.IsAdmin}}<a class="btn" href="#nuevo"><svg class="i sm"><use href="#i-plus"/></svg>{{t "Nuevo pipeline"}}</a>{{end}}{{end}}
 {{define "content"}}
 {{$d := .Data}}{{$admin := .View.IsAdmin}}
-<p class="muted">Cada pipeline necesita exactamente 1 etapa <em>inicial</em> y al menos 1 <em>en progreso</em>, 1 <em>ganado</em> y 1 <em>perdido</em>. Arrastrá para reordenar; al eliminar una etapa con oportunidades, elegí a dónde moverlas.</p>
+<p class="muted">{{t "Cada pipeline necesita exactamente 1 etapa inicial, al menos 1 en progreso, 1 ganada y 1 perdida. Arrastrá para reordenar; al eliminar una etapa con oportunidades, elegí a dónde moverlas."}}</p>
 {{range $p := $d.Pipelines}}
 <details class="pipe" {{if $p.IsDefault}}open{{end}}>
-  <summary><svg class="i sm chev"><use href="#i-chevr"/></svg>{{$p.Name}} {{if $p.IsDefault}}<span class="tag teal">por defecto</span>{{end}}<span class="muted small">{{len $p.Stages}} etapas</span></summary>
+  <summary><svg class="i sm chev"><use href="#i-chevr"/></svg>{{$p.Name}} {{if $p.IsDefault}}<span class="tag teal">{{t "por defecto"}}</span>{{end}}<span class="muted small">{{len $p.Stages}} {{t "etapas"}}</span></summary>
   <div class="inner">
   {{if $admin}}
   <form method="post" action="/settings/pipeline" class="stack" data-pipeline>
     <input type="hidden" name="csrf" value="{{$d.CSRF}}"><input type="hidden" name="id" value="{{$p.ID}}">
-    <div class="row"><label class="field grow">Nombre<input name="name" value="{{$p.Name}}" required maxlength="100"></label>
-      <label class="field">Objetivo mensual<input name="monthly_target" inputmode="decimal" value="{{if $p.MonthlyTarget}}{{$p.MonthlyTarget}}{{end}}" placeholder="sin objetivo" size="12"></label>
-      <label class="field">Moneda<input name="target_currency" value="{{or $p.TargetCurrency "USD"}}" maxlength="3" size="4"></label>
-      <label class="check"><input type="checkbox" name="is_default" value="1" {{if $p.IsDefault}}checked{{end}}> Pipeline por defecto</label></div>
-    <div class="stage-head"><span></span><span></span><span>Etapa</span><span>Categoría</span><span>Prob. %</span><span>Si se elimina, mover a</span><span></span></div>
+    <div class="row"><label class="field grow">{{t "Nombre"}}<input name="name" value="{{$p.Name}}" required maxlength="100"></label>
+      <label class="field">{{t "Objetivo mensual"}}<input name="monthly_target" inputmode="decimal" value="{{if $p.MonthlyTarget}}{{$p.MonthlyTarget}}{{end}}" placeholder="{{t "sin objetivo"}}" size="12"></label>
+      <label class="field">{{t "Moneda"}}<input name="target_currency" value="{{or $p.TargetCurrency "USD"}}" maxlength="3" size="4"></label>
+      <label class="check"><input type="checkbox" name="is_default" value="1" {{if $p.IsDefault}}checked{{end}}> {{t "Pipeline por defecto"}}</label></div>
+    <div class="stage-head"><span></span><span></span><span>{{t "Etapa"}}</span><span>{{t "Categoría"}}</span><span>{{t "Prob. %"}}</span><span>{{t "Si se elimina, mover a"}}</span><span></span></div>
     <div class="stage-list" data-stages>
       {{range $p.Stages}}
       <div class="stage-row" draggable="true" data-stage-row>
-        <span class="grip" title="Arrastrar para reordenar"><svg class="i sm"><use href="#i-grip"/></svg></span>
+        <span class="grip" title="{{t "Arrastrar para reordenar"}}"><svg class="i sm"><use href="#i-grip"/></svg></span>
         <span class="dot {{stageClass .Category .Position}}"></span>
         <input type="hidden" name="stage_id" value="{{.ID}}">
-        <input type="text" name="stage_name" value="{{.Name}}" maxlength="100" aria-label="Etapa" data-original="{{.Name}}">
-        <select name="stage_category" aria-label="Categoría">{{$c := .Category}}{{range $d.Categories}}<option value="{{.}}" {{if eq . $c}}selected{{end}}>{{catLabel .}}</option>{{end}}</select>
-        <input type="number" name="stage_probability" value="{{.Probability}}" min="0" max="100" aria-label="Probabilidad">
-        <select name="reassign_{{.ID}}" aria-label="Si se elimina, mover a"><option value="">—</option>{{$self := .ID}}{{range $p.Stages}}{{if ne .ID $self}}<option value="{{.Name}}">{{.Name}}</option>{{end}}{{end}}</select>
-        <button type="button" class="del" data-remove-stage title="Eliminar etapa" aria-label="Eliminar etapa"><svg class="i sm"><use href="#i-trash"/></svg></button>
+        <input type="text" name="stage_name" value="{{.Name}}" maxlength="100" aria-label="{{t "Etapa"}}" data-original="{{.Name}}">
+        <select name="stage_category" aria-label="{{t "Categoría"}}">{{$c := .Category}}{{range $d.Categories}}<option value="{{.}}" {{if eq . $c}}selected{{end}}>{{catLabel .}}</option>{{end}}</select>
+        <input type="number" name="stage_probability" value="{{.Probability}}" min="0" max="100" aria-label="{{t "Probabilidad"}}">
+        <select name="reassign_{{.ID}}" aria-label="{{t "Si se elimina, mover a"}}"><option value="">—</option>{{$self := .ID}}{{range $p.Stages}}{{if ne .ID $self}}<option value="{{.Name}}">{{.Name}}</option>{{end}}{{end}}</select>
+        <button type="button" class="del" data-remove-stage title="{{t "Eliminar etapa"}}" aria-label="{{t "Eliminar etapa"}}"><svg class="i sm"><use href="#i-trash"/></svg></button>
       </div>
       {{end}}
     </div>
@@ -32,18 +32,18 @@
       <div class="stage-row" draggable="true" data-stage-row>
         <span class="grip"><svg class="i sm"><use href="#i-grip"/></svg></span><span class="dot c-p1"></span>
         <input type="hidden" name="stage_id" value="">
-        <input type="text" name="stage_name" maxlength="100" placeholder="Nueva etapa" aria-label="Etapa">
-        <select name="stage_category" aria-label="Categoría">{{range $d.Categories}}<option value="{{.}}" {{if eq . "in_progress"}}selected{{end}}>{{catLabel .}}</option>{{end}}</select>
-        <input type="number" name="stage_probability" min="0" max="100" aria-label="Probabilidad"><span></span>
-        <button type="button" class="del" data-remove-stage aria-label="Quitar"><svg class="i sm"><use href="#i-trash"/></svg></button>
+        <input type="text" name="stage_name" maxlength="100" placeholder="{{t "Nueva etapa"}}" aria-label="{{t "Etapa"}}">
+        <select name="stage_category" aria-label="{{t "Categoría"}}">{{range $d.Categories}}<option value="{{.}}" {{if eq . "in_progress"}}selected{{end}}>{{catLabel .}}</option>{{end}}</select>
+        <input type="number" name="stage_probability" min="0" max="100" aria-label="{{t "Probabilidad"}}"><span></span>
+        <button type="button" class="del" data-remove-stage aria-label="{{t "Quitar"}}"><svg class="i sm"><use href="#i-trash"/></svg></button>
       </div>
     </template>
-    <div><button type="button" class="btn sm" data-add-stage><svg class="i sm"><use href="#i-plus"/></svg>Agregar etapa</button></div>
-    <div class="row"><button class="btn primary">Guardar pipeline</button><a class="btn" href="/settings/pipelines">Descartar cambios</a>
+    <div><button type="button" class="btn sm" data-add-stage><svg class="i sm"><use href="#i-plus"/></svg>{{t "Agregar etapa"}}</button></div>
+    <div class="row"><button class="btn primary">{{t "Guardar pipeline"}}</button><a class="btn" href="/settings/pipelines">{{t "Descartar cambios"}}</a>
       <span class="grow"></span>
-      {{if not $p.IsDefault}}<button class="btn ghost danger" form="archive-{{$p.ID}}">Archivar pipeline</button>{{end}}</div>
+      {{if not $p.IsDefault}}<button class="btn ghost danger" form="archive-{{$p.ID}}">{{t "Archivar pipeline"}}</button>{{end}}</div>
   </form>
-  {{if not $p.IsDefault}}<form id="archive-{{$p.ID}}" method="post" action="/settings/pipeline-archive" data-confirm="¿Archivar {{$p.Name}}?|Deja de aparecer en el funnel y en las métricas. Los datos se conservan."><input type="hidden" name="csrf" value="{{$d.CSRF}}"><input type="hidden" name="id" value="{{$p.ID}}"></form>{{end}}
+  {{if not $p.IsDefault}}<form id="archive-{{$p.ID}}" method="post" action="/settings/pipeline-archive" data-confirm="{{t "¿Archivar %s?|Deja de aparecer en el funnel y en las métricas. Los datos se conservan." $p.Name}}"><input type="hidden" name="csrf" value="{{$d.CSRF}}"><input type="hidden" name="id" value="{{$p.ID}}"></form>{{end}}
   {{else}}
   <div class="stage-list">{{range $p.Stages}}<div class="row"><span class="dot {{stageClass .Category .Position}}"></span>{{.Name}} <span class="tag">{{catLabel .Category}}</span><span class="muted small">{{.Probability}}%</span></div>{{end}}</div>
   {{end}}
@@ -52,22 +52,22 @@
 {{end}}
 {{if $admin}}
 <details class="pipe" id="nuevo">
-  <summary><svg class="i sm chev"><use href="#i-chevr"/></svg>Nuevo pipeline</summary>
+  <summary><svg class="i sm chev"><use href="#i-chevr"/></svg>{{t "Nuevo pipeline"}}</summary>
   <div class="inner">
   <form method="post" action="/settings/pipeline" class="stack" data-pipeline>
     <input type="hidden" name="csrf" value="{{$d.CSRF}}">
-    <label class="field">Nombre<input name="name" required maxlength="100" placeholder="Postventa"></label>
+    <label class="field">{{t "Nombre"}}<input name="name" required maxlength="100" placeholder="{{t "Postventa"}}"></label>
     <div class="stage-list" data-stages>
-      <div class="stage-row" draggable="true" data-stage-row><span class="grip"><svg class="i sm"><use href="#i-grip"/></svg></span><span class="dot c-initial"></span><input type="hidden" name="stage_id"><input type="text" name="stage_name" value="Nuevo" aria-label="Etapa"><select name="stage_category">{{range $d.Categories}}<option value="{{.}}" {{if eq . "initial"}}selected{{end}}>{{catLabel .}}</option>{{end}}</select><input type="number" name="stage_probability" value="10" min="0" max="100"><span></span><button type="button" class="del" data-remove-stage aria-label="Quitar"><svg class="i sm"><use href="#i-trash"/></svg></button></div>
-      <div class="stage-row" draggable="true" data-stage-row><span class="grip"><svg class="i sm"><use href="#i-grip"/></svg></span><span class="dot c-p1"></span><input type="hidden" name="stage_id"><input type="text" name="stage_name" value="En curso" aria-label="Etapa"><select name="stage_category">{{range $d.Categories}}<option value="{{.}}" {{if eq . "in_progress"}}selected{{end}}>{{catLabel .}}</option>{{end}}</select><input type="number" name="stage_probability" value="50" min="0" max="100"><span></span><button type="button" class="del" data-remove-stage aria-label="Quitar"><svg class="i sm"><use href="#i-trash"/></svg></button></div>
-      <div class="stage-row" draggable="true" data-stage-row><span class="grip"><svg class="i sm"><use href="#i-grip"/></svg></span><span class="dot c-won"></span><input type="hidden" name="stage_id"><input type="text" name="stage_name" value="Ganado" aria-label="Etapa"><select name="stage_category">{{range $d.Categories}}<option value="{{.}}" {{if eq . "won"}}selected{{end}}>{{catLabel .}}</option>{{end}}</select><input type="number" name="stage_probability" value="100" min="0" max="100"><span></span><button type="button" class="del" data-remove-stage aria-label="Quitar"><svg class="i sm"><use href="#i-trash"/></svg></button></div>
-      <div class="stage-row" draggable="true" data-stage-row><span class="grip"><svg class="i sm"><use href="#i-grip"/></svg></span><span class="dot c-lost"></span><input type="hidden" name="stage_id"><input type="text" name="stage_name" value="Perdido" aria-label="Etapa"><select name="stage_category">{{range $d.Categories}}<option value="{{.}}" {{if eq . "lost"}}selected{{end}}>{{catLabel .}}</option>{{end}}</select><input type="number" name="stage_probability" value="0" min="0" max="100"><span></span><button type="button" class="del" data-remove-stage aria-label="Quitar"><svg class="i sm"><use href="#i-trash"/></svg></button></div>
+      <div class="stage-row" draggable="true" data-stage-row><span class="grip"><svg class="i sm"><use href="#i-grip"/></svg></span><span class="dot c-initial"></span><input type="hidden" name="stage_id"><input type="text" name="stage_name" value="Nuevo" aria-label="{{t "Etapa"}}"><select name="stage_category">{{range $d.Categories}}<option value="{{.}}" {{if eq . "initial"}}selected{{end}}>{{catLabel .}}</option>{{end}}</select><input type="number" name="stage_probability" value="10" min="0" max="100"><span></span><button type="button" class="del" data-remove-stage aria-label="{{t "Quitar"}}"><svg class="i sm"><use href="#i-trash"/></svg></button></div>
+      <div class="stage-row" draggable="true" data-stage-row><span class="grip"><svg class="i sm"><use href="#i-grip"/></svg></span><span class="dot c-p1"></span><input type="hidden" name="stage_id"><input type="text" name="stage_name" value="En curso" aria-label="{{t "Etapa"}}"><select name="stage_category">{{range $d.Categories}}<option value="{{.}}" {{if eq . "in_progress"}}selected{{end}}>{{catLabel .}}</option>{{end}}</select><input type="number" name="stage_probability" value="50" min="0" max="100"><span></span><button type="button" class="del" data-remove-stage aria-label="{{t "Quitar"}}"><svg class="i sm"><use href="#i-trash"/></svg></button></div>
+      <div class="stage-row" draggable="true" data-stage-row><span class="grip"><svg class="i sm"><use href="#i-grip"/></svg></span><span class="dot c-won"></span><input type="hidden" name="stage_id"><input type="text" name="stage_name" value="Ganado" aria-label="{{t "Etapa"}}"><select name="stage_category">{{range $d.Categories}}<option value="{{.}}" {{if eq . "won"}}selected{{end}}>{{catLabel .}}</option>{{end}}</select><input type="number" name="stage_probability" value="100" min="0" max="100"><span></span><button type="button" class="del" data-remove-stage aria-label="{{t "Quitar"}}"><svg class="i sm"><use href="#i-trash"/></svg></button></div>
+      <div class="stage-row" draggable="true" data-stage-row><span class="grip"><svg class="i sm"><use href="#i-grip"/></svg></span><span class="dot c-lost"></span><input type="hidden" name="stage_id"><input type="text" name="stage_name" value="Perdido" aria-label="{{t "Etapa"}}"><select name="stage_category">{{range $d.Categories}}<option value="{{.}}" {{if eq . "lost"}}selected{{end}}>{{catLabel .}}</option>{{end}}</select><input type="number" name="stage_probability" value="0" min="0" max="100"><span></span><button type="button" class="del" data-remove-stage aria-label="{{t "Quitar"}}"><svg class="i sm"><use href="#i-trash"/></svg></button></div>
     </div>
     <template data-new-stage>
-      <div class="stage-row" draggable="true" data-stage-row><span class="grip"><svg class="i sm"><use href="#i-grip"/></svg></span><span class="dot c-p1"></span><input type="hidden" name="stage_id" value=""><input type="text" name="stage_name" maxlength="100" placeholder="Nueva etapa" aria-label="Etapa"><select name="stage_category">{{range $d.Categories}}<option value="{{.}}" {{if eq . "in_progress"}}selected{{end}}>{{catLabel .}}</option>{{end}}</select><input type="number" name="stage_probability" min="0" max="100"><span></span><button type="button" class="del" data-remove-stage aria-label="Quitar"><svg class="i sm"><use href="#i-trash"/></svg></button></div>
+      <div class="stage-row" draggable="true" data-stage-row><span class="grip"><svg class="i sm"><use href="#i-grip"/></svg></span><span class="dot c-p1"></span><input type="hidden" name="stage_id" value=""><input type="text" name="stage_name" maxlength="100" placeholder="{{t "Nueva etapa"}}" aria-label="{{t "Etapa"}}"><select name="stage_category">{{range $d.Categories}}<option value="{{.}}" {{if eq . "in_progress"}}selected{{end}}>{{catLabel .}}</option>{{end}}</select><input type="number" name="stage_probability" min="0" max="100"><span></span><button type="button" class="del" data-remove-stage aria-label="{{t "Quitar"}}"><svg class="i sm"><use href="#i-trash"/></svg></button></div>
     </template>
-    <div><button type="button" class="btn sm" data-add-stage><svg class="i sm"><use href="#i-plus"/></svg>Agregar etapa</button></div>
-    <div><button class="btn primary">Crear pipeline</button></div>
+    <div><button type="button" class="btn sm" data-add-stage><svg class="i sm"><use href="#i-plus"/></svg>{{t "Agregar etapa"}}</button></div>
+    <div><button class="btn primary">{{t "Crear pipeline"}}</button></div>
   </form>
   </div>
 </details>

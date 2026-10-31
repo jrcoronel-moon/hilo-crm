@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es">
+<html lang="{{.Lang}}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,6 +7,7 @@
 <link rel="icon" href="{{.Brand.LogoURL}}">
 <link rel="preload" href="/static/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="{{asset "app.css"}}">
+<script type="application/json" id="i18n">{{.JSi18n}}</script>
 <script src="{{asset "app.js"}}" defer></script>
 </head>
 <body>
@@ -45,37 +46,39 @@
   <symbol id="i-key" viewBox="0 0 24 24"><path d="M20 8.5a4.5 4.5 0 0 1-6 4.2L8 19H5v-3l6.3-6A4.5 4.5 0 1 1 20 8.5z"/></symbol>
   <symbol id="i-pulse" viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></symbol>
   <symbol id="i-sidebar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M14 10l-2 2 2 2"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol>
   <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
   <symbol id="i-out" viewBox="0 0 24 24"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></symbol>
 </svg>
 {{if and .View .View.Current (not .Bare)}}
 <div class="shell {{.View.Side}}" data-shell>
   <aside class="side">
-    <div class="brand-row"><button type="button" class="btn ghost sm menu-btn" data-menu aria-controls="side-menu" aria-expanded="false" aria-label="Abrir el menú"><svg class="i"><use href="#i-menu"/></svg></button><a class="brand" href="/board"><img src="{{.Brand.LogoURL}}" alt=""><span>{{.Brand.Name}}</span></a>
-      <button type="button" class="btn ghost sm collapse-btn" data-collapse title="Plegar / desplegar menú" aria-label="Plegar o desplegar el menú"><svg class="i sm"><use href="#i-sidebar"/></svg></button></div>
+    <div class="brand-row"><button type="button" class="btn ghost sm menu-btn" data-menu aria-controls="side-menu" aria-expanded="false" aria-label="{{t "Abrir el menú"}}"><svg class="i"><use href="#i-menu"/></svg></button><a class="brand" href="/board"><img src="{{.Brand.LogoURL}}" alt=""><span>{{.Brand.Name}}</span></a>
+      <button type="button" class="btn ghost sm collapse-btn" data-collapse title="{{t "Plegar / desplegar menú"}}" aria-label="{{t "Plegar o desplegar el menú"}}"><svg class="i sm"><use href="#i-sidebar"/></svg></button></div>
     <div class="side-menu" id="side-menu">
     <nav class="nav">
-      <a href="/board" {{if eq .Nav "board"}}aria-current="page"{{end}} title="Funnel"><svg class="i"><use href="#i-funnel"/></svg><span>Funnel</span></a>
-      <a href="/dashboard" {{if eq .Nav "dashboard"}}aria-current="page"{{end}} title="Dashboard"><svg class="i"><use href="#i-dash"/></svg><span>Dashboard</span></a>
-      <div class="nav-label">Datos</div>
-      <a href="/companies" {{if eq .Nav "companies"}}aria-current="page"{{end}} title="Empresas"><svg class="i"><use href="#i-building"/></svg><span>Empresas</span></a>
-      <a href="/contacts" {{if eq .Nav "contacts"}}aria-current="page"{{end}} title="Contactos"><svg class="i"><use href="#i-users"/></svg><span>Contactos</span></a>
+      <a href="/board" {{if eq .Nav "board"}}aria-current="page"{{end}} title="{{t "Funnel"}}"><svg class="i"><use href="#i-funnel"/></svg><span>{{t "Funnel"}}</span></a>
+      <a href="/dashboard" {{if eq .Nav "dashboard"}}aria-current="page"{{end}} title="{{t "Dashboard"}}"><svg class="i"><use href="#i-dash"/></svg><span>{{t "Dashboard"}}</span></a>
+      <div class="nav-label">{{t "Datos"}}</div>
+      <a href="/companies" {{if eq .Nav "companies"}}aria-current="page"{{end}} title="{{t "Empresas"}}"><svg class="i"><use href="#i-building"/></svg><span>{{t "Empresas"}}</span></a>
+      <a href="/contacts" {{if eq .Nav "contacts"}}aria-current="page"{{end}} title="{{t "Contactos"}}"><svg class="i"><use href="#i-users"/></svg><span>{{t "Contactos"}}</span></a>
       {{template "nav-data" .}}
-      <div class="nav-label">Configuración</div>
-      <a href="/settings/agents" {{if eq .Nav "agents"}}aria-current="page"{{end}} title="Agentes (MCP)"><svg class="i"><use href="#i-plug"/></svg><span>Agentes (MCP)</span></a>
-      <a href="/settings/pipelines" {{if eq .Nav "pipelines"}}aria-current="page"{{end}} title="Pipelines"><svg class="i"><use href="#i-branch"/></svg><span>Pipelines</span></a>
-      <a href="/settings/channels" {{if eq .Nav "channels"}}aria-current="page"{{end}} title="Canales"><svg class="i"><use href="#i-radio"/></svg><span>Canales</span></a>
-      {{if .View.IsAdmin}}<a href="/settings/forms" {{if eq .Nav "forms"}}aria-current="page"{{end}} title="Formularios"><svg class="i"><use href="#i-file"/></svg><span>Formularios</span></a>
-      <a href="/settings/import" {{if eq .Nav "import"}}aria-current="page"{{end}} title="Importar"><svg class="i"><use href="#i-download"/></svg><span>Importar</span></a>{{end}}
-      <a href="/settings/members" {{if eq .Nav "members"}}aria-current="page"{{end}} title="Miembros"><svg class="i"><use href="#i-useradd"/></svg><span>Miembros</span></a>
-      {{if .View.IsAdmin}}<a href="/settings/audit" {{if eq .Nav "audit"}}aria-current="page"{{end}} title="Auditoría"><svg class="i"><use href="#i-shield"/></svg><span>Auditoría</span></a>{{end}}
-      {{if .View.Sess.IsSuperadmin}}<a href="/admin" {{if eq .Nav "admin"}}aria-current="page"{{end}} title="Superadmin"><svg class="i"><use href="#i-star"/></svg><span>Superadmin</span></a>{{end}}
+      <div class="nav-label">{{t "Configuración"}}</div>
+      <a href="/settings/agents" {{if eq .Nav "agents"}}aria-current="page"{{end}} title="{{t "Agentes (MCP)"}}"><svg class="i"><use href="#i-plug"/></svg><span>{{t "Agentes (MCP)"}}</span></a>
+      <a href="/settings/pipelines" {{if eq .Nav "pipelines"}}aria-current="page"{{end}} title="{{t "Pipelines"}}"><svg class="i"><use href="#i-branch"/></svg><span>{{t "Pipelines"}}</span></a>
+      <a href="/settings/channels" {{if eq .Nav "channels"}}aria-current="page"{{end}} title="{{t "Canales"}}"><svg class="i"><use href="#i-radio"/></svg><span>{{t "Canales"}}</span></a>
+      {{if .View.IsAdmin}}<a href="/settings/forms" {{if eq .Nav "forms"}}aria-current="page"{{end}} title="{{t "Formularios"}}"><svg class="i"><use href="#i-file"/></svg><span>{{t "Formularios"}}</span></a>
+      <a href="/settings/import" {{if eq .Nav "import"}}aria-current="page"{{end}} title="{{t "Importar"}}"><svg class="i"><use href="#i-download"/></svg><span>{{t "Importar"}}</span></a>{{end}}
+      <a href="/settings/members" {{if eq .Nav "members"}}aria-current="page"{{end}} title="{{t "Miembros"}}"><svg class="i"><use href="#i-useradd"/></svg><span>{{t "Miembros"}}</span></a>
+      {{if .View.IsAdmin}}<a href="/settings/audit" {{if eq .Nav "audit"}}aria-current="page"{{end}} title="{{t "Auditoría"}}"><svg class="i"><use href="#i-shield"/></svg><span>{{t "Auditoría"}}</span></a>{{end}}
+      {{if .View.Sess.IsSuperadmin}}<a href="/admin" {{if eq .Nav "admin"}}aria-current="page"{{end}} title="{{t "Superadmin"}}"><svg class="i"><use href="#i-star"/></svg><span>{{t "Superadmin"}}</span></a>{{end}}
     </nav>
     <div class="side-foot">
+      {{template "lang-select" .}}
       {{if ne .Nav "agents"}}
       <div class="agent-box">
-        <span>{{.View.AgentCount}} {{if eq .View.AgentCount 1}}agente conectado{{else}}agentes conectados{{end}} · {{.View.TokenCount}} {{if eq .View.TokenCount 1}}token activo{{else}}tokens activos{{end}}</span>
-        <a class="btn sm block" href="/settings/agents">Conectar agente</a>
+        <span>{{.View.AgentCount}} {{if eq .View.AgentCount 1}}{{t "agente conectado"}}{{else}}{{t "agentes conectados"}}{{end}} · {{.View.TokenCount}} {{if eq .View.TokenCount 1}}{{t "token activo"}}{{else}}{{t "tokens activos"}}{{end}}</span>
+        <a class="btn sm block" href="/settings/agents">{{t "Conectar agente"}}</a>
       </div>
       {{end}}
       <div class="me">
@@ -85,15 +88,15 @@
           {{if gt (len .View.Workspaces) 1}}
           <form method="post" action="/workspaces/switch">
             <input type="hidden" name="csrf" value="{{.View.Sess.CSRFToken}}">
-            <select name="workspace" data-autosubmit aria-label="Workspace">{{range .View.Workspaces}}<option value="{{.ID}}" {{if eq .ID $.View.Current.ID}}selected{{end}}>{{.Name}} · {{roleLabel .Role}}</option>{{end}}</select>
+            <select name="workspace" data-autosubmit aria-label="{{t "Workspace"}}">{{range .View.Workspaces}}<option value="{{.ID}}" {{if eq .ID $.View.Current.ID}}selected{{end}}>{{.Name}} · {{roleLabel .Role}}</option>{{end}}</select>
           </form>
           {{else}}<small>{{.View.Current.Name}} · {{roleLabel .View.Current.Role}}</small>{{end}}
         </div>
-        <form method="post" action="/logout"><input type="hidden" name="csrf" value="{{.View.Sess.CSRFToken}}"><button class="btn ghost sm" title="Salir" aria-label="Salir"><svg class="i sm"><use href="#i-out"/></svg></button></form>
+        <form method="post" action="/logout"><input type="hidden" name="csrf" value="{{.View.Sess.CSRFToken}}"><button class="btn ghost sm" title="{{t "Salir"}}" aria-label="{{t "Salir"}}"><svg class="i sm"><use href="#i-out"/></svg></button></form>
       </div>
     </div>
     </div>
-    <div class="resizer" data-resizer title="Arrastrá para cambiar el ancho · doble clic para restablecer" aria-hidden="true"></div>
+    <div class="resizer" data-resizer title="{{t "Arrastrá para cambiar el ancho · doble clic para restablecer"}}" aria-hidden="true"></div>
   </aside>
   <main class="main">
     <header class="head">
@@ -110,7 +113,7 @@
 {{else}}
 {{block "bare" .}}
 <div class="center">
-  <div class="top"><span class="brand"><img src="{{.Brand.LogoURL}}" alt=""> {{.Brand.Name}}</span>{{with .View}}<span>{{.Sess.Email}}</span>{{end}}</div>
+  <div class="top"><span class="brand"><img src="{{.Brand.LogoURL}}" alt=""> {{.Brand.Name}}</span><span class="row">{{with .View}}<span>{{.Sess.Email}}</span>{{end}}{{template "lang-select" .}}</span></div>
   <div class="box card">
     <h1>{{.Title}}</h1>
     {{if .Error}}<div class="notice err" role="alert"><svg class="i sm"><use href="#i-alert"/></svg>{{.Error}}</div>{{end}}
@@ -123,9 +126,9 @@
 <dialog id="confirm"><div class="dlg">
   <span class="ic"><svg class="i"><use href="#i-alert"/></svg></span>
   <div><h2 data-title></h2><p data-body></p></div>
-  <div class="acts"><button type="button" class="btn" data-dlg="cancel">Cancelar</button><button type="button" class="btn danger solid" data-dlg="ok">Confirmar</button></div>
+  <div class="acts"><button type="button" class="btn" data-dlg="cancel">{{t "Cancelar"}}</button><button type="button" class="btn danger solid" data-dlg="ok">{{t "Confirmar"}}</button></div>
 </div></dialog>
 </body>
 </html>
 {{define "nav-data"}}{{template "nav-data-live" .}}{{end}}
-{{define "nav-data-live"}}<a href="/opportunities" {{if eq .Nav "opportunities"}}aria-current="page"{{end}} title="Oportunidades"><svg class="i"><use href="#i-brief"/></svg><span>Oportunidades</span></a><a href="/interactions" {{if eq .Nav "interactions"}}aria-current="page"{{end}} title="Interacciones"><svg class="i"><use href="#i-msg"/></svg><span>Interacciones</span></a>{{end}}
+{{define "nav-data-live"}}<a href="/opportunities" {{if eq .Nav "opportunities"}}aria-current="page"{{end}} title="{{t "Oportunidades"}}"><svg class="i"><use href="#i-brief"/></svg><span>{{t "Oportunidades"}}</span></a><a href="/interactions" {{if eq .Nav "interactions"}}aria-current="page"{{end}} title="{{t "Interacciones"}}"><svg class="i"><use href="#i-msg"/></svg><span>{{t "Interacciones"}}</span></a>{{end}}

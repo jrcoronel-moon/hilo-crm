@@ -1,42 +1,42 @@
 {{define "content"}}
 {{$d := .Data}}{{$admin := .View.IsAdmin}}{{$me := .View.Sess.UserID}}
 <section class="card">
-  <div class="card-head"><h2>Miembros</h2><span class="aside">{{len $d.Members}}</span></div>
+  <div class="card-head"><h2>{{t "Miembros"}}</h2><span class="aside">{{len $d.Members}}</span></div>
   <table class="table">
-    <tr><th>Persona</th><th>Rol</th><th></th></tr>
+    <tr><th>{{t "Persona"}}</th><th>{{t "Rol"}}</th><th></th></tr>
     {{range $d.Members}}
     <tr><td><div class="cellflex"><span class="av md">{{initials .Name .Email}}</span><div class="who"><b>{{or .Name .Email}}</b><small>{{.Email}}</small></div></div></td>
-      <td>{{if $admin}}<form method="post" action="/settings/role"><input type="hidden" name="csrf" value="{{$d.CSRF}}"><input type="hidden" name="user" value="{{.ID}}">{{$r := .Role}}<select name="role" data-autosubmit aria-label="Rol"><option value="owner" {{if eq $r "owner"}}selected{{end}}>Propietario</option><option value="admin" {{if eq $r "admin"}}selected{{end}}>Admin</option><option value="member" {{if eq $r "member"}}selected{{end}}>Miembro</option><option value="viewer" {{if eq $r "viewer"}}selected{{end}}>Lector</option></select></form>{{else}}<span class="tag outline">{{roleLabel .Role}}</span>{{end}}</td>
-      <td class="num">{{if or $admin (eq .ID $me)}}<form method="post" action="/settings/remove" data-confirm="{{if eq .ID $me}}¿Salir del workspace?|Perdés el acceso y tus agentes y tokens dejan de funcionar aquí.{{else}}¿Quitar a {{.Email}}?|Pierde el acceso y sus agentes y tokens dejan de funcionar de inmediato.{{end}}"><input type="hidden" name="csrf" value="{{$d.CSRF}}"><input type="hidden" name="user" value="{{.ID}}"><button class="link danger">{{if eq .ID $me}}Salir del workspace{{else}}Quitar{{end}}</button></form>{{end}}</td></tr>
+      <td>{{if $admin}}<form method="post" action="/settings/role"><input type="hidden" name="csrf" value="{{$d.CSRF}}"><input type="hidden" name="user" value="{{.ID}}">{{$r := .Role}}<select name="role" data-autosubmit aria-label="{{t "Rol"}}"><option value="owner" {{if eq $r "owner"}}selected{{end}}>{{t "Propietario"}}</option><option value="admin" {{if eq $r "admin"}}selected{{end}}>{{t "Admin"}}</option><option value="member" {{if eq $r "member"}}selected{{end}}>{{t "Miembro"}}</option><option value="viewer" {{if eq $r "viewer"}}selected{{end}}>{{t "Lector"}}</option></select></form>{{else}}<span class="tag outline">{{roleLabel .Role}}</span>{{end}}</td>
+      <td class="num">{{if or $admin (eq .ID $me)}}<form method="post" action="/settings/remove" data-confirm="{{if eq .ID $me}}{{t "¿Salir del workspace?|Perdés el acceso y tus agentes y tokens dejan de funcionar aquí."}}{{else}}{{t "¿Quitar a %s?|Pierde el acceso y sus agentes y tokens dejan de funcionar de inmediato." .Email}}{{end}}"><input type="hidden" name="csrf" value="{{$d.CSRF}}"><input type="hidden" name="user" value="{{.ID}}"><button class="link danger">{{if eq .ID $me}}{{t "Salir del workspace"}}{{else}}{{t "Quitar"}}{{end}}</button></form>{{end}}</td></tr>
     {{end}}
   </table>
 </section>
 {{if $admin}}
 <section class="card">
-  <h2>Invitar</h2>
+  <h2>{{t "Invitar"}}</h2>
   <form method="post" action="/settings/invite" class="row">
     <input type="hidden" name="csrf" value="{{$d.CSRF}}">
-    <input type="email" name="email" placeholder="persona@empresa.com" required class="grow" aria-label="Email">
-    <select name="role" aria-label="Rol"><option value="member">Miembro</option><option value="viewer">Lector</option><option value="admin">Admin</option></select>
-    <button class="btn primary">Invitar</button>
+    <input type="email" name="email" placeholder="{{t "persona@empresa.com"}}" required class="grow" aria-label="{{t "Email"}}">
+    <select name="role" aria-label="{{t "Rol"}}"><option value="member">{{t "Miembro"}}</option><option value="viewer">{{t "Lector"}}</option><option value="admin">{{t "Admin"}}</option></select>
+    <button class="btn primary">{{t "Invitar"}}</button>
   </form>
   {{if $d.Invitations}}
   <table class="table">
-    <tr><th>Invitación pendiente</th><th>Rol</th><th>Vence</th><th></th></tr>
+    <tr><th>{{t "Invitación pendiente"}}</th><th>{{t "Rol"}}</th><th>{{t "Vence"}}</th><th></th></tr>
     {{range $d.Invitations}}<tr><td>{{.Email}}</td><td><span class="tag outline">{{roleLabel .Role}}</span></td><td>{{date .ExpiresAt}}</td>
-      <td class="num"><form method="post" action="/settings/invitation-revoke" data-confirm="¿Cancelar la invitación a {{.Email}}?|Ya no va a poder entrar con esta invitación."><input type="hidden" name="csrf" value="{{$d.CSRF}}"><input type="hidden" name="id" value="{{.ID}}"><button class="link danger">Cancelar</button></form></td></tr>{{end}}
+      <td class="num"><form method="post" action="/settings/invitation-revoke" data-confirm="{{t "¿Cancelar la invitación a %s?|Ya no va a poder entrar con esta invitación." .Email}}"><input type="hidden" name="csrf" value="{{$d.CSRF}}"><input type="hidden" name="id" value="{{.ID}}"><button class="link danger">{{t "Cancelar"}}</button></form></td></tr>{{end}}
   </table>
   {{end}}
 </section>
 <section class="card">
-  <div><h2>Unión automática por dominio</h2><p class="muted small">Quien inicie sesión con un email verificado de estos dominios entra con el rol indicado (el dominio también tiene que estar habilitado por un superadmin).</p></div>
+  <div><h2>{{t "Unión automática por dominio"}}</h2><p class="muted small">{{t "Quien inicie sesión con un email verificado de estos dominios entra con el rol indicado (el dominio también tiene que estar habilitado por un superadmin)."}}</p></div>
   {{if $d.Domains}}<div class="row">{{range $d.Domains}}<span class="chip"><code>{{.Domain}}</code> → {{roleLabel .DefaultRole}}
-    <form method="post" action="/settings/domain-remove" class="inline" data-confirm="¿Quitar {{.Domain}}?|Las personas de ese dominio dejan de unirse solas."><input type="hidden" name="csrf" value="{{$d.CSRF}}"><input type="hidden" name="domain" value="{{.Domain}}"><button class="link" aria-label="Quitar"><svg class="i sm"><use href="#i-x"/></svg></button></form></span>{{end}}</div>{{end}}
+    <form method="post" action="/settings/domain-remove" class="inline" data-confirm="{{t "¿Quitar %s?|Las personas de ese dominio dejan de unirse solas." .Domain}}"><input type="hidden" name="csrf" value="{{$d.CSRF}}"><input type="hidden" name="domain" value="{{.Domain}}"><button class="link" aria-label="{{t "Quitar"}}"><svg class="i sm"><use href="#i-x"/></svg></button></form></span>{{end}}</div>{{end}}
   <form method="post" action="/settings/domain" class="row">
     <input type="hidden" name="csrf" value="{{$d.CSRF}}">
-    <input name="domain" placeholder="empresa.com" required class="grow" aria-label="Dominio">
-    <select name="role" aria-label="Rol"><option value="member">Miembro</option><option value="viewer">Lector</option><option value="admin">Admin</option></select>
-    <button class="btn strong">Agregar dominio</button>
+    <input name="domain" placeholder="{{t "empresa.com"}}" required class="grow" aria-label="{{t "Dominio"}}">
+    <select name="role" aria-label="{{t "Rol"}}"><option value="member">{{t "Miembro"}}</option><option value="viewer">{{t "Lector"}}</option><option value="admin">{{t "Admin"}}</option></select>
+    <button class="btn strong">{{t "Agregar dominio"}}</button>
   </form>
 </section>
 {{end}}

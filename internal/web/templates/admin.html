@@ -1,43 +1,43 @@
 {{define "content"}}
 {{$d := .Data}}
 <section class="card">
-  <div class="card-head"><div><h2>Marca de la aplicación</h2><p class="muted small">Nombre y logo que ven todos: menú, login, pantalla de autorización de agentes y servidor MCP.</p></div></div>
+  <div class="card-head"><div><h2>{{t "Marca de la aplicación"}}</h2><p class="muted small">{{t "Nombre y logo que ven todos: menú, login, pantalla de autorización de agentes y servidor MCP."}}</p></div></div>
   <div class="row">
-    <img class="brand-preview" src="{{.Brand.LogoURL}}" alt="Logo actual">
+    <img class="brand-preview" src="{{.Brand.LogoURL}}" alt="{{t "Logo actual"}}">
     <form method="post" action="/admin/brand-name" class="row grow">
       <input type="hidden" name="csrf" value="{{$d.CSRF}}">
-      <label class="field grow">Nombre<input name="name" value="{{.Brand.Name}}" required maxlength="60"></label>
-      <button class="btn strong">Guardar nombre</button>
+      <label class="field grow">{{t "Nombre"}}<input name="name" value="{{.Brand.Name}}" required maxlength="60"></label>
+      <button class="btn strong">{{t "Guardar nombre"}}</button>
     </form>
   </div>
   <div class="row">
     <form method="post" action="/admin/brand-logo" enctype="multipart/form-data" class="row grow">
       <input type="hidden" name="csrf" value="{{$d.CSRF}}">
-      <label class="field grow">Logo (PNG, JPEG, WebP o SVG · máx. 256 KB · cuadrado)<input type="file" name="logo" accept="image/png,image/jpeg,image/webp,image/svg+xml" required></label>
-      <button class="btn">Subir logo</button>
+      <label class="field grow">{{t "Logo (PNG, JPEG, WebP o SVG · máx. 256 KB · cuadrado)"}}<input type="file" name="logo" accept="image/png,image/jpeg,image/webp,image/svg+xml" required></label>
+      <button class="btn">{{t "Subir logo"}}</button>
     </form>
-    {{if .Brand.HasLogo}}<form method="post" action="/admin/brand-logo-reset" data-confirm="¿Volver al logo de Hilo?|El logo subido se elimina."><input type="hidden" name="csrf" value="{{$d.CSRF}}"><button class="btn ghost danger">Restablecer logo</button></form>{{end}}
+    {{if .Brand.HasLogo}}<form method="post" action="/admin/brand-logo-reset" data-confirm="{{t "¿Volver al logo de Hilo?|El logo subido se elimina."}}"><input type="hidden" name="csrf" value="{{$d.CSRF}}"><button class="btn ghost danger">{{t "Restablecer logo"}}</button></form>{{end}}
   </div>
 </section>
 <div class="grid2">
   <section class="card">
-    <div><h2>Dominios habilitados para entrar</h2><p class="muted small">Solo pueden iniciar sesión personas con email verificado de estos dominios, o con una invitación pendiente. Sin dominios, solo superadmins e invitados.</p></div>
+    <div><h2>{{t "Dominios habilitados para entrar"}}</h2><p class="muted small">{{t "Solo pueden iniciar sesión personas con email verificado de estos dominios, o con una invitación pendiente. Sin dominios, solo superadmins e invitados."}}</p></div>
     {{if $d.Domains}}<div class="row">{{range $d.Domains}}<span class="chip"><code>{{.Domain}}</code>
-      <form method="post" action="/admin/domain-remove" class="inline" data-confirm="¿Deshabilitar {{.Domain}}?|Nadie nuevo de ese dominio va a poder iniciar sesión."><input type="hidden" name="csrf" value="{{$d.CSRF}}"><input type="hidden" name="domain" value="{{.Domain}}"><button class="link" aria-label="Quitar"><svg class="i sm"><use href="#i-x"/></svg></button></form></span>{{end}}</div>
-    {{else}}<p class="muted">Ninguno.</p>{{end}}
+      <form method="post" action="/admin/domain-remove" class="inline" data-confirm="{{t "¿Deshabilitar %s?|Nadie nuevo de ese dominio va a poder iniciar sesión." .Domain}}"><input type="hidden" name="csrf" value="{{$d.CSRF}}"><input type="hidden" name="domain" value="{{.Domain}}"><button class="link" aria-label="{{t "Quitar"}}"><svg class="i sm"><use href="#i-x"/></svg></button></form></span>{{end}}</div>
+    {{else}}<p class="muted">{{t "Ninguno."}}</p>{{end}}
     <form method="post" action="/admin/domain" class="row">
       <input type="hidden" name="csrf" value="{{$d.CSRF}}">
-      <input name="domain" placeholder="empresa.com" required class="grow" aria-label="Dominio">
-      <button class="btn strong">Agregar</button>
+      <input name="domain" placeholder="{{t "empresa.com"}}" required class="grow" aria-label="{{t "Dominio"}}">
+      <button class="btn strong">{{t "Agregar"}}</button>
     </form>
   </section>
   <section class="card">
-    <h2>Workspaces</h2>
+    <h2>{{t "Workspaces"}}</h2>
     <table class="table">
-      <tr><th>Nombre</th><th>Slug</th><th class="num">Miembros</th><th>Creado</th></tr>
+      <tr><th>{{t "Nombre"}}</th><th>{{t "Slug"}}</th><th class="num">{{t "Miembros"}}</th><th>{{t "Creado"}}</th></tr>
       {{range $d.Workspaces}}<tr><td><b>{{.Name}}</b></td><td><code>{{.Slug}}</code></td><td class="num">{{.MemberCount}}</td><td>{{date .CreatedAt}}</td></tr>{{end}}
     </table>
-    <p class="muted small">Los superadmins se definen con <code>SUPERADMIN_EMAILS</code> o con <code>hiloctl superadmin grant &lt;email&gt;</code>.</p>
+    <p class="muted small">{{t "Los superadmins se definen con"}} <code>SUPERADMIN_EMAILS</code> {{t "o con"}} <code>hiloctl superadmin grant &lt;email&gt;</code>.</p>
   </section>
 </div>
 {{end}}

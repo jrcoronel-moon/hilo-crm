@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/jrcoronel-moon/hilo-crm/internal/crm"
+	"github.com/jrcoronel-moon/hilo-crm/internal/i18n"
 	"github.com/jrcoronel-moon/hilo-crm/internal/store"
 )
 
@@ -20,7 +21,7 @@ type settingsSection struct {
 }
 
 var settingsSections = map[string]settingsSection{
-	"agents": {title: "Agentes (MCP)", load: func(h *Handler, r *http.Request, v view, d *settingsData) error {
+	"agents": {title: i18n.M("Agentes (MCP)"), load: func(h *Handler, r *http.Request, v view, d *settingsData) error {
 		var err error
 		if d.Connections, err = h.id.Connections(r.Context(), v.caller()); err != nil {
 			return err
@@ -28,17 +29,17 @@ var settingsSections = map[string]settingsSection{
 		d.PATs, err = h.id.PATs(r.Context(), v.caller())
 		return err
 	}},
-	"pipelines": {title: "Pipelines", load: func(h *Handler, r *http.Request, v view, d *settingsData) error {
+	"pipelines": {title: i18n.M("Pipelines"), load: func(h *Handler, r *http.Request, v view, d *settingsData) error {
 		var err error
 		d.Pipelines, err = h.crm.ListPipelines(r.Context(), v.Actor)
 		return err
 	}},
-	"channels": {title: "Canales", load: func(h *Handler, r *http.Request, v view, d *settingsData) error {
+	"channels": {title: i18n.M("Canales"), load: func(h *Handler, r *http.Request, v view, d *settingsData) error {
 		var err error
 		d.Channels, err = h.crm.ListChannels(r.Context(), v.Actor)
 		return err
 	}},
-	"forms": {title: "Formularios", admin: true, load: func(h *Handler, r *http.Request, v view, d *settingsData) error {
+	"forms": {title: i18n.M("Formularios"), admin: true, load: func(h *Handler, r *http.Request, v view, d *settingsData) error {
 		var err error
 		if d.Forms, err = h.crm.ListLeadForms(r.Context(), v.Actor); err != nil {
 			return err
@@ -52,7 +53,7 @@ var settingsSections = map[string]settingsSection{
 		d.Channels, err = h.crm.ListChannels(r.Context(), v.Actor)
 		return err
 	}},
-	"members": {title: "Miembros", load: func(h *Handler, r *http.Request, v view, d *settingsData) error {
+	"members": {title: i18n.M("Miembros"), load: func(h *Handler, r *http.Request, v view, d *settingsData) error {
 		var err error
 		if d.Members, err = h.id.Members(r.Context(), v.caller()); err != nil || !v.IsAdmin() {
 			return err
@@ -63,7 +64,7 @@ var settingsSections = map[string]settingsSection{
 		d.Domains, err = h.id.WorkspaceDomains(r.Context(), v.caller())
 		return err
 	}},
-	"audit": {title: "Auditoría", admin: true, load: func(h *Handler, r *http.Request, v view, d *settingsData) error {
+	"audit": {title: i18n.M("Auditoría"), admin: true, load: func(h *Handler, r *http.Request, v view, d *settingsData) error {
 		var err error
 		d.Audit, err = h.crm.ListAudit(r.Context(), v.Actor, "", 100)
 		return err
@@ -100,14 +101,14 @@ type settingsData struct {
 }
 
 var flashes = map[string]string{
-	"saved":    "Cambios guardados.",
-	"invited":  "Invitación enviada. La persona entra con su cuenta de Google o Microsoft.",
-	"revoked":  "Acceso revocado.",
-	"removed":  "Eliminado.",
-	"created":  "Oportunidad creada.",
-	"company":  "Empresa creada.",
-	"contact":  "Contacto creado.",
-	"archived": "Archivado. Ya no aparece en listas ni búsquedas; el historial se conserva.",
+	"saved":    i18n.M("Cambios guardados."),
+	"invited":  i18n.M("Invitación enviada. La persona entra con su cuenta de Google o Microsoft."),
+	"revoked":  i18n.M("Acceso revocado."),
+	"removed":  i18n.M("Eliminado."),
+	"created":  i18n.M("Oportunidad creada."),
+	"company":  i18n.M("Empresa creada."),
+	"contact":  i18n.M("Contacto creado."),
+	"archived": i18n.M("Archivado. Ya no aparece en listas ni búsquedas; el historial se conserva."),
 }
 
 func (h *Handler) settings(w http.ResponseWriter, r *http.Request, v view) {
@@ -130,7 +131,7 @@ func (h *Handler) renderSettings(w http.ResponseWriter, r *http.Request, v view,
 		h.fail(w, r, err)
 		return
 	}
-	h.render(w, http.StatusOK, "settings_"+section, page{Title: "Ajustes", Crumb: sec.title, View: &v, Nav: section, Flash: flash, Data: d})
+	h.render(w, r, http.StatusOK, "settings_"+section, page{Title: i18n.M("Ajustes"), Crumb: sec.title, CrumbUI: true, View: &v, Nav: section, Flash: flash, Data: d})
 }
 
 func (h *Handler) settingsAction(w http.ResponseWriter, r *http.Request, v view) {
@@ -183,7 +184,7 @@ func (h *Handler) settingsAction(w http.ResponseWriter, r *http.Request, v view)
 			h.fail(w, r, terr)
 			return
 		}
-		h.renderSettings(w, r, v, "agents", "Token creado. Copialo ahora: no se vuelve a mostrar.", tok)
+		h.renderSettings(w, r, v, "agents", i18n.M("Token creado. Copialo ahora: no se vuelve a mostrar."), tok)
 		return
 	case "token-revoke":
 		err, ok = withID(f("id"), func(id uuid.UUID) error { return h.id.RevokePAT(ctx, c, id) }), "revoked"

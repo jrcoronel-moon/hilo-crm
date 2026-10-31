@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/jrcoronel-moon/hilo-crm/internal/events"
+	"github.com/jrcoronel-moon/hilo-crm/internal/i18n"
 	"github.com/jrcoronel-moon/hilo-crm/internal/identity"
 	"github.com/jrcoronel-moon/hilo-crm/internal/store"
 )
@@ -58,7 +59,14 @@ func workspaceCreate(c *cli, in input) error {
 	if err != nil {
 		return err
 	}
-	ws, err := c.id.CreateWorkspace(c.ctx, u.ID, in.pos[0])
+	lang := in.flags["lang"]
+	if lang == "" {
+		lang = "es"
+	}
+	if !i18n.Valid(lang) {
+		return fmt.Errorf("--lang must be one of %s", strings.Join(i18n.Supported, ", "))
+	}
+	ws, err := c.id.CreateWorkspaceIn(c.ctx, u.ID, in.pos[0], lang)
 	if err != nil {
 		return err
 	}

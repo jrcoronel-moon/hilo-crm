@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/jrcoronel-moon/hilo-crm/internal/crm"
+	"github.com/jrcoronel-moon/hilo-crm/internal/i18n"
 	"github.com/jrcoronel-moon/hilo-crm/internal/store"
 )
 
@@ -38,7 +39,7 @@ func (h *Handler) companies(w http.ResponseWriter, r *http.Request, v view) {
 		h.fail(w, r, err)
 		return
 	}
-	h.render(w, http.StatusOK, "companies", page{Title: "Empresas", View: &v, Nav: "companies", Flash: flashes[g("ok")],
+	h.render(w, r, http.StatusOK, "companies", page{Title: i18n.M("Empresas"), View: &v, Nav: "companies", Flash: flashes[g("ok")],
 		Data: peopleList[crm.CompanyRow]{CSRF: v.Sess.CSRFToken, Page: p, Q: f.Query, Tag: f.Tag, Next: listNext(r, p.NextCursor)}})
 }
 
@@ -50,7 +51,7 @@ func (h *Handler) contacts(w http.ResponseWriter, r *http.Request, v view) {
 		h.fail(w, r, err)
 		return
 	}
-	h.render(w, http.StatusOK, "contacts", page{Title: "Contactos", View: &v, Nav: "contacts", Flash: flashes[g("ok")],
+	h.render(w, r, http.StatusOK, "contacts", page{Title: i18n.M("Contactos"), View: &v, Nav: "contacts", Flash: flashes[g("ok")],
 		Data: peopleList[crm.ContactRow]{CSRF: v.Sess.CSRFToken, Page: p, Q: f.Query, Tag: f.Tag, Next: listNext(r, p.NextCursor)}})
 }
 
@@ -93,7 +94,7 @@ func (h *Handler) company(w http.ResponseWriter, r *http.Request, v view) {
 		h.fail(w, r, err)
 		return
 	}
-	h.render(w, http.StatusOK, "company", page{Title: "Empresas", Crumb: c.Name, View: &v, Nav: "companies", Flash: flashes[r.URL.Query().Get("ok")], Data: d})
+	h.render(w, r, http.StatusOK, "company", page{Title: i18n.M("Empresas"), Crumb: c.Name, View: &v, Nav: "companies", Flash: flashes[r.URL.Query().Get("ok")], Data: d})
 }
 
 type contactPage struct {
@@ -137,7 +138,7 @@ func (h *Handler) contact(w http.ResponseWriter, r *http.Request, v view) {
 	if name == "" {
 		name = c.Email
 	}
-	h.render(w, http.StatusOK, "contact", page{Title: "Contactos", Crumb: name, View: &v, Nav: "contacts", Flash: flashes[r.URL.Query().Get("ok")], Data: d})
+	h.render(w, r, http.StatusOK, "contact", page{Title: i18n.M("Contactos"), Crumb: name, View: &v, Nav: "contacts", Flash: flashes[r.URL.Query().Get("ok")], Data: d})
 }
 
 // formStr returns a pointer to a trimmed form value, so an empty field

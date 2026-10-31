@@ -343,6 +343,11 @@ strong.big { font-size: 32px; font-weight: 700; letter-spacing: -.02em; }
    One column; the sidebar becomes a top bar whose menu button (data-menu)
    shows the navigation. Grid tracks are minmax(0, 1fr) so wide content
    (tables, the board) scrolls inside its card instead of widening the page. */
+/* language selector */
+.lang-form { display: flex; align-items: center; gap: 6px; color: var(--muted); padding: 0 6px; }
+.lang-form select { border: 0; background: none; height: 28px; padding: 0 2px; font-size: 12.5px; color: var(--muted); cursor: pointer; }
+.collapsed .lang-form select { display: none; } .collapsed .lang-form { justify-content: center; }
+.login-lang { display: flex; justify-content: flex-end; }
 .menu-btn { display: none; }
 .side-menu { display: contents; } /* desktop: nav and footer are plain sidebar children */
 @media (max-width: 860px) {
@@ -354,6 +359,7 @@ strong.big { font-size: 32px; font-weight: 700; letter-spacing: -.02em; }
   .collapsed .nav-label, .collapsed .me .grow { display: block; }
   .collapsed .nav a { justify-content: flex-start; padding: 0 12px; }
   .collapsed .me { flex-direction: row; padding: 4px 6px; }
+  .collapsed .lang-form { justify-content: flex-start; } .collapsed .lang-form select { display: inline-block; }
   .menu-btn { display: inline-flex; padding: 0 8px; height: 40px; }
   .agent-box { display: none; }
   .nav a { height: 44px; }

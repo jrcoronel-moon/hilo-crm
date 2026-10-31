@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/jrcoronel-moon/hilo-crm/internal/i18n"
 	"github.com/jrcoronel-moon/hilo-crm/internal/oauth"
 )
 
@@ -21,9 +22,9 @@ type consentData struct {
 type scopeInfo struct{ Name, Label, Desc, Icon string }
 
 var scopeInfos = map[string]scopeInfo{
-	"crm:read":  {"crm:read", "Leer", "Empresas, contactos, oportunidades, interacciones y métricas.", "i-eye"},
-	"crm:write": {"crm:write", "Escribir", "Crear y mover oportunidades, registrar interacciones.", "i-pencil"},
-	"crm:admin": {"crm:admin", "Administrar", "Pipelines y canales. Pocos agentes lo necesitan.", "i-shield"},
+	"crm:read":  {"crm:read", i18n.M("Leer"), i18n.M("Empresas, contactos, oportunidades, interacciones y métricas."), "i-eye"},
+	"crm:write": {"crm:write", i18n.M("Escribir"), i18n.M("Crear y mover oportunidades, registrar interacciones."), "i-pencil"},
+	"crm:admin": {"crm:admin", i18n.M("Administrar"), i18n.M("Pipelines y canales. Pocos agentes lo necesitan."), "i-shield"},
 }
 
 func describeScopes(scope string) []scopeInfo {
@@ -46,8 +47,8 @@ func (h *Handler) authorize(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, ae.Redirect, http.StatusFound)
 			return
 		}
-		h.render(w, http.StatusBadRequest, "error", page{Title: "Solicitud inválida",
-			Error: "La aplicación que te trajo aquí envió una solicitud de autorización inválida (cliente o redirect_uri no registrados)."})
+		h.render(w, r, http.StatusBadRequest, "error", page{Title: i18n.M("Solicitud inválida"),
+			Error: i18n.M("La aplicación que te trajo aquí envió una solicitud de autorización inválida (cliente o redirect_uri no registrados).")})
 		return
 	}
 	h.session(func(w http.ResponseWriter, _ *http.Request, v view) {
@@ -60,7 +61,7 @@ func (h *Handler) authorize(w http.ResponseWriter, r *http.Request) {
 			return
 		} else if ok {
 			h.log.Info("oauth consent preapproved", "user_id", v.Sess.UserID, "workspace_id", ws, "client", p.ClientName)
-			h.handBack(w, "Agente autorizado", dest)
+			h.handBack(w, r, "Agente autorizado", dest)
 			return
 		}
 		blob, err := h.oauth.SignPending(p)
@@ -69,7 +70,7 @@ func (h *Handler) authorize(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.Header().Set("X-Frame-Options", "DENY")
-		h.render(w, http.StatusOK, "consent", page{Title: "Autorizar acceso", View: &v, Bare: true,
+		h.render(w, r, http.StatusOK, "consent", page{Title: i18n.M("Autorizar acceso"), View: &v, Bare: true,
 			Data: consentData{Pending: p, Blob: blob, CSRF: v.Sess.CSRFToken, Scopes: describeScopes(p.Scope)}})
 	})(w, r)
 }
@@ -78,11 +79,11 @@ func (h *Handler) authorize(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) consent(w http.ResponseWriter, r *http.Request, v view) {
 	p, err := h.oauth.VerifyPending(r.PostFormValue("req"))
 	if err != nil {
-		h.render(w, http.StatusBadRequest, "error", page{Title: "Solicitud vencida", Error: "La solicitud de autorización venció. Volvé a conectar desde tu agente."})
+		h.render(w, r, http.StatusBadRequest, "error", page{Title: i18n.M("Solicitud vencida"), Error: i18n.M("La solicitud de autorización venció. Volvé a conectar desde tu agente.")})
 		return
 	}
 	if r.PostFormValue("decision") != "approve" {
-		h.handBack(w, "Acceso cancelado", h.oauth.Deny(p))
+		h.handBack(w, r, "Acceso cancelado", h.oauth.Deny(p))
 		return
 	}
 	ws, err := uuid.Parse(r.PostFormValue("workspace"))
@@ -93,20 +94,20 @@ func (h *Handler) consent(w http.ResponseWriter, r *http.Request, v view) {
 	dest, err := h.oauth.Approve(r.Context(), p, v.Sess.UserID, ws, r.PostFormValue("read_only") == "1")
 	if err != nil {
 		if errors.Is(err, oauth.ErrNoWorkspaceAccess) {
-			h.render(w, http.StatusForbidden, "error", page{Title: "Sin acceso", Error: "No sos miembro de ese workspace."})
+			h.render(w, r, http.StatusForbidden, "error", page{Title: i18n.M("Sin acceso"), Error: i18n.M("No sos miembro de ese workspace.")})
 			return
 		}
 		h.fail(w, r, err)
 		return
 	}
 	h.log.Info("oauth consent granted", "user_id", v.Sess.UserID, "workspace_id", ws, "client", p.ClientName, "verified", p.Verified)
-	h.handBack(w, "Agente autorizado", dest)
+	h.handBack(w, r, "Agente autorizado", dest)
 }
 
 // handBack returns the browser to the agent's redirect URI through a page
 // that navigates by script (see static/app.js).
-func (h *Handler) handBack(w http.ResponseWriter, title, dest string) {
+func (h *Handler) handBack(w http.ResponseWriter, r *http.Request, title, dest string) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Referrer-Policy", "no-referrer")
-	h.render(w, http.StatusOK, "redirect", page{Title: title, Data: template.URL(dest)}) //nolint:gosec // dest is the client's registered redirect_uri, validated by oauth.Approve/Deny
+	h.render(w, r, http.StatusOK, "redirect", page{Title: title, Data: template.URL(dest)}) //nolint:gosec // dest is the client's registered redirect_uri, validated by oauth.Approve/Deny
 }

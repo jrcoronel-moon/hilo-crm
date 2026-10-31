@@ -55,6 +55,7 @@ func TestImportCSVPage(t *testing.T) {
 		t.Helper()
 		req, _ := http.NewRequestWithContext(ctx, method, ts.URL+path, body)
 		req.AddCookie(&http.Cookie{Name: "hilo_session", Value: token})
+		req.Header.Set("Accept-Language", "es")
 		if ctype != "" {
 			req.Header.Set("Content-Type", ctype)
 		}

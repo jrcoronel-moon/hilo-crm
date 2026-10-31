@@ -2,43 +2,43 @@
 {{$d := .Data}}
 <form method="get" action="/dashboard" class="row">
   {{if gt (len $d.Pipelines) 1}}
-  <select name="pipeline" data-autosubmit aria-label="Pipeline">{{range $d.Pipelines}}<option value="{{.ID}}" {{if eq .ID $d.Metrics.PipelineID}}selected{{end}}>{{.Name}}</option>{{end}}</select>
+  <select name="pipeline" data-autosubmit aria-label="{{t "Pipeline"}}">{{range $d.Pipelines}}<option value="{{.ID}}" {{if eq .ID $d.Metrics.PipelineID}}selected{{end}}>{{.Name}}</option>{{end}}</select>
   {{else}}<input type="hidden" name="pipeline" value="{{$d.Metrics.PipelineID}}">{{end}}
-  <select name="days" data-autosubmit aria-label="Período">
-    <option value="30" {{if eq $d.Days 30}}selected{{end}}>Últimos 30 días</option>
-    <option value="90" {{if eq $d.Days 90}}selected{{end}}>Últimos 90 días</option>
-    <option value="180" {{if eq $d.Days 180}}selected{{end}}>Últimos 180 días</option>
-    <option value="365" {{if eq $d.Days 365}}selected{{end}}>Último año</option>
+  <select name="days" data-autosubmit aria-label="{{t "Período"}}">
+    <option value="30" {{if eq $d.Days 30}}selected{{end}}>{{t "Últimos 30 días"}}</option>
+    <option value="90" {{if eq $d.Days 90}}selected{{end}}>{{t "Últimos 90 días"}}</option>
+    <option value="180" {{if eq $d.Days 180}}selected{{end}}>{{t "Últimos 180 días"}}</option>
+    <option value="365" {{if eq $d.Days 365}}selected{{end}}>{{t "Último año"}}</option>
   </select>
 </form>
-<button class="btn" type="button" data-copy="{{$d.Share}}" data-copied="Link copiado"><svg class="i sm"><use href="#i-share"/></svg>Compartir</button>
+<button class="btn" type="button" data-copy="{{$d.Share}}" data-copied="Link copiado"><svg class="i sm"><use href="#i-share"/></svg>{{t "Compartir"}}</button>
 {{end}}
 
 {{define "content"}}
 {{$d := .Data}}{{$m := $d.Metrics}}
 <div class="live-region" data-live="dashboard">
 <div class="kpis">
-  <div class="kpi"><span>Abiertas</span><strong>{{$m.OpenCount}}</strong><small>{{moneyMap $m.OpenAmount}}</small></div>
-  <div class="kpi"><span>Ponderado</span><strong>{{moneyShort $m.Weighted}}</strong><small>según probabilidad</small></div>
-  <div class="kpi"><span>Ganadas</span><strong>{{$m.WonCount}}</strong><small>{{moneyMap $m.WonAmount}}</small></div>
-  <div class="kpi"><span>Win rate</span><strong>{{pct $m.WinRate}}</strong><small>{{$m.WonCount}} ganadas / {{$m.LostCount}} perdidas</small></div>
-  <div class="kpi"><span>Ciclo medio</span><strong>{{if $m.WonCount}}{{$m.AvgCycleDays}} d{{else}}—{{end}}</strong><small>{{if $m.WonCount}}de creación a ganada{{else}}sin cerradas aún{{end}}</small></div>
-  <div class="kpi {{if gt $m.StaleCount 0}}alert{{end}}"><span>Estancadas</span><strong>{{$m.StaleCount}}</strong><small>sin actividad 14 d</small></div>
+  <div class="kpi"><span>{{t "Abiertas"}}</span><strong>{{$m.OpenCount}}</strong><small>{{moneyMap $m.OpenAmount}}</small></div>
+  <div class="kpi"><span>{{t "Ponderado"}}</span><strong>{{moneyShort $m.Weighted}}</strong><small>{{t "según probabilidad"}}</small></div>
+  <div class="kpi"><span>{{t "Ganadas"}}</span><strong>{{$m.WonCount}}</strong><small>{{moneyMap $m.WonAmount}}</small></div>
+  <div class="kpi"><span>{{t "Win rate"}}</span><strong>{{pct $m.WinRate}}</strong><small>{{$m.WonCount}} {{t "ganadas /"}} {{$m.LostCount}} {{t "perdidas"}}</small></div>
+  <div class="kpi"><span>{{t "Ciclo medio"}}</span><strong>{{if $m.WonCount}}{{$m.AvgCycleDays}} d{{else}}—{{end}}</strong><small>{{if $m.WonCount}}{{t "de creación a ganada"}}{{else}}{{t "sin cerradas aún"}}{{end}}</small></div>
+  <div class="kpi {{if gt $m.StaleCount 0}}alert{{end}}"><span>{{t "Estancadas"}}</span><strong>{{$m.StaleCount}}</strong><small>{{t "sin actividad 14 d"}}</small></div>
 </div>
 <div class="grid2">
   <div class="gcol">
     <section class="card">
-      <div class="card-head"><h2>Monto ganado por mes</h2><span class="aside">{{with $m.Goal}}objetivo {{money .Target .Currency}}{{else}}{{with (index $m.WonByMonth 0)}}{{.Currency}}{{end}}{{end}}</span></div>
-      <svg class="chart" viewBox="-40 -6 650 128" role="img" aria-label="Monto ganado por mes">
+      <div class="card-head"><h2>{{t "Monto ganado por mes"}}</h2><span class="aside">{{with $m.Goal}}{{t "objetivo"}} {{money .Target .Currency}}{{else}}{{with (index $m.WonByMonth 0)}}{{.Currency}}{{end}}{{end}}</span></div>
+      <svg class="chart" viewBox="-40 -6 650 128" role="img" aria-label="{{t "Monto ganado por mes"}}">
         <g class="grid"><line x1="0" y1="100" x2="600" y2="100"/><line x1="0" y1="50" x2="600" y2="50"/><line x1="0" y1="0" x2="600" y2="0"/></g>
         <text x="-8" y="103" text-anchor="end">0</text><text x="-8" y="3" text-anchor="end">{{short (mulf $d.MonthPeak 1.15)}}</text>
         {{if ge $d.GoalY 0.0}}<line class="goal" x1="0" y1="{{$d.GoalY}}" x2="600" y2="{{$d.GoalY}}"/>{{end}}
-        {{range $d.Months}}<rect x="{{.X}}" y="{{.Y}}" width="{{.W}}" height="{{.H}}" rx="4" class="{{if .Peak}}c-p3{{else}}teal-400{{end}}"><title>{{.Label}}: {{.Value}}</title></rect>
-        <text x="{{addf .X (divf .W 2)}}" y="116" text-anchor="middle">{{.Label}}</text>{{end}}
+        {{range $d.Months}}<rect x="{{.X}}" y="{{.Y}}" width="{{.W}}" height="{{.H}}" rx="4" class="{{if .Peak}}c-p3{{else}}teal-400{{end}}"><title>{{t .Label}}: {{.Value}}</title></rect>
+        <text x="{{addf .X (divf .W 2)}}" y="116" text-anchor="middle">{{t .Label}}</text>{{end}}
       </svg>
     </section>
     <section class="card">
-      <div class="card-head"><h2>Funnel abierto por etapa</h2><span class="aside">cantidad · monto · días promedio</span></div>
+      <div class="card-head"><h2>{{t "Funnel abierto por etapa"}}</h2><span class="aside">{{t "cantidad · monto · días promedio"}}</span></div>
       <div class="bars">
         {{range $i, $s := $m.Stages}}{{if not (isClosing .Category)}}
         <div class="r"><span>{{.Name}}</span>
@@ -46,45 +46,45 @@
           <b class="num">{{.Count}}</b><span class="v">{{moneyMap .Amount}} · {{.AvgDays}} d</span></div>
         {{end}}{{end}}
       </div>
-      <h3>Interacciones por semana</h3>
+      <h3>{{t "Interacciones por semana"}}</h3>
       {{if $d.Weeks}}
-      <svg class="chart" viewBox="0 -4 600 120" role="img" aria-label="Interacciones por semana">
+      <svg class="chart" viewBox="0 -4 600 120" role="img" aria-label="{{t "Interacciones por semana"}}">
         {{range $d.Weeks}}<rect x="{{.X}}" y="{{.Y}}" width="{{.W}}" height="{{.H}}" rx="3" class="{{if .Peak}}c-p3{{else}}teal-400{{end}}"><title>{{.Label}}: {{.Value}}</title></rect>{{end}}
         <text x="0" y="114">{{(index $d.Weeks 0).Label}}</text>
-        {{with $d.WeekPeak}}<text x="300" y="114" text-anchor="middle">pico {{.Value}} · {{.Label}}</text>{{end}}
+        {{with $d.WeekPeak}}<text x="300" y="114" text-anchor="middle">{{t "pico %d · %s" .Value .Label}}</text>{{end}}
         <text x="600" y="114" text-anchor="end">{{(index $d.Weeks (len $d.Weeks | add -1)).Label}}</text>
       </svg>
-      {{else}}<p class="muted">Sin interacciones en el período.</p>{{end}}
+      {{else}}<p class="muted">{{t "Sin interacciones en el período."}}</p>{{end}}
     </section>
   </div>
   <div class="gcol">
     <section class="card">
-      <div class="card-head"><h2>Nuevas oportunidades por canal</h2></div>
+      <div class="card-head"><h2>{{t "Nuevas oportunidades por canal"}}</h2></div>
       {{if $d.Channels}}
       <div class="donut">
-        <svg viewBox="0 0 42 42" role="img" aria-label="Oportunidades por canal">
+        <svg viewBox="0 0 42 42" role="img" aria-label="{{t "Oportunidades por canal"}}">
           <circle cx="21" cy="21" r="15.915" fill="none" class="ring-bg" stroke-width="6"/>
           {{range $d.Donut}}<circle cx="21" cy="21" r="15.915" fill="none" class="seg {{.Class}}" stroke-width="6" stroke-dasharray="{{.Dash}} {{.Gap}}" stroke-dashoffset="{{.Offset}}"/>{{end}}
           <text x="21" y="21" text-anchor="middle" class="big">{{$d.NewTotal}}</text>
-          <text x="21" y="27" text-anchor="middle" class="sub">en {{$d.Days}} días</text>
+          <text x="21" y="27" text-anchor="middle" class="sub">{{t "en %d días" $d.Days}}</text>
         </svg>
         <div class="legend">{{range $d.Channels}}<div class="b-{{.Class}}"><span>{{.Name}}</span><span>{{.Pct}}% · {{.Count}}</span></div>{{end}}</div>
       </div>
-      {{else}}<p class="muted">Sin oportunidades nuevas en el período.</p>{{end}}
+      {{else}}<p class="muted">{{t "Sin oportunidades nuevas en el período."}}</p>{{end}}
     </section>
     <section class="card">
-      <div class="card-head"><h2>Objetivo mensual</h2>{{if $.View.IsAdmin}}<a class="aside" href="/settings/pipelines">{{if $m.Goal}}Editar{{else}}Definir{{end}}</a>{{end}}</div>
+      <div class="card-head"><h2>{{t "Objetivo mensual"}}</h2>{{if $.View.IsAdmin}}<a class="aside" href="/settings/pipelines">{{if $m.Goal}}{{t "Editar"}}{{else}}{{t "Definir"}}{{end}}</a>{{end}}</div>
       {{with $m.Goal}}
-      <div class="row"><strong class="big">{{.Pct}}%</strong><span class="muted">{{money .Remaining .Currency}} restantes</span></div>
+      <div class="row"><strong class="big">{{.Pct}}%</strong><span class="muted">{{money .Remaining .Currency}} {{t "restantes"}}</span></div>
       <div class="progress"><svg aria-hidden="true"><rect width="{{bar .Pct 100}}" height="12" rx="6" class="c-p3"/></svg></div>
-      <div class="row small"><span class="muted grow">Ganado este mes</span><b>{{money .Won ""}} / {{money .Target ""}}</b></div>
-      {{else}}<p class="muted">Definí un objetivo mensual para este pipeline en Ajustes → Pipelines y seguí el avance acá.</p>{{end}}
+      <div class="row small"><span class="muted grow">{{t "Ganado este mes"}}</span><b>{{money .Won ""}} / {{money .Target ""}}</b></div>
+      {{else}}<p class="muted">{{t "Definí un objetivo mensual para este pipeline en Ajustes → Pipelines y seguí el avance acá."}}</p>{{end}}
     </section>
     <section class="card">
-      <div class="card-head"><h2>Actividad por agente</h2>{{if $.View.IsAdmin}}<a class="aside" href="/settings/audit">Ver todo</a>{{end}}</div>
+      <div class="card-head"><h2>{{t "Actividad por agente"}}</h2>{{if $.View.IsAdmin}}<a class="aside" href="/settings/audit">{{t "Ver todo"}}</a>{{end}}</div>
       {{if $d.Actors}}
-      <div class="activity">{{range $d.Actors}}<div class="a"><span class="av md {{.Class}}">{{.Initials}}</span><div><b>{{.Title}}</b><small>{{.Sub}}</small></div><span class="tag teal">{{if .Created}}{{.Created}} {{if eq .Created 1}}creada{{else}}creadas{{end}} · {{end}}{{.Changes}} {{if eq .Changes 1}}cambio{{else}}cambios{{end}}</span></div>{{end}}</div>
-      {{else}}<p class="muted">Sin cambios en el período.</p>{{end}}
+      <div class="activity">{{range $d.Actors}}<div class="a"><span class="av md {{.Class}}">{{.Initials}}</span><div><b>{{.Title}}</b><small>{{t .Sub}}</small></div><span class="tag teal">{{if .Created}}{{.Created}} {{if eq .Created 1}}{{t "creada"}}{{else}}{{t "creadas"}}{{end}} · {{end}}{{.Changes}} {{if eq .Changes 1}}{{t "cambio"}}{{else}}{{t "cambios"}}{{end}}</span></div>{{end}}</div>
+      {{else}}<p class="muted">{{t "Sin cambios en el período."}}</p>{{end}}
     </section>
   </div>
 </div>

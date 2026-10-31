@@ -1,14 +1,14 @@
-{{define "actions"}}{{if .View.CanWrite}}<button class="btn primary" type="button" data-open="#new-company"><svg class="i sm"><use href="#i-plus"/></svg>Nueva empresa</button>{{end}}{{end}}
+{{define "actions"}}{{if .View.CanWrite}}<button class="btn primary" type="button" data-open="#new-company"><svg class="i sm"><use href="#i-plus"/></svg>{{t "Nueva empresa"}}</button>{{end}}{{end}}
 {{define "content"}}
 {{$d := .Data}}
 <form method="get" action="/companies" class="toolbar">
-  <div class="search"><svg class="i sm"><use href="#i-search"/></svg><input type="search" name="q" value="{{$d.Q}}" placeholder="Buscar por nombre o dominio" aria-label="Buscar" data-hotkey="k"><kbd>⌘K</kbd></div>
-  {{with $d.Tag}}<span class="chip">Tag: {{.}} <a href="/companies" aria-label="Quitar filtro">×</a></span>{{end}}
+  <div class="search"><svg class="i sm"><use href="#i-search"/></svg><input type="search" name="q" value="{{$d.Q}}" placeholder="{{t "Buscar por nombre o dominio"}}" aria-label="{{t "Buscar"}}" data-hotkey="k"><kbd>⌘K</kbd></div>
+  {{with $d.Tag}}<span class="chip">{{t "Tag:"}} {{.}} <a href="/companies" aria-label="{{t "Quitar filtro"}}">×</a></span>{{end}}
 </form>
 <div class="live-region" data-live="list">
 {{if $d.Page.Items}}
 <table class="table">
-  <tr><th>Empresa</th><th>Industria</th><th>País</th><th>Tags</th><th class="num">Contactos</th><th class="num">Abiertas</th><th>Última actividad</th></tr>
+  <tr><th>{{t "Empresa"}}</th><th>{{t "Industria"}}</th><th>{{t "País"}}</th><th>{{t "Tags"}}</th><th class="num">{{t "Contactos"}}</th><th class="num">{{t "Abiertas"}}</th><th>{{t "Última actividad"}}</th></tr>
   {{range $d.Page.Items}}
   <tr data-row="{{.ID}}"><td><a class="cellflex" href="/companies/{{.ID}}"><span class="av md">{{initials .Name ""}}</span><span class="who"><b>{{.Name}}</b><small>{{or .Domain "sin dominio"}}</small></span></a></td>
     <td>{{or .Industry "—"}}</td><td>{{or .Country "—"}}</td>
@@ -16,18 +16,18 @@
     <td class="num">{{.Contacts}}</td><td class="num">{{.OpenOpps}}</td><td>{{ago .LastActivity}}</td></tr>
   {{end}}
 </table>
-<div class="pager"><span>{{len $d.Page.Items}} en esta página</span>{{with $d.Next}}<a class="btn sm" href="{{.}}">Siguiente</a>{{end}}</div>
+<div class="pager"><span>{{len $d.Page.Items}} {{t "en esta página"}}</span>{{with $d.Next}}<a class="btn sm" href="{{.}}">{{t "Siguiente"}}</a>{{end}}</div>
 {{else}}
-<div class="empty"><span class="ic"><svg class="i"><use href="#i-building"/></svg></span><h2>{{if $d.Q}}Sin resultados para “{{$d.Q}}”{{else}}Todavía no hay empresas{{end}}</h2><p>Tus agentes las crean con <code>upsert_company</code>, o creá una desde acá.</p></div>
+<div class="empty"><span class="ic"><svg class="i"><use href="#i-building"/></svg></span><h2>{{if $d.Q}}{{t "Sin resultados para “"}}{{$d.Q}}”{{else}}{{t "Todavía no hay empresas"}}{{end}}</h2><p>{{t "Tus agentes las crean con"}} <code>upsert_company</code>{{t ", o creá una desde acá."}}</p></div>
 {{end}}
 </div>
 {{if .View.CanWrite}}
 <dialog id="new-company" class="wide"><form method="post" action="/companies" class="stack">
   <input type="hidden" name="csrf" value="{{$d.CSRF}}">
-  <h2>Nueva empresa</h2>
-  <div class="row"><label class="field grow">Nombre<input name="name" required maxlength="200" placeholder="Globex"></label><label class="field grow">Dominio<input name="domain" placeholder="globex.com"></label></div>
-  <p class="muted small">Si el dominio ya existe, se actualiza esa empresa en vez de duplicarla.</p>
-  <div class="acts"><button class="btn" type="button" data-close>Cancelar</button><button class="btn primary">Crear empresa</button></div>
+  <h2>{{t "Nueva empresa"}}</h2>
+  <div class="row"><label class="field grow">{{t "Nombre"}}<input name="name" required maxlength="200" placeholder="{{t "Globex"}}"></label><label class="field grow">{{t "Dominio"}}<input name="domain" placeholder="{{t "globex.com"}}"></label></div>
+  <p class="muted small">{{t "Si el dominio ya existe, se actualiza esa empresa en vez de duplicarla."}}</p>
+  <div class="acts"><button class="btn" type="button" data-close>{{t "Cancelar"}}</button><button class="btn primary">{{t "Crear empresa"}}</button></div>
 </form></dialog>
 {{end}}
 {{end}}

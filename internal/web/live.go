@@ -35,6 +35,7 @@ func (h *Handler) stillWatching(r *http.Request, v view) bool {
 }
 
 func (h *Handler) live(w http.ResponseWriter, r *http.Request, v view) {
+	lang := h.lang(r)
 	if h.hub == nil || v.Current == nil {
 		http.NotFound(w, r)
 		return
@@ -81,6 +82,7 @@ func (h *Handler) live(w http.ResponseWriter, r *http.Request, v view) {
 			}
 		case e := <-sub.C:
 			e.Self = e.By(v.Sess.UserID)
+			e.Summary, e.Actor = e.SummaryIn(lang), e.ActorIn(lang)
 			b, err := json.Marshal(e)
 			if err != nil || !send(fmt.Sprintf("id: %d\nevent: change\ndata: %s\n\n", e.ID, b)) {
 				return

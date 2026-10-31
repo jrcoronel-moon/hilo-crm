@@ -1,39 +1,39 @@
-{{define "actions"}}{{if .View.CanWrite}}<form method="post" action="/contacts/{{.Data.C.ID}}/archive" data-confirm="¿Archivar este contacto?|Deja de aparecer en listas y búsquedas. Su historial se conserva."><input type="hidden" name="csrf" value="{{.Data.CSRF}}"><button class="btn ghost danger"><svg class="i sm"><use href="#i-trash"/></svg>Archivar</button></form>{{end}}{{end}}
+{{define "actions"}}{{if .View.CanWrite}}<form method="post" action="/contacts/{{.Data.C.ID}}/archive" data-confirm="{{t "¿Archivar este contacto?|Deja de aparecer en listas y búsquedas. Su historial se conserva."}}"><input type="hidden" name="csrf" value="{{.Data.CSRF}}"><button class="btn ghost danger"><svg class="i sm"><use href="#i-trash"/></svg>{{t "Archivar"}}</button></form>{{end}}{{end}}
 {{define "content"}}
 {{$d := .Data}}{{$c := $d.C}}
 <div class="record-head" data-live="head">
   <span class="av lg">{{initials (printf "%s %s" $c.FirstName $c.LastName) $c.Email}}</span>
   <div class="grow"><h1>{{or (printf "%s %s" $c.FirstName $c.LastName | trim) $c.Email}}</h1>
-    <p class="muted">{{with $c.Title}}{{.}} · {{end}}{{if $c.CompanyID}}<a href="/companies/{{$c.CompanyID}}">{{$d.Company}}</a>{{else}}sin empresa{{end}}{{with $c.Email}} · <a href="mailto:{{.}}">{{.}}</a>{{end}}</p></div>
+    <p class="muted">{{with $c.Title}}{{.}} · {{end}}{{if $c.CompanyID}}<a href="/companies/{{$c.CompanyID}}">{{$d.Company}}</a>{{else}}{{t "sin empresa"}}{{end}}{{with $c.Email}} · <a href="mailto:{{.}}">{{.}}</a>{{end}}</p></div>
   <div class="kpis mini">
-    <div class="kpi"><span>Oportunidades</span><strong>{{len $d.Opportunities}}</strong></div>
-    <div class="kpi"><span>Interacciones</span><strong>{{$c.Interactions}}</strong></div>
+    <div class="kpi"><span>{{t "Oportunidades"}}</span><strong>{{len $d.Opportunities}}</strong></div>
+    <div class="kpi"><span>{{t "Interacciones"}}</span><strong>{{$c.Interactions}}</strong></div>
   </div>
 </div>
 <div class="grid2">
   <div class="gcol">
-    <section class="card" data-live="opps"><div class="card-head"><h2>Oportunidades</h2></div>{{template "opp-table" $d.Opportunities}}</section>
-    <section class="card" data-live="activity"><div class="card-head"><h2>Actividad</h2></div>{{template "timeline" $d.Timeline}}</section>
+    <section class="card" data-live="opps"><div class="card-head"><h2>{{t "Oportunidades"}}</h2></div>{{template "opp-table" $d.Opportunities}}</section>
+    <section class="card" data-live="activity"><div class="card-head"><h2>{{t "Actividad"}}</h2></div>{{template "timeline" $d.Timeline}}</section>
   </div>
   <div class="gcol">
     <section class="card">
-      <h2>Datos</h2>
+      <h2>{{t "Datos"}}</h2>
       {{if $.View.CanWrite}}
       <form method="post" action="/contacts/{{$c.ID}}" class="stack">
         <input type="hidden" name="csrf" value="{{$d.CSRF}}">
-        <div class="row"><label class="field grow">Nombre<input name="first_name" value="{{$c.FirstName}}" maxlength="100"></label><label class="field grow">Apellido<input name="last_name" value="{{$c.LastName}}" maxlength="100"></label></div>
-        <label class="field">Email<input name="email" type="email" value="{{$c.Email}}"></label>
-        <div class="row"><label class="field grow">Teléfono<input name="phone" value="{{$c.Phone}}" maxlength="40"></label><label class="field grow">Cargo<input name="title" value="{{$c.Title}}" maxlength="150"></label></div>
-        <label class="field">Empresa (nombre o dominio)<input name="company" value="{{$d.Company}}"></label>
-        <label class="field">LinkedIn<input name="linkedin_url" value="{{$c.LinkedInURL}}" placeholder="https://www.linkedin.com/in/…"></label>
+        <div class="row"><label class="field grow">{{t "Nombre"}}<input name="first_name" value="{{$c.FirstName}}" maxlength="100"></label><label class="field grow">{{t "Apellido"}}<input name="last_name" value="{{$c.LastName}}" maxlength="100"></label></div>
+        <label class="field">{{t "Email"}}<input name="email" type="email" value="{{$c.Email}}"></label>
+        <div class="row"><label class="field grow">{{t "Teléfono"}}<input name="phone" value="{{$c.Phone}}" maxlength="40"></label><label class="field grow">{{t "Cargo"}}<input name="title" value="{{$c.Title}}" maxlength="150"></label></div>
+        <label class="field">{{t "Empresa (nombre o dominio)"}}<input name="company" value="{{$d.Company}}"></label>
+        <label class="field">{{t "LinkedIn"}}<input name="linkedin_url" value="{{$c.LinkedInURL}}" placeholder="{{t "https://www.linkedin.com/in/…"}}"></label>
         {{template "owner-select" (ownerSel $d.Members $c.OwnerID)}}
         {{template "tag-field" (tagField $c.Tags $d.Suggest)}}
-        <div><button class="btn primary">Guardar</button></div>
+        <div><button class="btn primary">{{t "Guardar"}}</button></div>
       </form>
       {{else}}
-      <dl class="facts">{{with $c.Phone}}<dt>Teléfono</dt><dd>{{.}}</dd>{{end}}{{with $c.LinkedInURL}}<dt>LinkedIn</dt><dd>{{.}}</dd>{{end}}<dt>Tags</dt><dd>{{range $c.Tags}}<span class="tag {{tagClass .}}">{{.}}</span> {{else}}—{{end}}</dd></dl>
+      <dl class="facts">{{with $c.Phone}}<dt>{{t "Teléfono"}}</dt><dd>{{.}}</dd>{{end}}{{with $c.LinkedInURL}}<dt>{{t "LinkedIn"}}</dt><dd>{{.}}</dd>{{end}}<dt>{{t "Tags"}}</dt><dd>{{range $c.Tags}}<span class="tag {{tagClass .}}">{{.}}</span> {{else}}—{{end}}</dd></dl>
       {{end}}
-      <p class="muted small">Creado {{date $c.CreatedAt}} · actualizado {{date $c.UpdatedAt}}</p>
+      <p class="muted small">{{t "Creado"}} {{date $c.CreatedAt}} {{t "· actualizado"}} {{date $c.UpdatedAt}}</p>
     </section>
   </div>
 </div>

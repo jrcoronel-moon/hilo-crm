@@ -1,43 +1,43 @@
 {{define "actions"}}
-{{if .View.CanWrite}}<button class="btn primary" type="button" data-open="#new-opp"><svg class="i sm"><use href="#i-plus"/></svg>Nueva oportunidad</button>{{end}}
+{{if .View.CanWrite}}<button class="btn primary" type="button" data-open="#new-opp"><svg class="i sm"><use href="#i-plus"/></svg>{{t "Nueva oportunidad"}}</button>{{end}}
 {{end}}
 
 {{define "content"}}
 {{$d := .Data}}{{$m := $d.Metrics}}{{$f := $d.F}}
 <form method="get" action="/board" class="toolbar">
-  {{if gt (len $d.Pipelines) 1}}<select name="pipeline" data-autosubmit aria-label="Pipeline">{{range $d.Pipelines}}<option value="{{.ID}}" {{if eq .ID $d.Pipeline.ID}}selected{{end}}>{{.Name}}</option>{{end}}</select>
+  {{if gt (len $d.Pipelines) 1}}<select name="pipeline" data-autosubmit aria-label="{{t "Pipeline"}}">{{range $d.Pipelines}}<option value="{{.ID}}" {{if eq .ID $d.Pipeline.ID}}selected{{end}}>{{.Name}}</option>{{end}}</select>
   {{else}}<input type="hidden" name="pipeline" value="{{$d.Pipeline.ID}}">{{end}}
   <details class="pop">
-    <summary class="btn"><svg class="i sm"><use href="#i-filter"/></svg>Filtros</summary>
+    <summary class="btn"><svg class="i sm"><use href="#i-filter"/></svg>{{t "Filtros"}}</summary>
     <div class="pop-body">
-      <label class="field">Canal<select name="channel"><option value="">Todos</option>{{range $d.Channels}}<option value="{{.Name}}" {{if eq .Name $f.Channel}}selected{{end}}>{{.Name}}</option>{{end}}</select></label>
-      <label class="field">Tag<select name="tag"><option value="">Todos</option>{{range $d.Tags}}<option value="{{.Tag}}" {{if eq .Tag $f.Tag}}selected{{end}}>{{.Tag}} ({{.Count}})</option>{{end}}</select></label>
-      <label class="check"><input type="checkbox" name="open" value="1" {{if $f.Open}}checked{{end}}> Solo abiertas</label>
-      <button class="btn primary sm">Aplicar</button>
+      <label class="field">{{t "Canal"}}<select name="channel"><option value="">{{t "Todos"}}</option>{{range $d.Channels}}<option value="{{.Name}}" {{if eq .Name $f.Channel}}selected{{end}}>{{.Name}}</option>{{end}}</select></label>
+      <label class="field">{{t "Tag"}}<select name="tag"><option value="">{{t "Todos"}}</option>{{range $d.Tags}}<option value="{{.Tag}}" {{if eq .Tag $f.Tag}}selected{{end}}>{{.Tag}} ({{.Count}})</option>{{end}}</select></label>
+      <label class="check"><input type="checkbox" name="open" value="1" {{if $f.Open}}checked{{end}}> {{t "Solo abiertas"}}</label>
+      <button class="btn primary sm">{{t "Aplicar"}}</button>
     </div>
   </details>
-  <label class="cal"><svg class="i sm"><use href="#i-cal"/></svg><select name="days" data-autosubmit aria-label="Cerradas visibles"><option value="7" {{if eq $f.Days 7}}selected{{end}}>Cerradas: 7 días</option><option value="30" {{if eq $f.Days 30}}selected{{end}}>Cerradas: 30 días</option><option value="90" {{if eq $f.Days 90}}selected{{end}}>Cerradas: 90 días</option></select></label>
-  <div class="search"><svg class="i sm"><use href="#i-search"/></svg><input type="search" name="q" value="{{$f.Q}}" placeholder="Buscar oportunidad o empresa" aria-label="Buscar" data-hotkey="k"><kbd>⌘K</kbd></div>
-  {{if $f.Open}}<span class="chip">Etapa: abiertas <a href="/board{{$f.Without "open"}}" aria-label="Quitar filtro">×</a></span>{{end}}
-  {{with $f.Channel}}<span class="chip">Canal: {{.}} <a href="/board{{$f.Without "channel"}}" aria-label="Quitar filtro">×</a></span>{{end}}
-  {{with $f.Tag}}<span class="chip">Tag: {{.}} <a href="/board{{$f.Without "tag"}}" aria-label="Quitar filtro">×</a></span>{{end}}
-  {{with $f.Q}}<span class="chip">“{{.}}” <a href="/board{{$f.Without "q"}}" aria-label="Quitar búsqueda">×</a></span>{{end}}
-  <a class="btn" href="/opportunities.csv?{{$f.Encode}}"><svg class="i sm"><use href="#i-download"/></svg>Exportar</a>
+  <label class="cal"><svg class="i sm"><use href="#i-cal"/></svg><select name="days" data-autosubmit aria-label="{{t "Cerradas visibles"}}"><option value="7" {{if eq $f.Days 7}}selected{{end}}>{{t "Cerradas: 7 días"}}</option><option value="30" {{if eq $f.Days 30}}selected{{end}}>{{t "Cerradas: 30 días"}}</option><option value="90" {{if eq $f.Days 90}}selected{{end}}>{{t "Cerradas: 90 días"}}</option></select></label>
+  <div class="search"><svg class="i sm"><use href="#i-search"/></svg><input type="search" name="q" value="{{$f.Q}}" placeholder="{{t "Buscar oportunidad o empresa"}}" aria-label="{{t "Buscar"}}" data-hotkey="k"><kbd>⌘K</kbd></div>
+  {{if $f.Open}}<span class="chip">{{t "Etapa: abiertas"}} <a href="/board{{$f.Without "open"}}" aria-label="{{t "Quitar filtro"}}">×</a></span>{{end}}
+  {{with $f.Channel}}<span class="chip">{{t "Canal:"}} {{.}} <a href="/board{{$f.Without "channel"}}" aria-label="{{t "Quitar filtro"}}">×</a></span>{{end}}
+  {{with $f.Tag}}<span class="chip">{{t "Tag:"}} {{.}} <a href="/board{{$f.Without "tag"}}" aria-label="{{t "Quitar filtro"}}">×</a></span>{{end}}
+  {{with $f.Q}}<span class="chip">“{{.}}” <a href="/board{{$f.Without "q"}}" aria-label="{{t "Quitar búsqueda"}}">×</a></span>{{end}}
+  <a class="btn" href="/opportunities.csv?{{$f.Encode}}"><svg class="i sm"><use href="#i-download"/></svg>{{t "Exportar"}}</a>
 </form>
 <div class="live-region" data-live="board">
 <div class="kpis">
-  <div class="kpi inline"><span>Abiertas</span><strong>{{$m.OpenCount}}</strong><small>{{moneyMap $m.OpenAmount}}</small></div>
-  <div class="kpi inline"><span>Ponderado</span><strong>{{moneyMap $m.Weighted}}</strong></div>
-  <div class="kpi inline"><span>Win rate</span><strong>{{pct $m.WinRate}}</strong><small>{{$m.WonCount}} {{if eq $m.WonCount 1}}ganada{{else}}ganadas{{end}} / {{$m.LostCount}} {{if eq $m.LostCount 1}}perdida{{else}}perdidas{{end}}</small></div>
-  <div class="kpi inline {{if gt $m.StaleCount 0}}alert{{end}}"><span>Estancadas</span><strong>{{$m.StaleCount}}</strong><small>sin actividad 14 d</small></div>
+  <div class="kpi inline"><span>{{t "Abiertas"}}</span><strong>{{$m.OpenCount}}</strong><small>{{moneyMap $m.OpenAmount}}</small></div>
+  <div class="kpi inline"><span>{{t "Ponderado"}}</span><strong>{{moneyMap $m.Weighted}}</strong></div>
+  <div class="kpi inline"><span>{{t "Win rate"}}</span><strong>{{pct $m.WinRate}}</strong><small>{{$m.WonCount}} {{if eq $m.WonCount 1}}{{t "ganada"}}{{else}}{{t "ganadas"}}{{end}} / {{$m.LostCount}} {{if eq $m.LostCount 1}}{{t "perdida"}}{{else}}{{t "perdidas"}}{{end}}</small></div>
+  <div class="kpi inline {{if gt $m.StaleCount 0}}alert{{end}}"><span>{{t "Estancadas"}}</span><strong>{{$m.StaleCount}}</strong><small>{{t "sin actividad 14 d"}}</small></div>
 </div>
 
 {{if and (eq $m.OpenCount 0) (eq $m.WonCount 0) (eq $m.LostCount 0)}}
 <div class="empty">
   <span class="ic"><svg class="i"><use href="#i-plug"/></svg></span>
-  <h2>Todavía no hay oportunidades</h2>
-  <p>Conectá Claude, ChatGPT, Grok o Cursor por MCP y las oportunidades aparecen solas.</p>
-  <a class="btn primary" href="/settings/agents">Conectar agente</a>
+  <h2>{{t "Todavía no hay oportunidades"}}</h2>
+  <p>{{t "Conectá Claude, ChatGPT, Grok o Cursor por MCP y las oportunidades aparecen solas."}}</p>
+  <a class="btn primary" href="/settings/agents">{{t "Conectar agente"}}</a>
 </div>
 {{end}}
 <div class="board" data-board data-csrf="{{$d.CSRF}}">
@@ -56,13 +56,13 @@
         {{with deref .CompanyName}}<span class="co">{{.}}</span>{{end}}
         {{$t := firstTags .Tags 3}}{{if or $t.Shown (and (eq .Status "open") (stale .LastActivity))}}
         <span class="tags">
-          {{if and (eq .Status "open") (stale .LastActivity)}}<span class="badge err">estancada</span>{{end}}
+          {{if and (eq .Status "open") (stale .LastActivity)}}<span class="badge err">{{t "estancada"}}</span>{{end}}
           {{range $t.Shown}}<span class="tag {{tagClass .}}">{{.}}</span>{{end}}{{if $t.More}}<span class="tag">+{{$t.More}}</span>{{end}}
         </span>
         {{end}}
         <span class="amt">{{minor .AmountMinor .Currency}}</span>
         {{if .NextStep}}<span class="next"><svg class="i sm"><use href="#i-arrow"/></svg>{{.NextStep}}</span>{{end}}
-        <span class="meta">{{if .OwnerEmail}}<span class="av" title="{{deref .OwnerEmail}}">{{initials (deref .OwnerName) (deref .OwnerEmail)}}</span>{{end}}<span>{{agoT .LastActivity}}{{with datep .ExpectedCloseDate}} · cierre {{.}}{{end}}</span></span>
+        <span class="meta">{{if .OwnerEmail}}<span class="av" title="{{deref .OwnerEmail}}">{{initials (deref .OwnerName) (deref .OwnerEmail)}}</span>{{end}}<span>{{agoT .LastActivity}}{{with datep .ExpectedCloseDate}} {{t "· cierre"}} {{.}}{{end}}</span></span>
       </li>
       {{end}}
     </ol>
@@ -74,26 +74,26 @@
 {{if .View.CanWrite}}
 <dialog id="new-opp" class="wide"><form method="post" action="/opportunities" class="stack">
   <input type="hidden" name="csrf" value="{{$d.CSRF}}"><input type="hidden" name="pipeline" value="{{$d.Pipeline.ID}}">
-  <h2>Nueva oportunidad</h2>
-  <label class="field">Título<input name="title" required maxlength="200" placeholder="Línea de crédito PyME"></label>
-  <div class="row"><label class="field grow">Empresa<input name="company" maxlength="200" placeholder="Globex"></label><label class="field grow">Dominio (opcional)<input name="domain" placeholder="globex.com"></label></div>
-  <div class="row"><label class="field grow">Monto<input name="amount" inputmode="decimal" placeholder="12000"></label><label class="field">Moneda<input name="currency" value="USD" maxlength="3" size="4"></label>
-    <label class="field grow">Etapa<select name="stage">{{range $d.Stages}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></label></div>
-  <div class="row"><label class="field grow">Canal de origen<select name="channel"><option value="">—</option>{{range $d.Channels}}<option value="{{.Name}}">{{.Name}}</option>{{end}}</select></label>
+  <h2>{{t "Nueva oportunidad"}}</h2>
+  <label class="field">{{t "Título"}}<input name="title" required maxlength="200" placeholder="{{t "Línea de crédito PyME"}}"></label>
+  <div class="row"><label class="field grow">{{t "Empresa"}}<input name="company" maxlength="200" placeholder="{{t "Globex"}}"></label><label class="field grow">{{t "Dominio (opcional)"}}<input name="domain" placeholder="{{t "globex.com"}}"></label></div>
+  <div class="row"><label class="field grow">{{t "Monto"}}<input name="amount" inputmode="decimal" placeholder="12000"></label><label class="field">{{t "Moneda"}}<input name="currency" value="USD" maxlength="3" size="4"></label>
+    <label class="field grow">{{t "Etapa"}}<select name="stage">{{range $d.Stages}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></label></div>
+  <div class="row"><label class="field grow">{{t "Canal de origen"}}<select name="channel"><option value="">—</option>{{range $d.Channels}}<option value="{{.Name}}">{{.Name}}</option>{{end}}</select></label>
     <div class="grow">{{template "tag-field" (tagField nil $d.AllTags)}}</div></div>
-  <label class="field">Próximo paso<input name="next_step" maxlength="500" placeholder="Llamar para calificar"></label>
-  <div class="acts"><button class="btn" type="button" data-close>Cancelar</button><button class="btn primary">Crear oportunidad</button></div>
+  <label class="field">{{t "Próximo paso"}}<input name="next_step" maxlength="500" placeholder="{{t "Llamar para calificar"}}"></label>
+  <div class="acts"><button class="btn" type="button" data-close>{{t "Cancelar"}}</button><button class="btn primary">{{t "Crear oportunidad"}}</button></div>
 </form></dialog>
 {{end}}
 
 <dialog id="reason"><div class="dlg">
   <span class="ic"><svg class="i"><use href="#i-alert"/></svg></span>
-  <div><h2>Mover a <span data-stage></span></h2><p>Contá por qué se perdió: queda en el historial y ayuda a tus agentes.</p>
-    <input maxlength="1000" placeholder="p. ej. sin presupuesto este año" aria-label="Motivo" data-reason></div>
-  <div class="acts"><button type="button" class="btn" data-dlg="cancel">Cancelar</button><button type="button" class="btn danger solid" data-dlg="ok">Marcar perdida</button></div>
+  <div><h2>{{t "Mover a"}} <span data-stage></span></h2><p>{{t "Contá por qué se perdió: queda en el historial y ayuda a tus agentes."}}</p>
+    <input maxlength="1000" placeholder="{{t "p. ej. sin presupuesto este año"}}" aria-label="{{t "Motivo"}}" data-reason></div>
+  <div class="acts"><button type="button" class="btn" data-dlg="cancel">{{t "Cancelar"}}</button><button type="button" class="btn danger solid" data-dlg="ok">{{t "Marcar perdida"}}</button></div>
 </div></dialog>
 {{end}}
 
 {{define "footer"}}
-<div class="foot-note"><svg class="i sm"><use href="#i-plug"/></svg>Las oportunidades se crean y mueven desde tus agentes (MCP). Arrastrá una tarjeta para corregir una etapa a mano; el cambio queda en Auditoría.<a href="/settings/agents">Conectar un agente</a></div>
+<div class="foot-note"><svg class="i sm"><use href="#i-plug"/></svg>{{t "Las oportunidades se crean y mueven desde tus agentes (MCP). Arrastrá una tarjeta para corregir una etapa a mano; el cambio queda en Auditoría."}}<a href="/settings/agents">{{t "Conectar un agente"}}</a></div>
 {{end}}

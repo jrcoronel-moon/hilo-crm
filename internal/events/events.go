@@ -18,6 +18,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/jrcoronel-moon/hilo-crm/internal/db"
+	"github.com/jrcoronel-moon/hilo-crm/internal/i18n"
 	"github.com/jrcoronel-moon/hilo-crm/internal/store"
 )
 
@@ -36,7 +37,43 @@ type Event struct {
 	Self      bool       `json:"self,omitempty"` // set per browser: the viewer did it
 
 	actorUser *uuid.UUID
+	name      string // the record's title or name, for SummaryIn
+	stage     string // opportunity.move: the stage it went to
+	itype     string // interaction.create: email, call…
 }
+
+// SummaryIn is Summary in the given interface language.
+func (e Event) SummaryIn(lang string) string {
+	verb, ok := verbs[e.Action]
+	if !ok {
+		return e.Summary
+	}
+	parts := []string{i18n.T(lang, verb)}
+	if e.name != "" {
+		parts = append(parts, "«"+e.name+"»")
+	}
+	if e.stage != "" {
+		parts = append(parts, i18n.T(lang, "a %s", e.stage))
+	}
+	if e.itype != "" {
+		parts = append(parts, "("+e.itype+")")
+	}
+	return strings.Join(parts, " ")
+}
+
+// ActorIn is Actor in the given language (the public form and the system have
+// generic names; agents and people keep theirs).
+func (e Event) ActorIn(lang string) string {
+	if e.Actor == actorForm || e.Actor == actorSystem {
+		return i18n.T(lang, e.Actor)
+	}
+	return e.Actor
+}
+
+const (
+	actorForm   = "Formulario público" // i18n.M("Formulario público")
+	actorSystem = "Sistema"            // i18n.M("Sistema")
+)
 
 // Who names the actor and, for an agent, the person it acts for: "Cursor (ana@acme.com)".
 func (e Event) Who() string {
@@ -52,14 +89,14 @@ func (e Event) By(user uuid.UUID) bool {
 }
 
 var verbs = map[string]string{
-	"company.create": "creó la empresa", "company.update": "actualizó la empresa", "company.archive": "archivó la empresa",
-	"contact.create": "creó el contacto", "contact.update": "actualizó el contacto", "contact.archive": "archivó el contacto",
-	"opportunity.create": "creó la oportunidad", "opportunity.update": "actualizó la oportunidad",
-	"opportunity.move": "movió", "opportunity.archive": "archivó la oportunidad",
-	"interaction.create": "registró una interacción", "lead.capture": "recibió un lead",
-	"pipeline.configure": "configuró el pipeline", "pipeline.archive": "archivó el pipeline",
-	"channel.create": "creó el canal", "channel.update": "actualizó el canal", "channel.archive": "archivó el canal",
-	"form.create": "creó el formulario", "form.update": "actualizó el formulario",
+	"company.create": i18n.M("creó la empresa"), "company.update": i18n.M("actualizó la empresa"), "company.archive": i18n.M("archivó la empresa"),
+	"contact.create": i18n.M("creó el contacto"), "contact.update": i18n.M("actualizó el contacto"), "contact.archive": i18n.M("archivó el contacto"),
+	"opportunity.create": i18n.M("creó la oportunidad"), "opportunity.update": i18n.M("actualizó la oportunidad"),
+	"opportunity.move": i18n.M("movió"), "opportunity.archive": i18n.M("archivó la oportunidad"),
+	"interaction.create": i18n.M("registró una interacción"), "lead.capture": i18n.M("recibió un lead"),
+	"pipeline.configure": i18n.M("configuró el pipeline"), "pipeline.archive": i18n.M("archivó el pipeline"),
+	"channel.create": i18n.M("creó el canal"), "channel.update": i18n.M("actualizó el canal"), "channel.archive": i18n.M("archivó el canal"),
+	"form.create": i18n.M("creó el formulario"), "form.update": i18n.M("actualizó el formulario"),
 }
 
 // FromAudit builds the event of an audit row.
@@ -71,32 +108,29 @@ func FromAudit(r store.GetAuditEntryRow) Event {
 	}
 	switch {
 	case r.ActorKind == "form":
-		e.Actor = "Formulario público"
+		e.Actor = actorForm
 	case r.ActorClient != "" && r.ActorKind != "session":
 		e.Actor, e.User = r.ActorClient, r.ActorEmail
 	case r.ActorEmail != "":
 		e.Actor = r.ActorEmail
 	default:
-		e.Actor = "Sistema"
+		e.Actor = actorSystem
 	}
 	var d map[string]any
 	_ = json.Unmarshal(r.Details, &d)
 	str := func(k string) string { s, _ := d[k].(string); return s }
-	verb, ok := verbs[r.Action]
-	if !ok {
-		verb = r.Action
+	e.name = firstNonEmpty(str("title"), str("name"), str("form"))
+	switch r.Action {
+	case "opportunity.move":
+		e.stage = str("stage")
+	case "interaction.create":
+		e.itype = str("type")
 	}
-	parts := []string{verb}
-	if name := firstNonEmpty(str("title"), str("name"), str("form")); name != "" {
-		parts = append(parts, "«"+name+"»")
+	if _, ok := verbs[r.Action]; ok {
+		e.Summary = e.SummaryIn("es")
+	} else {
+		e.Summary = r.Action
 	}
-	switch {
-	case r.Action == "opportunity.move" && str("stage") != "":
-		parts = append(parts, "a "+str("stage"))
-	case r.Action == "interaction.create" && str("type") != "":
-		parts = append(parts, "("+str("type")+")")
-	}
-	e.Summary = strings.Join(parts, " ")
 	return e
 }
 

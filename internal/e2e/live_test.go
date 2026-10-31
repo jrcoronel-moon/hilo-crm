@@ -31,6 +31,7 @@ func TestLiveUpdates(t *testing.T) {
 	sctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	req, _ := http.NewRequestWithContext(sctx, http.MethodGet, s.base+"/events", nil)
+	req.Header.Set("Accept-Language", "es") // summaries follow the viewer's language
 	res, err := s.web.Do(req)
 	if err != nil {
 		t.Fatal(err)
