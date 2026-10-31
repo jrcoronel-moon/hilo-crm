@@ -51,9 +51,8 @@
 {{if and .View .View.Current (not .Bare)}}
 <div class="shell {{.View.Side}}" data-shell>
   <aside class="side">
-    <div class="brand-row"><a class="brand" href="/board"><img src="{{.Brand.LogoURL}}" alt=""><span>{{.Brand.Name}}</span></a>
-      <button type="button" class="btn ghost sm collapse-btn" data-collapse title="Plegar / desplegar menú" aria-label="Plegar o desplegar el menú"><svg class="i sm"><use href="#i-sidebar"/></svg></button>
-      <button type="button" class="btn ghost sm menu-btn" data-menu aria-controls="side-menu" aria-expanded="false" aria-label="Abrir el menú"><svg class="i"><use href="#i-menu"/></svg></button></div>
+    <div class="brand-row"><button type="button" class="btn ghost sm menu-btn" data-menu aria-controls="side-menu" aria-expanded="false" aria-label="Abrir el menú"><svg class="i"><use href="#i-menu"/></svg></button><a class="brand" href="/board"><img src="{{.Brand.LogoURL}}" alt=""><span>{{.Brand.Name}}</span></a>
+      <button type="button" class="btn ghost sm collapse-btn" data-collapse title="Plegar / desplegar menú" aria-label="Plegar o desplegar el menú"><svg class="i sm"><use href="#i-sidebar"/></svg></button></div>
     <div class="side-menu" id="side-menu">
     <nav class="nav">
       <a href="/board" {{if eq .Nav "board"}}aria-current="page"{{end}} title="Funnel"><svg class="i"><use href="#i-funnel"/></svg><span>Funnel</span></a>
