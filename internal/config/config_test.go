@@ -40,7 +40,6 @@ func TestLoadRejectsUnsafe(t *testing.T) {
 		"bad proxy cidr":      {"TRUSTED_PROXY_CIDRS": "not-a-cidr"},
 		"localhost lookalike": {"APP_BASE_URL": "http://localhost.evil.com", "DEV_LOGIN_ENABLED": "true"},
 		"unknown ui mode":     {"HILO_UI": "none"},
-		"turnstile half set":  {"TURNSTILE_SITE_KEY": "0x4AAA"},
 	}
 	for name, override := range cases {
 		t.Run(name, func(t *testing.T) {

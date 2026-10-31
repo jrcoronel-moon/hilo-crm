@@ -116,6 +116,17 @@ func (q *Queries) ClosedSummary(ctx context.Context, arg ClosedSummaryParams) ([
 	return items, nil
 }
 
+const countCaptchaForms = `-- name: CountCaptchaForms :one
+SELECT count(*) FROM lead_forms WHERE workspace_id = $1 AND require_captcha
+`
+
+func (q *Queries) CountCaptchaForms(ctx context.Context, workspaceID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countCaptchaForms, workspaceID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countStale = `-- name: CountStale :one
 SELECT count(*)::int FROM opportunities
 WHERE workspace_id = $1 AND pipeline_id = $2 AND archived_at IS NULL AND status = 'open'
@@ -177,6 +188,18 @@ func (q *Queries) CreateLeadForm(ctx context.Context, arg CreateLeadFormParams) 
 		&i.RequireCaptcha,
 	)
 	return i, err
+}
+
+const deleteWorkspaceCaptcha = `-- name: DeleteWorkspaceCaptcha :execrows
+DELETE FROM workspace_captcha WHERE workspace_id = $1
+`
+
+func (q *Queries) DeleteWorkspaceCaptcha(ctx context.Context, workspaceID uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteWorkspaceCaptcha, workspaceID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const getAuditEntry = `-- name: GetAuditEntry :one
@@ -247,6 +270,26 @@ func (q *Queries) GetLeadForm(ctx context.Context, arg GetLeadFormParams) (LeadF
 		&i.IsActive,
 		&i.CreatedAt,
 		&i.RequireCaptcha,
+	)
+	return i, err
+}
+
+const getWorkspaceCaptcha = `-- name: GetWorkspaceCaptcha :one
+
+SELECT workspace_id, site_key, secret_enc, secret_hint, updated_by, updated_at FROM workspace_captcha WHERE workspace_id = $1
+`
+
+// ───────────── captcha keys (workspace) ─────────────
+func (q *Queries) GetWorkspaceCaptcha(ctx context.Context, workspaceID uuid.UUID) (WorkspaceCaptcha, error) {
+	row := q.db.QueryRow(ctx, getWorkspaceCaptcha, workspaceID)
+	var i WorkspaceCaptcha
+	err := row.Scan(
+		&i.WorkspaceID,
+		&i.SiteKey,
+		&i.SecretEnc,
+		&i.SecretHint,
+		&i.UpdatedBy,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -724,6 +767,33 @@ func (q *Queries) TimeInStage(ctx context.Context, arg TimeInStageParams) ([]Tim
 		return nil, err
 	}
 	return items, nil
+}
+
+const upsertWorkspaceCaptcha = `-- name: UpsertWorkspaceCaptcha :exec
+INSERT INTO workspace_captcha (workspace_id, site_key, secret_enc, secret_hint, updated_by)
+VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (workspace_id) DO UPDATE
+SET site_key = EXCLUDED.site_key, secret_enc = EXCLUDED.secret_enc, secret_hint = EXCLUDED.secret_hint,
+    updated_by = EXCLUDED.updated_by, updated_at = now()
+`
+
+type UpsertWorkspaceCaptchaParams struct {
+	WorkspaceID uuid.UUID  `json:"workspace_id"`
+	SiteKey     string     `json:"site_key"`
+	SecretEnc   string     `json:"secret_enc"`
+	SecretHint  string     `json:"secret_hint"`
+	UpdatedBy   *uuid.UUID `json:"updated_by"`
+}
+
+func (q *Queries) UpsertWorkspaceCaptcha(ctx context.Context, arg UpsertWorkspaceCaptchaParams) error {
+	_, err := q.db.Exec(ctx, upsertWorkspaceCaptcha,
+		arg.WorkspaceID,
+		arg.SiteKey,
+		arg.SecretEnc,
+		arg.SecretHint,
+		arg.UpdatedBy,
+	)
+	return err
 }
 
 const wonByMonth = `-- name: WonByMonth :many

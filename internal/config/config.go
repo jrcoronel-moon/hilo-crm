@@ -46,11 +46,8 @@ type Config struct {
 	// use personal access tokens issued with hiloctl).
 	UI string
 
-	// Cloudflare Turnstile keys for the public lead forms. The site key is
-	// public (it goes in the website's snippet); the secret never leaves the
-	// server. TurnstileVerifyURL is only overridden in tests.
-	TurnstileSiteKey   string
-	TurnstileSecretKey string
+	// TurnstileVerifyURL replaces Cloudflare's siteverify endpoint (tests only;
+	// the keys themselves are per workspace, entered by an admin in the UI).
 	TurnstileVerifyURL string
 }
 
@@ -81,8 +78,6 @@ func Load(getenv func(string) string) (*Config, error) {
 		SuperadminEmails:      map[string]bool{},
 		DevLogin:              getenv("DEV_LOGIN_ENABLED") == "true",
 		UI:                    orDefault(getenv("HILO_UI"), UIFull),
-		TurnstileSiteKey:      strings.TrimSpace(getenv("TURNSTILE_SITE_KEY")),
-		TurnstileSecretKey:    strings.TrimSpace(getenv("TURNSTILE_SECRET_KEY")),
 	}
 	for _, e := range strings.Split(getenv("SUPERADMIN_EMAILS"), ",") {
 		if e = strings.ToLower(strings.TrimSpace(e)); e != "" {
@@ -126,9 +121,6 @@ func (c *Config) validate() error {
 	if (c.MicrosoftClientID == "") != (c.MicrosoftClientSecret == "") {
 		errs = append(errs, errors.New("MICROSOFT_CLIENT_ID and MICROSOFT_CLIENT_SECRET must be set together"))
 	}
-	if (c.TurnstileSiteKey == "") != (c.TurnstileSecretKey == "") {
-		errs = append(errs, errors.New("TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY must be set together"))
-	}
 	if c.DevLogin && !c.IsLocalhost() {
 		errs = append(errs, errors.New("DEV_LOGIN_ENABLED is only allowed when APP_BASE_URL points to localhost"))
 	}
@@ -158,9 +150,6 @@ func (c *Config) IsLocalhost() bool {
 
 // SecureCookies reports whether cookies must carry the Secure flag.
 func (c *Config) SecureCookies() bool { return strings.HasPrefix(c.BaseURL, "https://") }
-
-// CaptchaEnabled reports whether lead forms can require a Turnstile captcha.
-func (c *Config) CaptchaEnabled() bool { return c.TurnstileSecretKey != "" }
 
 // GoogleEnabled reports whether Google login is configured.
 func (c *Config) GoogleEnabled() bool { return c.GoogleClientID != "" }

@@ -312,6 +312,15 @@ type Workspace struct {
 	ArchivedAt *time.Time `json:"archived_at"`
 }
 
+type WorkspaceCaptcha struct {
+	WorkspaceID uuid.UUID  `json:"workspace_id"`
+	SiteKey     string     `json:"site_key"`
+	SecretEnc   string     `json:"secret_enc"`
+	SecretHint  string     `json:"secret_hint"`
+	UpdatedBy   *uuid.UUID `json:"updated_by"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+}
+
 type WorkspaceDomain struct {
 	WorkspaceID uuid.UUID `json:"workspace_id"`
 	Domain      string    `json:"domain"`

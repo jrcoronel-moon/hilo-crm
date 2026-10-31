@@ -31,6 +31,7 @@ type FormInfo struct {
 	AllowedOrigins []string
 	RedirectURL    string
 	RequireCaptcha bool
+	CaptchaSecret  string // opened Turnstile secret when RequireCaptcha ("" if unavailable)
 }
 
 // LookupForm finds an active form by its public key.
@@ -43,6 +44,13 @@ func (s *Service) LookupForm(ctx context.Context, publicKey string) (FormInfo, e
 		}
 		f = FormInfo{ID: row.ID, WorkspaceID: row.WorkspaceID, Name: row.Name, AllowedOrigins: row.AllowedOrigins, RedirectURL: row.RedirectUrl,
 			RequireCaptcha: row.RequireCaptcha}
+		if row.RequireCaptcha {
+			if secret, err := s.formCaptchaSecret(ctx, q, row.WorkspaceID); err == nil {
+				f.CaptchaSecret = secret
+			} else {
+				s.log.Error("lead form requires a captcha but the workspace keys are unavailable", "form_id", row.ID, "err", err)
+			}
+		}
 		return nil
 	})
 	return f, err
@@ -259,6 +267,11 @@ func (s *Service) CreateLeadForm(ctx context.Context, a Actor, in LeadFormInput)
 		if err != nil {
 			return err
 		}
+		if in.RequireCaptcha {
+			if err := s.captchaReady(ctx, q, a.WorkspaceID); err != nil {
+				return err
+			}
+		}
 		out, err = q.CreateLeadForm(ctx, store.CreateLeadFormParams{
 			WorkspaceID: a.WorkspaceID, Name: name, PublicKey: secure.Token("lf_", 24), PipelineID: pipe.ID,
 			ChannelID: ch, AllowedOrigins: origins, RedirectUrl: redirect, RequireCaptcha: in.RequireCaptcha,
@@ -299,6 +312,11 @@ func (s *Service) SetLeadFormActive(ctx context.Context, a Actor, id uuid.UUID, 
 // SetLeadFormCaptcha turns the Turnstile requirement on or off (admin).
 func (s *Service) SetLeadFormCaptcha(ctx context.Context, a Actor, id uuid.UUID, required bool) error {
 	return s.tx(ctx, a, PermAdmin, func(q *store.Queries) error {
+		if required {
+			if err := s.captchaReady(ctx, q, a.WorkspaceID); err != nil {
+				return err
+			}
+		}
 		n, err := q.SetLeadFormCaptcha(ctx, store.SetLeadFormCaptchaParams{WorkspaceID: a.WorkspaceID, ID: id, RequireCaptcha: required})
 		if err != nil {
 			return err

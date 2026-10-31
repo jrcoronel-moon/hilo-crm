@@ -1,12 +1,28 @@
 {{define "content"}}
-{{$d := .Data}}{{$base := .Cfg.BaseURL}}{{$site := .Cfg.TurnstileSiteKey}}
+{{$d := .Data}}{{$base := .Cfg.BaseURL}}{{$c := $d.Captcha}}{{$ready := and $c.Configured $c.Readable}}{{$site := $c.SiteKey}}
 <p class="muted">Cada envío crea (o vincula, sin sobrescribir) el contacto y la empresa, una oportunidad en la etapa inicial y una interacción <em>form · inbound</em>.</p>
+<section class="card">
+  <div class="card-head"><h2>Captcha · Cloudflare Turnstile</h2>
+    {{if $ready}}<span class="badge ok">claves guardadas</span>{{else if $c.Configured}}<span class="badge err">falta la clave secreta</span>{{else}}<span class="badge warn">sin configurar</span>{{end}}</div>
+  {{if not $c.Configured}}<p class="muted small">Frena a los bots en tus formularios. Creá un widget gratis en <a href="https://dash.cloudflare.com/?to=/:account/turnstile" target="_blank" rel="noopener noreferrer">Cloudflare Turnstile</a> con los dominios de tu web y pegá acá las dos claves.</p>{{end}}
+  <form method="post" action="/settings/captcha-keys" class="stack">
+    <input type="hidden" name="csrf" value="{{$d.CSRF}}">
+    <div class="row">
+      <label class="field grow">Clave del sitio (site key)<input name="site_key" value="{{$c.SiteKey}}" required maxlength="100" autocomplete="off" spellcheck="false" placeholder="0x4AAAA…"></label>
+      <label class="field grow">Clave secreta (secret key)<input name="secret_key" type="password" maxlength="100" autocomplete="new-password" spellcheck="false" {{if $ready}}placeholder="••••••••{{$c.SecretHint}} · vacía = no cambiar"{{else}}required placeholder="0x4AAAA…"{{end}}></label>
+    </div>
+    {{if $ready}}<p class="muted small">Clave secreta guardada y cifrada, termina en <code>{{$c.SecretHint}}</code> · {{date $c.UpdatedAt}}. No se vuelve a mostrar: para cambiarla, pegá la nueva.</p>
+    {{else if $c.Configured}}<p class="muted small">La clave secreta guardada ya no se puede leer porque cambió la clave del servidor. Pegala de nuevo.</p>{{end}}
+    <div class="row"><button class="btn primary">Guardar claves</button>{{if $c.Configured}}<button class="btn danger" form="captcha-del">Quitar claves</button>{{end}}</div>
+  </form>
+  {{if $c.Configured}}<form id="captcha-del" method="post" action="/settings/captcha-keys-delete" data-confirm="¿Quitar las claves del captcha?|Los formularios ya no van a poder exigir captcha."><input type="hidden" name="csrf" value="{{$d.CSRF}}"></form>{{end}}
+</section>
 {{range $d.Forms}}
 <section class="card">
   <div class="card-head"><h2>{{.Name}}</h2>{{if .IsActive}}<span class="badge ok">activo</span>{{else}}<span class="badge">inactivo</span>{{end}}
-    {{if .RequireCaptcha}}<span class="badge ok">captcha</span>{{else}}<span class="badge warn">sin captcha</span>{{end}}
+    {{if and .RequireCaptcha $ready}}<span class="badge ok">captcha</span>{{else if .RequireCaptcha}}<span class="badge err">captcha sin claves</span>{{else}}<span class="badge warn">sin captcha</span>{{end}}
     <span class="aside row">
-    {{if or .RequireCaptcha $site}}<form method="post" action="/settings/form-captcha"{{if .RequireCaptcha}} data-confirm="¿Quitar el captcha?|«{{.Name}}» vuelve a aceptar envíos sin verificación."{{end}}><input type="hidden" name="csrf" value="{{$d.CSRF}}"><input type="hidden" name="id" value="{{.ID}}"><input type="hidden" name="captcha" value="{{if .RequireCaptcha}}0{{else}}1{{end}}"><button class="btn sm">{{if .RequireCaptcha}}Quitar captcha{{else}}Exigir captcha{{end}}</button></form>{{end}}
+    {{if or .RequireCaptcha $ready}}<form method="post" action="/settings/form-captcha"{{if .RequireCaptcha}} data-confirm="¿Quitar el captcha?|«{{.Name}}» vuelve a aceptar envíos sin verificación."{{end}}><input type="hidden" name="csrf" value="{{$d.CSRF}}"><input type="hidden" name="id" value="{{.ID}}"><input type="hidden" name="captcha" value="{{if .RequireCaptcha}}0{{else}}1{{end}}"><button class="btn sm">{{if .RequireCaptcha}}Quitar captcha{{else}}Exigir captcha{{end}}</button></form>{{end}}
     <form method="post" action="/settings/form-toggle"><input type="hidden" name="csrf" value="{{$d.CSRF}}"><input type="hidden" name="id" value="{{.ID}}"><input type="hidden" name="active" value="{{if .IsActive}}0{{else}}1{{end}}"><button class="btn sm">{{if .IsActive}}Desactivar{{else}}Activar{{end}}</button></form></span></div>
   <div class="copybox"><code class="grow">{{$base}}/f/{{.PublicKey}}</code><button class="btn" type="button" data-copy="{{$base}}/f/{{.PublicKey}}"><svg class="i sm"><use href="#i-copy"/></svg>Copiar</button></div>
   <pre class="snippet">{{if .RequireCaptcha}}&lt;script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer&gt;&lt;/script&gt;
@@ -20,8 +36,9 @@
 {{end}}  &lt;button&gt;Enviar&lt;/button&gt;
 &lt;/form&gt;</pre>
   {{if .AllowedOrigins}}<p class="muted small">Orígenes permitidos: {{range .AllowedOrigins}}<code>{{.}}</code> {{end}}</p>{{end}}
-  {{if .RequireCaptcha}}<p class="muted small">Con captcha, cada envío se verifica con Cloudflare Turnstile antes de guardarse. El widget del snippet tiene que estar en la página{{if .AllowedOrigins}} y resolverse en uno de los orígenes permitidos{{end}}.</p>
-  {{else if $site}}<p class="muted small">Este formulario acepta envíos sin captcha. Agregá el widget a tu web y después tocá <b>Exigir captcha</b>.</p>{{end}}
+  {{if and .RequireCaptcha (not $ready)}}<div class="notice err"><svg class="i sm"><use href="#i-alert"/></svg>Este formulario exige captcha pero faltan las claves de Turnstile: todos los envíos se rechazan. Cargalas arriba o quitá el captcha.</div>
+  {{else if .RequireCaptcha}}<p class="muted small">Con captcha, cada envío se verifica con Cloudflare Turnstile antes de guardarse. El widget del snippet tiene que estar en la página{{if .AllowedOrigins}} y resolverse en uno de los orígenes permitidos{{end}}.</p>
+  {{else if $ready}}<p class="muted small">Este formulario acepta envíos sin captcha. Agregá el widget a tu web y después tocá <b>Exigir captcha</b>.</p>{{end}}
 </section>
 {{else}}
 <div class="empty"><span class="ic"><svg class="i"><use href="#i-file"/></svg></span><h2>Todavía no hay formularios</h2><p>Creá uno y pegá el snippet en tu web: cada envío llega como lead a la etapa inicial.</p></div>
@@ -37,8 +54,8 @@
     </div>
     <label class="field">Orígenes permitidos<input name="origins" placeholder="https://www.tuweb.com (separados por espacio)"></label>
     <label class="field">URL de agradecimiento (opcional)<input name="redirect_url" placeholder="https://www.tuweb.com/gracias"></label>
-    {{if $site}}<label class="check"><input type="checkbox" name="captcha" value="1" checked> Exigir captcha (Cloudflare Turnstile)</label>
-    {{else}}<p class="muted small">Captcha no disponible: el servidor necesita <code>TURNSTILE_SITE_KEY</code> y <code>TURNSTILE_SECRET_KEY</code>.</p>{{end}}
+    {{if $ready}}<label class="check"><input type="checkbox" name="captcha" value="1" checked> Exigir captcha (Cloudflare Turnstile)</label>
+    {{else}}<p class="muted small">Para exigir captcha, cargá primero las claves de Turnstile arriba.</p>{{end}}
     <div><button class="btn primary">Crear formulario</button></div>
   </form>
 </section>

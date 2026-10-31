@@ -24,9 +24,9 @@ const formMaxBody = 32 << 10
 var formKnown = map[string]bool{"email": true, "first_name": true, "last_name": true, "name": true, "company": true,
 	"phone": true, "message": true, "website": true, "_redirect": true, captcha.Field: true}
 
-// captchaVerifier checks a Turnstile token (captcha.Turnstile; a fake in tests).
+// captchaVerifier checks a Turnstile token with the workspace's secret.
 type captchaVerifier interface {
-	Verify(ctx context.Context, token, remoteIP string) (captcha.Result, error)
+	Verify(ctx context.Context, secret, token, remoteIP string) (captcha.Result, error)
 }
 
 func (h *Handler) submitForm(w http.ResponseWriter, r *http.Request) {
@@ -92,12 +92,11 @@ func (h *Handler) submitForm(w http.ResponseWriter, r *http.Request) {
 // allow-list, that the widget was solved on one of those sites. It writes the
 // error response itself and reports whether the submission may go on.
 func (h *Handler) checkCaptcha(w http.ResponseWriter, r *http.Request, form crm.FormInfo) bool {
-	if h.captcha == nil {
-		h.log.Error("lead form requires a captcha but TURNSTILE keys are not configured", "form_id", form.ID)
-		httpx.WriteError(w, http.StatusServiceUnavailable, "captcha is not configured on the server")
+	if form.CaptchaSecret == "" { // keys removed or unreadable: logged by LookupForm
+		httpx.WriteError(w, http.StatusServiceUnavailable, "captcha is not configured for this form")
 		return false
 	}
-	res, err := h.captcha.Verify(r.Context(), r.PostFormValue(captcha.Field), h.ips.Of(r))
+	res, err := h.captcha.Verify(r.Context(), form.CaptchaSecret, r.PostFormValue(captcha.Field), h.ips.Of(r))
 	switch {
 	case errors.Is(err, captcha.ErrMissing):
 		httpx.WriteError(w, http.StatusBadRequest, "complete the captcha and send the form again")

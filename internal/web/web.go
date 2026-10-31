@@ -55,7 +55,7 @@ type Handler struct {
 
 	loginLimit *httpx.RateLimiter
 	formLimit  *httpx.RateLimiter
-	captcha    captchaVerifier // nil: no Turnstile keys configured
+	captcha    captchaVerifier // Cloudflare Turnstile (keys are per workspace)
 	http       *http.Client    // to the identity providers
 
 	hub  *events.Hub     // live updates (nil: disabled)
@@ -69,9 +69,7 @@ func New(cfg *config.Config, brand *branding.Service, crmSvc *crm.Service, idSvc
 		loginLimit: httpx.NewRateLimiter(30, 30), formLimit: httpx.NewRateLimiter(10, 10),
 		http: &http.Client{Timeout: 15 * time.Second},
 	}
-	if t := captcha.NewTurnstile(cfg.TurnstileSecretKey, cfg.TurnstileVerifyURL); t != nil {
-		h.captcha = t
-	}
+	h.captcha = captcha.NewTurnstile(cfg.TurnstileVerifyURL)
 	return h, h.parseTemplates()
 }
 

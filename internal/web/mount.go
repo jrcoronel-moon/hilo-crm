@@ -18,7 +18,7 @@ import (
 // starts relaying live updates until ctx ends.
 func Mount(ctx context.Context, cfg *config.Config, d *db.DB, log *slog.Logger) (*http.ServeMux, error) {
 	oa := oauth.New(cfg, d, log)
-	h, err := New(cfg, branding.New(d), crm.New(d, log), identity.New(d, log, cfg.SuperadminEmails), oa, log)
+	h, err := New(cfg, branding.New(d), crm.New(d, log).WithSecrets(cfg.SessionSecret), identity.New(d, log, cfg.SuperadminEmails), oa, log)
 	if err != nil {
 		return nil, err
 	}

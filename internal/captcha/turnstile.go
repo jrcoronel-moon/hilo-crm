@@ -29,22 +29,19 @@ var (
 	ErrRejected = errors.New("captcha rejected")
 )
 
-// Turnstile checks tokens against Cloudflare.
+// Turnstile checks tokens against Cloudflare. The secret comes with each
+// call: every workspace has its own keys.
 type Turnstile struct {
-	Secret   string
 	Endpoint string       // VerifyURL unless overridden (tests)
 	HTTP     *http.Client // short timeout: a visitor is waiting
 }
 
-// NewTurnstile returns a verifier, or nil when no secret is configured.
-func NewTurnstile(secret, endpoint string) *Turnstile {
-	if secret == "" {
-		return nil
-	}
+// NewTurnstile returns a verifier for endpoint ("" means Cloudflare's).
+func NewTurnstile(endpoint string) *Turnstile {
 	if endpoint == "" {
 		endpoint = VerifyURL
 	}
-	return &Turnstile{Secret: secret, Endpoint: endpoint, HTTP: &http.Client{Timeout: 8 * time.Second}}
+	return &Turnstile{Endpoint: endpoint, HTTP: &http.Client{Timeout: 8 * time.Second}}
 }
 
 // Result is what Cloudflare reports about a valid token.
@@ -52,9 +49,9 @@ type Result struct {
 	Hostname string // the site the widget was solved on
 }
 
-// Verify validates a token once (tokens are single use). remoteIP is the
-// visitor's address, sent as an extra signal.
-func (t *Turnstile) Verify(ctx context.Context, token, remoteIP string) (Result, error) {
+// Verify validates a token once (tokens are single use) with the workspace's
+// secret. remoteIP is the visitor's address, sent as an extra signal.
+func (t *Turnstile) Verify(ctx context.Context, secret, token, remoteIP string) (Result, error) {
 	token = strings.TrimSpace(token)
 	if token == "" {
 		return Result{}, ErrMissing
@@ -62,7 +59,7 @@ func (t *Turnstile) Verify(ctx context.Context, token, remoteIP string) (Result,
 	if len(token) > 2048 { // Cloudflare's documented maximum
 		return Result{}, ErrRejected
 	}
-	form := url.Values{"secret": {t.Secret}, "response": {token}}
+	form := url.Values{"secret": {secret}, "response": {token}}
 	if remoteIP != "" {
 		form.Set("remoteip", remoteIP)
 	}

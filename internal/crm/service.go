@@ -21,6 +21,8 @@ type Service struct {
 	db  *db.DB
 	log *slog.Logger
 	now func() time.Time
+
+	master []byte // SESSION_SECRET, for secrets sealed in the database
 }
 
 // New builds the service.

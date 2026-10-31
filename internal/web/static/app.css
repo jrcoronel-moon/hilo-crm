@@ -374,6 +374,7 @@ strong.big { font-size: 32px; font-weight: 700; letter-spacing: -.02em; }
   input, select, textarea { font-size: 16px; }
   /* inline forms (move stage, link contact…): one field per line */
   form.row > input:not([type=hidden]):not([type=checkbox]):not([type=radio]), form.row > select { flex: 1 1 100%; }
+  .row > .field { flex: 1 1 100%; }
   .toolbar > * { flex: 1 1 auto; }
   .search { min-width: 0; flex-basis: 100%; } .search kbd { display: none; }
   details.pop .pop-body { width: min(300px, calc(100vw - 48px)); }

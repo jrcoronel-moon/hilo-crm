@@ -135,3 +135,21 @@ LIMIT sqlc.arg(lim);
 
 -- name: LastAuditID :one
 SELECT COALESCE(max(id), 0)::bigint FROM audit_log WHERE workspace_id = $1;
+
+-- ───────────── captcha keys (workspace) ─────────────
+
+-- name: GetWorkspaceCaptcha :one
+SELECT * FROM workspace_captcha WHERE workspace_id = $1;
+
+-- name: UpsertWorkspaceCaptcha :exec
+INSERT INTO workspace_captcha (workspace_id, site_key, secret_enc, secret_hint, updated_by)
+VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (workspace_id) DO UPDATE
+SET site_key = EXCLUDED.site_key, secret_enc = EXCLUDED.secret_enc, secret_hint = EXCLUDED.secret_hint,
+    updated_by = EXCLUDED.updated_by, updated_at = now();
+
+-- name: DeleteWorkspaceCaptcha :execrows
+DELETE FROM workspace_captcha WHERE workspace_id = $1;
+
+-- name: CountCaptchaForms :one
+SELECT count(*) FROM lead_forms WHERE workspace_id = $1 AND require_captcha;

@@ -37,29 +37,25 @@ func fake(t *testing.T) *httptest.Server {
 func TestTurnstile(t *testing.T) {
 	srv := fake(t)
 	ctx := context.Background()
-	if NewTurnstile("", srv.URL) != nil {
-		t.Fatal("no secret must mean no verifier")
-	}
-	v := NewTurnstile("s3cret", srv.URL)
+	v := NewTurnstile(srv.URL)
 
-	res, err := v.Verify(ctx, " good ", "203.0.113.7")
+	res, err := v.Verify(ctx, "s3cret", " good ", "203.0.113.7")
 	if err != nil || res.Hostname != "www.acme.test" {
 		t.Fatalf("good token: %+v %v", res, err)
 	}
-	if _, err := v.Verify(ctx, "", "203.0.113.7"); !errors.Is(err, ErrMissing) {
+	if _, err := v.Verify(ctx, "s3cret", "", "203.0.113.7"); !errors.Is(err, ErrMissing) {
 		t.Fatalf("empty token: %v", err)
 	}
-	if _, err := v.Verify(ctx, "used-or-fake", "203.0.113.7"); !errors.Is(err, ErrRejected) {
+	if _, err := v.Verify(ctx, "s3cret", "used-or-fake", "203.0.113.7"); !errors.Is(err, ErrRejected) {
 		t.Fatalf("bad token: %v", err)
 	}
-	if _, err := v.Verify(ctx, string(make([]byte, 3000)), "203.0.113.7"); !errors.Is(err, ErrRejected) {
+	if _, err := v.Verify(ctx, "s3cret", string(make([]byte, 3000)), "203.0.113.7"); !errors.Is(err, ErrRejected) {
 		t.Fatalf("oversized token: %v", err)
 	}
-	if _, err := v.Verify(ctx, "boom", "203.0.113.7"); err == nil || errors.Is(err, ErrRejected) {
+	if _, err := v.Verify(ctx, "s3cret", "boom", "203.0.113.7"); err == nil || errors.Is(err, ErrRejected) {
 		t.Fatalf("upstream failure must be an error, not a rejection: %v", err)
 	}
-	wrong := NewTurnstile("wrong", srv.URL)
-	if _, err := wrong.Verify(ctx, "good", "203.0.113.7"); err == nil || errors.Is(err, ErrRejected) {
+	if _, err := v.Verify(ctx, "wrong", "good", "203.0.113.7"); err == nil || errors.Is(err, ErrRejected) {
 		t.Fatalf("bad secret must be a server error: %v", err)
 	}
 }

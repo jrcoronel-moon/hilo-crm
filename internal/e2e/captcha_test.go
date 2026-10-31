@@ -12,6 +12,11 @@ import (
 	"github.com/jrcoronel-moon/hilo-crm/internal/config"
 )
 
+const (
+	testSiteKey = "0x4AAAAAAAsite"
+	testSecret  = "0x4AAAAAAAtest-secret-9xyz"
+)
+
 // fakeTurnstile stands in for Cloudflare's siteverify: "good" was solved on
 // the allowed site, "elsewhere" on another site, anything else is invalid.
 func fakeTurnstile(t *testing.T) *httptest.Server {
@@ -19,7 +24,7 @@ func fakeTurnstile(t *testing.T) *httptest.Server {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = r.ParseForm()
 		switch {
-		case r.PostForm.Get("secret") != "test-secret":
+		case r.PostForm.Get("secret") != testSecret:
 			_, _ = w.Write([]byte(`{"success":false,"error-codes":["invalid-input-secret"]}`))
 		case r.PostForm.Get("response") == "good":
 			_, _ = w.Write([]byte(`{"success":true,"hostname":"www.acme.test"}`))
@@ -35,29 +40,58 @@ func fakeTurnstile(t *testing.T) *httptest.Server {
 
 func TestLeadFormCaptcha(t *testing.T) {
 	cf := fakeTurnstile(t)
-	s := startWith(t, func(c *config.Config) {
-		c.TurnstileSiteKey, c.TurnstileSecretKey, c.TurnstileVerifyURL = "0x4AAAAAAAsite", "test-secret", cf.URL
-	})
+	s := startWith(t, func(c *config.Config) { c.TurnstileVerifyURL = cf.URL })
 	csrf := s.signIn()
+	status := func(path string, v url.Values) int {
+		t.Helper()
+		v.Set("csrf", csrf)
+		res, _ := s.do("POST", path, v)
+		return res.StatusCode
+	}
 	_, page := s.do("GET", "/settings/forms", nil)
+	if !strings.Contains(page, "sin configurar") {
+		t.Fatal("missing keys not shown")
+	}
 	ch := regexp.MustCompile(`<option value="([0-9a-f-]{36})" selected>Formulario</option>`).FindStringSubmatch(page)
 	if ch == nil {
 		t.Fatal("form channel not found")
 	}
-	res, _ := s.do("POST", "/settings/form", url.Values{"csrf": {csrf}, "name": {"Web"}, "channel": {ch[1]},
-		"origins": {"https://www.acme.test"}, "captcha": {"1"}})
-	if res.StatusCode != http.StatusSeeOther {
-		t.Fatalf("create form: %d", res.StatusCode)
+	newForm := url.Values{"name": {"Web"}, "channel": {ch[1]}, "origins": {"https://www.acme.test"}, "captcha": {"1"}}
+	if c := status("/settings/form", newForm); c != http.StatusBadRequest {
+		t.Fatalf("captcha form without keys must be refused: %d", c)
+	}
+
+	// The admin saves the keys in the UI; the secret is required the first time.
+	if c := status("/settings/captcha-keys", url.Values{"site_key": {testSiteKey}}); c != http.StatusBadRequest {
+		t.Fatalf("first save without secret: %d", c)
+	}
+	if c := status("/settings/captcha-keys", url.Values{"site_key": {"<script>"}, "secret_key": {testSecret}}); c != http.StatusBadRequest {
+		t.Fatalf("malformed site key: %d", c)
+	}
+	if c := status("/settings/captcha-keys", url.Values{"site_key": {"0x4AAAAAAAold"}, "secret_key": {testSecret}}); c != http.StatusSeeOther {
+		t.Fatalf("save keys: %d", c)
+	}
+	// Changing only the site key keeps the stored secret.
+	if c := status("/settings/captcha-keys", url.Values{"site_key": {testSiteKey}, "secret_key": {""}}); c != http.StatusSeeOther {
+		t.Fatalf("update site key: %d", c)
 	}
 	_, page = s.do("GET", "/settings/forms", nil)
-	if !strings.Contains(page, `data-sitekey="0x4AAAAAAAsite"`) || !strings.Contains(page, "turnstile/v0/api.js") {
+	if !strings.Contains(page, "claves guardadas") || !strings.Contains(page, "<code>9xyz</code>") {
+		t.Fatal("saved state or secret hint not shown")
+	}
+	if strings.Contains(page, testSecret) || strings.Contains(page, "test-secret") {
+		t.Fatal("the secret reached the page")
+	}
+
+	if c := status("/settings/form", newForm); c != http.StatusSeeOther {
+		t.Fatalf("create captcha form: %d", c)
+	}
+	_, page = s.do("GET", "/settings/forms", nil)
+	if !strings.Contains(page, `data-sitekey="`+testSiteKey+`"`) || !strings.Contains(page, "turnstile/v0/api.js") {
 		t.Fatal("snippet lacks the Turnstile widget")
 	}
-	if strings.Contains(page, "test-secret") {
-		t.Fatal("the secret key reached the page")
-	}
 	key := regexp.MustCompile(`/f/(lf_[A-Za-z0-9_-]+)`).FindStringSubmatch(page)[1]
-	id := regexp.MustCompile(`name="id" value="([0-9a-f-]{36})"`).FindStringSubmatch(page)[1]
+	id := regexp.MustCompile(`action="/settings/form-captcha"[^>]*>.*?name="id" value="([0-9a-f-]{36})"`).FindStringSubmatch(page)[1]
 
 	post := func(token string) int {
 		v := url.Values{"email": {"ana@cliente.test"}, "name": {"Ana Pérez"}}
@@ -74,14 +108,17 @@ func TestLeadFormCaptcha(t *testing.T) {
 		_ = r.Body.Close()
 		return r.StatusCode
 	}
-	for token, want := range map[string]int{
-		"":          http.StatusBadRequest, // widget missing or not completed
-		"forged":    http.StatusForbidden,  // Cloudflare rejects it
-		"elsewhere": http.StatusForbidden,  // solved on a site outside the allow-list
-		"good":      http.StatusOK,
+	for _, tc := range []struct {
+		token string
+		want  int
+	}{
+		{"", http.StatusBadRequest},         // widget missing or not completed
+		{"forged", http.StatusForbidden},    // Cloudflare rejects it
+		{"elsewhere", http.StatusForbidden}, // solved on a site outside the allow-list
+		{"good", http.StatusOK},
 	} {
-		if got := post(token); got != want {
-			t.Fatalf("token %q: got %d, want %d", token, got, want)
+		if got := post(tc.token); got != tc.want {
+			t.Fatalf("token %q: got %d, want %d", tc.token, got, tc.want)
 		}
 	}
 	_, page = s.do("GET", "/board", nil)
@@ -89,25 +126,20 @@ func TestLeadFormCaptcha(t *testing.T) {
 		t.Fatal("verified lead not on the board")
 	}
 
-	// Turning the captcha off accepts plain submissions again.
-	if res, _ = s.do("POST", "/settings/form-captcha", url.Values{"csrf": {csrf}, "id": {id}, "captcha": {"0"}}); res.StatusCode != http.StatusSeeOther {
-		t.Fatalf("captcha off: %d", res.StatusCode)
+	// Keys cannot be removed while a form depends on them.
+	if c := status("/settings/captcha-keys-delete", url.Values{}); c != http.StatusBadRequest {
+		t.Fatalf("delete keys in use: %d", c)
+	}
+	if c := status("/settings/form-captcha", url.Values{"id": {id}, "captcha": {"0"}}); c != http.StatusSeeOther {
+		t.Fatalf("captcha off: %d", c)
+	}
+	if c := status("/settings/captcha-keys-delete", url.Values{}); c != http.StatusSeeOther {
+		t.Fatalf("delete keys: %d", c)
+	}
+	if c := status("/settings/form-captcha", url.Values{"id": {id}, "captcha": {"1"}}); c != http.StatusBadRequest {
+		t.Fatalf("captcha on without keys: %d", c)
 	}
 	if got := post(""); got != http.StatusOK {
 		t.Fatalf("no captcha required any more: %d", got)
-	}
-}
-
-func TestLeadFormCaptchaNeedsKeys(t *testing.T) {
-	s := start(t)
-	csrf := s.signIn()
-	_, page := s.do("GET", "/settings/forms", nil)
-	if !strings.Contains(page, "Captcha no disponible") {
-		t.Fatal("missing keys not explained")
-	}
-	ch := regexp.MustCompile(`<option value="([0-9a-f-]{36})" selected>Formulario</option>`).FindStringSubmatch(page)
-	res, _ := s.do("POST", "/settings/form", url.Values{"csrf": {csrf}, "name": {"Web"}, "channel": {ch[1]}, "captcha": {"1"}})
-	if res.StatusCode != http.StatusBadRequest {
-		t.Fatalf("captcha without keys must be refused: %d", res.StatusCode)
 	}
 }

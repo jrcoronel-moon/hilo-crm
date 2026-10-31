@@ -104,29 +104,20 @@ columnas.
 
 Los formularios públicos de leads crean contacto + oportunidad + interacción, sin poder sobrescribir datos existentes.
 Cada formulario puede exigir un captcha de Cloudflare Turnstile (gratis), que Hilo verifica en el servidor antes de
-guardar. Si el formulario tiene orígenes permitidos, el captcha tiene que haberse resuelto en uno de esos sitios.
+guardar. Las claves son de cada workspace y las carga un admin desde la interfaz, sin tocar el servidor. Si el formulario tiene orígenes permitidos, el captcha tiene que haberse resuelto en uno de esos sitios.
 
-Para activarlo:
+Para activarlo, un admin del workspace:
 
-1. En [dash.cloudflare.com](https://dash.cloudflare.com), entrá a **Turnstile → Add widget** con los dominios de las
-   webs donde van los formularios. Te da una clave pública (site key) y una secreta (secret key).
-2. Cargalas en el `.env` del servidor y reiniciá:
+1. En [dash.cloudflare.com](https://dash.cloudflare.com), entra a **Turnstile → Add widget** con los dominios de las
+   webs donde van los formularios. Cloudflare le da una clave pública (site key) y una secreta (secret key).
+2. En **Ajustes → Formularios → Captcha**, pega las dos claves y toca **Guardar claves**. La secreta se guarda
+   cifrada y no se vuelve a mostrar: la pantalla indica que está guardada y sus últimos 4 caracteres.
+3. Copia el snippet del formulario a su web (ya incluye el script y el widget de Turnstile) y después toca
+   **Exigir captcha** en ese formulario.
 
-   ```sh
-   TURNSTILE_SITE_KEY=...
-   TURNSTILE_SECRET_KEY=...
-   ```
-
-   ```sh
-   docker compose up -d --wait
-   ```
-
-3. En **Ajustes → Formularios**, copiá el snippet a tu web (ya incluye el script y el widget de Turnstile) y después
-   tocá **Exigir captcha**.
-
-Respetá ese orden: si activás el captcha antes de que la web tenga el widget, el formulario rechaza todos los envíos.
-Sin las dos claves cargadas, Hilo no deja activarlo. Los formularios nuevos traen el captcha activado; los que ya
-existían siguen sin captcha hasta que lo actives.
+Conviene respetar ese orden: si el captcha se activa antes de que la web tenga el widget, el formulario rechaza todos
+los envíos. Sin claves guardadas, Hilo no deja activarlo, y no deja quitarlas mientras algún formulario lo exija. Los
+formularios nuevos traen el captcha activado; los que ya existían siguen sin captcha hasta que se active.
 
 ## Quién puede entrar
 
