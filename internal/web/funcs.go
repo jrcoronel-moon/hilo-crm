@@ -62,6 +62,7 @@ var funcs = template.FuncMap{
 	"divf":       func(a, b float64) float64 { return a / b },
 	"mulf":       func(a, b float64) float64 { return a * b },
 	"join":       strings.Join,
+	"upper":      strings.ToUpper,
 	"trim":       strings.TrimSpace,
 	"ownerSel":   ownerSel,
 	"tagField":   tagField,

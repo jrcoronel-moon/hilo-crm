@@ -1,4 +1,4 @@
-{{define "lang-select"}}<form method="get" action="/lang" class="lang-form"><input type="hidden" name="next" value="{{.Path}}"><svg class="i sm" aria-hidden="true"><use href="#i-globe"/></svg><select name="l" data-autosubmit aria-label="{{t "Idioma"}}">{{range .Langs}}<option value="{{.Code}}" {{if eq .Code $.Lang}}selected{{end}}>{{.Name}}</option>{{end}}</select><noscript><button class="btn sm">{{t "Cambiar"}}</button></noscript></form>{{end}}
+{{define "lang-select"}}<form method="get" action="/lang" class="lang-form"><input type="hidden" name="next" value="{{.Path}}"><svg class="i sm" aria-hidden="true"><use href="#i-globe"/></svg><select name="l" data-autosubmit aria-label="{{t "Idioma"}}">{{range .Langs}}<option value="{{.Code}}" title="{{.Name}}" {{if eq .Code $.Lang}}selected{{end}}>{{.Code | upper}}</option>{{end}}</select><noscript><button class="btn sm">{{t "Cambiar"}}</button></noscript></form>{{end}}
 {{define "opp-table"}}
 {{if .}}
 <table class="table">
