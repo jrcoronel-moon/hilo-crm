@@ -1,8 +1,21 @@
-# Hilo Headless CRM
+<p align="center">
+  <img src="internal/web/static/favicon.svg" width="88" alt="Hilo logo">
+</p>
 
-**English** · [Español](README.es.md)
+<h1 align="center">Hilo Headless CRM</h1>
 
-**The agentic-first CRM: AI agents run the pipeline, people watch.**
+<p align="center"><b>The agentic-first CRM: AI agents run the pipeline, people watch.</b></p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/version-0.1.0-F26B1D" alt="Version 0.1.0">
+  <img src="https://img.shields.io/badge/Go-1.27-00ADD8?logo=go&amp;logoColor=white" alt="Go 1.27">
+  <img src="https://img.shields.io/badge/PostgreSQL-18-4169E1?logo=postgresql&amp;logoColor=white" alt="PostgreSQL 18">
+  <img src="https://img.shields.io/badge/MCP-remote%20%C2%B7%20OAuth%202.1-0B7A6C" alt="Remote MCP with OAuth 2.1">
+  <img src="https://img.shields.io/badge/UI-EN%20%C2%B7%20ES%20%C2%B7%20FR%20%C2%B7%20IT%20%C2%B7%20DE%20%C2%B7%20PT-6B7280" alt="Six languages">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="Apache-2.0"></a>
+</p>
+
+<p align="center"><b>English</b> · <a href="README.es.md">Español</a></p>
 
 <p align="center">
   <img src="docs/img/hilo-agent.svg" width="760" alt="The tools you already use (inbox, Gmail, calendar, video calls, Drive, Docs, social media, forms) connect to the agent, and the agent records everything in Hilo over MCP.">
@@ -15,6 +28,11 @@ Connect Claude, ChatGPT, Grok or Cursor, and the agent loads companies, contacts
 interaction and moves the funnel. You sign in with Google or Microsoft when you want to look.
 
 Open source, [Apache-2.0](LICENSE). One `docker compose up` and it runs.
+
+<p align="center">
+  <img src="docs/img/screenshots/funnel.png" alt="The funnel while Claude, connected over MCP, moves an opportunity: the board updates and a notice says who did it.">
+  <br><sub>The funnel updates live while an agent works: here Claude, connected over MCP, moves a deal to Negotiation.</sub>
+</p>
 
 ## The problem
 
@@ -196,6 +214,19 @@ The web is deliberately small and does only what an agent shouldn't: let a human
 - **Works on a phone**: one column, a menu drawer you open with a swipe from the left, and tables and the funnel that
   scroll sideways inside their card.
 
+| | |
+|---|---|
+| ![Dashboard with weighted pipeline, win rate, amount won per month, leads by channel and activity by agent](docs/img/screenshots/dashboard.png) | ![An opportunity with its stage, files and links, contacts and the timeline the agents wrote](docs/img/screenshots/opportunity.png) |
+| **Dashboard**: weighted pipeline, win rate, cycle, goal and activity by agent. | **Opportunity**: stage, links to external files, contacts and the timeline the agents wrote. |
+| ![Interactions logged by agents: emails, calls, meetings, notes](docs/img/screenshots/interactions.png) | ![Companies list with industry, country, contacts and last activity](docs/img/screenshots/companies.png) |
+| **Interactions**: every email, call and meeting, with its real date. | **Companies**, contacts and opportunities, with search, filters and bulk actions. |
+| ![Agents settings: MCP server URL, connected agents and personal tokens](docs/img/screenshots/agents.png) | ![OAuth consent screen when an agent connects](docs/img/screenshots/consent.png) |
+| **Agents**: the MCP URL, agents connected over OAuth and personal tokens. | **Consent**: what an agent sees when it connects, with read-only as an option. |
+| ![Audit log telling apart people, agents and forms](docs/img/screenshots/audit.png) | ![Pipeline editor with stages, categories, probabilities and a monthly goal](docs/img/screenshots/pipelines.png) |
+| **Audit**: who did what, person or agent, with the client it used. | **Pipelines**: stages, categories, probabilities and a monthly goal. |
+| ![Sign-in page](docs/img/screenshots/login.png) | ![The funnel and the swipe-open menu on a phone](docs/img/screenshots/phone.png) |
+| **Sign in** with Google or Microsoft; agents connect over MCP. | **On a phone**: the funnel and the menu drawer. |
+
 ## Run it locally
 
 Requirements: Docker, and Go 1.27+ (only to develop).
@@ -208,6 +239,11 @@ make up          # http://localhost:8080
 ```
 
 You sign in with your email (development mode), create a workspace, and the MCP URL is in **Settings → Agents**.
+
+<p align="center">
+  <img src="docs/img/terminal/banner.png" width="520" alt="The startup banner of the mcp container">
+  <br><sub>Each service prints a banner at startup with its commit, migration and what is enabled.</sub>
+</p>
 
 ## Connect an agent
 
@@ -323,6 +359,16 @@ docker compose exec -T web hiloctl import-csv acme contact --source hubspot --dr
 ```
 
 Full manual, with steps and recipes: [docs/HILOCTL.md](docs/HILOCTL.md) (in Spanish).
+
+<p align="center">
+  <img src="docs/img/terminal/watch.png" alt="hiloctl watch printing each change as agents make it">
+  <br><sub><code>hiloctl watch</code>: every change as it happens, and which agent made it for whom.</sub>
+</p>
+
+| | |
+|---|---|
+| ![hiloctl import-csv dry run with column mapping and rejected rows](docs/img/terminal/import.png) | ![hiloctl token create and token list](docs/img/terminal/tokens.png) |
+| **Import a CSV** from another CRM: column mapping and a dry run before saving. | **Personal tokens** for agents without OAuth, shown only once. |
 
 `export` produces the same format `import` reads (and the `bulk_upsert` tool): it works as a readable backup, to move a
 workspace to another Hilo and as the format for large migrations without an agent. Importing it again never

@@ -1,8 +1,21 @@
-# Hilo Headless CRM
+<p align="center">
+  <img src="internal/web/static/favicon.svg" width="88" alt="Logo de Hilo">
+</p>
 
-[English](README.md) · **Español**
+<h1 align="center">Hilo Headless CRM</h1>
 
-**El CRM agentic-first: los agentes de IA operan el pipeline, las personas miran.**
+<p align="center"><b>El CRM agentic-first: los agentes de IA operan el pipeline, las personas miran.</b></p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/versi%C3%B3n-0.1.0-F26B1D" alt="Versión 0.1.0">
+  <img src="https://img.shields.io/badge/Go-1.27-00ADD8?logo=go&amp;logoColor=white" alt="Go 1.27">
+  <img src="https://img.shields.io/badge/PostgreSQL-18-4169E1?logo=postgresql&amp;logoColor=white" alt="PostgreSQL 18">
+  <img src="https://img.shields.io/badge/MCP-remoto%20%C2%B7%20OAuth%202.1-0B7A6C" alt="MCP remoto con OAuth 2.1">
+  <img src="https://img.shields.io/badge/UI-EN%20%C2%B7%20ES%20%C2%B7%20FR%20%C2%B7%20IT%20%C2%B7%20DE%20%C2%B7%20PT-6B7280" alt="Seis idiomas">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/licencia-Apache--2.0-blue" alt="Apache-2.0"></a>
+</p>
+
+<p align="center"><a href="README.md">English</a> · <b>Español</b></p>
 
 <p align="center">
   <img src="docs/img/hilo-agente.svg" width="760" alt="Las herramientas que ya usás (buzón, Gmail, calendario, videoconferencia, Drive, Docs, redes, formularios) se conectan al agente, y el agente registra todo en Hilo por MCP.">
@@ -15,6 +28,11 @@ Conectás Claude, ChatGPT, Grok o Cursor, y el agente carga empresas, contactos 
 interacción y mueve el funnel. Entrás con Google o Microsoft cuando querés mirar.
 
 Código libre, [Apache-2.0](LICENSE). Un `docker compose up` y anda.
+
+<p align="center">
+  <img src="docs/img/screenshots/funnel.png" alt="El funnel mientras Claude, conectado por MCP, mueve una oportunidad: el tablero se actualiza y un aviso dice quién lo hizo.">
+  <br><sub>El funnel se actualiza en vivo mientras un agente trabaja: acá Claude, conectado por MCP, mueve un deal a Negociación. Las capturas muestran la interfaz en inglés.</sub>
+</p>
 
 ## El problema
 
@@ -193,6 +211,21 @@ La web es deliberadamente chica y hace solo lo que un agente no debería hacer: 
 - **Seis idiomas**: inglés, español, francés, italiano, alemán y portugués. La interfaz sigue el idioma del navegador
   o el que elijas en el selector; montos y fechas usan el formato de cada idioma, y un workspace nuevo nace con su
   pipeline y sus canales en el idioma de quien lo crea.
+- **En el celular**: una sola columna, un menú que se abre deslizando desde la izquierda, y tablas y funnel que se
+  desplazan de costado dentro de su tarjeta.
+
+| | |
+|---|---|
+| ![Dashboard con pipeline ponderado, win rate, monto ganado por mes, leads por canal y actividad por agente](docs/img/screenshots/dashboard.png) | ![Una oportunidad con su etapa, archivos y links, contactos y el timeline que escribieron los agentes](docs/img/screenshots/opportunity.png) |
+| **Dashboard**: pipeline ponderado, win rate, ciclo, objetivo y actividad por agente. | **Oportunidad**: etapa, links a archivos externos, contactos y el timeline que escribieron los agentes. |
+| ![Interacciones registradas por agentes: emails, llamadas, reuniones, notas](docs/img/screenshots/interactions.png) | ![Lista de empresas con industria, país, contactos y última actividad](docs/img/screenshots/companies.png) |
+| **Interacciones**: cada email, llamada y reunión, con su fecha real. | **Empresas**, contactos y oportunidades, con búsqueda, filtros y acciones en lote. |
+| ![Ajustes de agentes: URL del servidor MCP, agentes conectados y tokens personales](docs/img/screenshots/agents.png) | ![Pantalla de consentimiento OAuth cuando se conecta un agente](docs/img/screenshots/consent.png) |
+| **Agentes**: la URL MCP, los agentes conectados por OAuth y los tokens personales. | **Consentimiento**: lo que ve la persona cuando conecta un agente, con la opción de solo lectura. |
+| ![Auditoría que distingue personas, agentes y formularios](docs/img/screenshots/audit.png) | ![Editor de pipeline con etapas, categorías, probabilidades y objetivo mensual](docs/img/screenshots/pipelines.png) |
+| **Auditoría**: quién hizo qué, persona o agente, y con qué cliente. | **Pipelines**: etapas, categorías, probabilidades y objetivo mensual. |
+| ![Pantalla de inicio de sesión](docs/img/screenshots/login.png) | ![El funnel y el menú deslizable en el celular](docs/img/screenshots/phone.png) |
+| **Entrar** con Google o Microsoft; los agentes se conectan por MCP. | **En el celular**: el funnel y el menú. |
 
 ## Empezar en local
 
@@ -206,6 +239,11 @@ make up          # http://localhost:8080
 ```
 
 Entrás con tu email (modo desarrollo), creás un workspace y en **Ajustes → Agentes** está la URL MCP.
+
+<p align="center">
+  <img src="docs/img/terminal/banner.png" width="520" alt="El banner de arranque del contenedor mcp">
+  <br><sub>Cada servicio imprime al arrancar un banner con su commit, su migración y lo que tiene habilitado.</sub>
+</p>
 
 ## Conectar un agente
 
@@ -325,6 +363,16 @@ docker compose exec -T web hiloctl import-csv acme contact --source hubspot --dr
 ```
 
 Manual completo, con pasos y recetas: [docs/HILOCTL.md](docs/HILOCTL.md).
+
+<p align="center">
+  <img src="docs/img/terminal/watch.png" alt="hiloctl watch imprimiendo cada cambio a medida que lo hacen los agentes">
+  <br><sub><code>hiloctl watch</code>: cada cambio en el momento, y qué agente lo hizo y para quién.</sub>
+</p>
+
+| | |
+|---|---|
+| ![hiloctl import-csv en modo prueba, con el mapeo de columnas y las filas rechazadas](docs/img/terminal/import.png) | ![hiloctl token create y token list](docs/img/terminal/tokens.png) |
+| **Importar un CSV** de otro CRM: mapeo de columnas y prueba antes de guardar. | **Tokens personales** para agentes sin OAuth, que se muestran una sola vez. |
 
 `export` produce el mismo formato que lee `import` (y la herramienta `bulk_upsert`): sirve de backup legible, para
 mover un workspace a otro Hilo y como formato de migraciones grandes sin agente. Importarlo de nuevo nunca duplica.
