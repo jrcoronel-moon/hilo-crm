@@ -176,7 +176,7 @@ func TestWatchPrintsChangesLive(t *testing.T) {
 	svc := crm.New(h.d, slog.New(slog.DiscardHandler))
 	name := "Globex"
 	deadline := time.Now().Add(5 * time.Second)
-	for !strings.Contains(out.String(), "la empresa «Globex»") { // created, or updated by a retry
+	for !strings.Contains(out.String(), "the company «Globex»") { // created, or updated by a retry
 		if time.Now().After(deadline) {
 			t.Fatalf("watch output: %q", out.String())
 		}
@@ -221,7 +221,7 @@ func TestSettingsAndBrandingCommands(t *testing.T) {
 	if out := h.ok("channel", "list", "acme"); !strings.Contains(out, "Webinar") {
 		t.Fatalf("channel list: %s", out)
 	}
-	if out := h.ok("audit", "list", "acme", "--limit", "5"); !strings.Contains(out, "hiloctl") || !strings.Contains(out, "configuró el pipeline «Partners»") {
+	if out := h.ok("audit", "list", "acme", "--limit", "5"); !strings.Contains(out, "hiloctl") || !strings.Contains(out, "configured the pipeline «Partners»") {
 		t.Fatalf("audit list: %s", out)
 	}
 	if msg := h.fails("audit", "list", "acme", "--limit", "x"); !strings.Contains(msg, "--limit") {

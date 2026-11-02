@@ -36,13 +36,17 @@ func (p Pending) RedirectHost() string {
 	if err != nil {
 		return p.RedirectURI
 	}
-	if u.Scheme == "http" && isLoopback(u.Hostname()) {
-		return "una aplicación en este equipo (" + u.Host + ")"
-	}
 	if u.Host == "" {
 		return u.Scheme + "://"
 	}
 	return u.Host
+}
+
+// RedirectLocal reports whether the code goes to an app on the person's own
+// machine (a loopback redirect, as desktop and CLI agents use).
+func (p Pending) RedirectLocal() bool {
+	u, err := url.Parse(p.RedirectURI)
+	return err == nil && u.Scheme == "http" && isLoopback(u.Hostname())
 }
 
 // ReadOnly reports whether only crm:read was requested.

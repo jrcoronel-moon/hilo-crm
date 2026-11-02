@@ -14,7 +14,7 @@
       <input type="hidden" name="csrf" value="{{$d.CSRF}}">
       <input type="hidden" name="req" value="{{$d.Blob}}">
       <dl class="facts">
-        <dt>{{t "Destino"}}</dt><dd><code>{{$d.Pending.RedirectHost}}</code></dd>
+        <dt>{{t "Destino"}}</dt><dd><code>{{if $d.Pending.RedirectLocal}}{{t "una aplicación en este equipo (%s)" $d.Pending.RedirectHost}}{{else}}{{$d.Pending.RedirectHost}}{{end}}</code></dd>
         <dt>{{t "Workspace"}}</dt><dd><select name="workspace" class="grow">{{range .View.Workspaces}}<option value="{{.ID}}" {{if eq .ID $.View.Current.ID}}selected{{end}}>{{.Name}} ({{roleLabel .Role}})</option>{{end}}</select></dd>
       </dl>
       <h3>{{t "Permisos pedidos"}}</h3>

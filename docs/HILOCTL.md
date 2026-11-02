@@ -196,8 +196,8 @@ ROW  FIELD  ERROR
 
 $ hc watch acme
 watching acme (Ctrl-C to stop)
-10:42:07  Claude                   creó la empresa «Globex»  [oauth]
-10:42:09  Claude                   movió «Planta solar» a Propuesta  [oauth]
+10:42:07  acme  Claude (ana@acme.com)    created the company «Globex»  [oauth]
+10:42:09  acme  Claude (ana@acme.com)    moved «Planta solar» to Propuesta  [oauth]
 ```
 
 ## 5. Recetas

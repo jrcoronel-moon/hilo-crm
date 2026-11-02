@@ -220,9 +220,9 @@ func actorRows(acts []crm.ActorCount) []actorRow {
 		r := actorRow{Changes: a.Changes, Created: a.Created}
 		switch a.Kind {
 		case "oauth":
-			r.Title, r.Sub, r.Class = a.Client, "agente · OAuth", "agent2"
+			r.Title, r.Sub, r.Class = a.Client, i18n.M("agente · OAuth"), "agent2"
 		case "pat":
-			r.Title, r.Sub, r.Class = strings.TrimPrefix(a.Client, "PAT: "), "token personal", "agent"
+			r.Title, r.Sub, r.Class = strings.TrimPrefix(a.Client, "PAT: "), i18n.M("token personal"), "agent"
 		case "form":
 			r.Title, r.Sub = a.Client, i18n.M("formulario público")
 		default:

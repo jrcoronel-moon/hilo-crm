@@ -67,7 +67,7 @@ func (e Event) ActorIn(lang string) string {
 	if e.Actor == actorForm || e.Actor == actorSystem {
 		return i18n.T(lang, e.Actor)
 	}
-	return e.Actor
+	return strings.TrimPrefix(e.Actor, "PAT: ") // the agent's name, as the dashboard shows it
 }
 
 const (
@@ -77,10 +77,11 @@ const (
 
 // Who names the actor and, for an agent, the person it acts for: "Cursor (ana@acme.com)".
 func (e Event) Who() string {
+	actor := strings.TrimPrefix(e.Actor, "PAT: ")
 	if e.User != "" && e.User != e.Actor {
-		return e.Actor + " (" + e.User + ")"
+		return actor + " (" + e.User + ")"
 	}
-	return e.Actor
+	return actor
 }
 
 // By reports whether the person signed in as user made this change in the web.
