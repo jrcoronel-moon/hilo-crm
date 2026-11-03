@@ -7,6 +7,7 @@
 <p align="center"><b>El CRM agentic-first: los agentes de IA operan el pipeline, las personas miran.</b></p>
 
 <p align="center">
+  <a href="https://github.com/jrcoronel-moon/hilo-crm/actions/workflows/ci.yml"><img src="https://github.com/jrcoronel-moon/hilo-crm/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
   <img src="https://img.shields.io/badge/versi%C3%B3n-0.1.0-F26B1D" alt="Versión 0.1.0">
   <img src="https://img.shields.io/badge/Go-1.27-00ADD8?logo=go&amp;logoColor=white" alt="Go 1.27">
   <img src="https://img.shields.io/badge/PostgreSQL-18-4169E1?logo=postgresql&amp;logoColor=white" alt="PostgreSQL 18">
