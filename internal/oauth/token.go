@@ -35,7 +35,7 @@ func (s *Server) authenticateClient(ctx context.Context, r *http.Request) (*clie
 
 func (s *Server) token(w http.ResponseWriter, r *http.Request) {
 	cors(w)
-	if !s.tokenLimit.Allow(s.ips.Of(r)) {
+	if !s.tokenLimit.Allow(s.ips.Key(r)) {
 		oauthError(w, http.StatusTooManyRequests, "slow_down", "")
 		return
 	}
@@ -101,7 +101,7 @@ func (s *Server) grantRefresh(w http.ResponseWriter, r *http.Request, c *client)
 	row, err := q.ConsumeRefresh(ctx, store.ConsumeRefreshParams{RefreshHash: secure.Hash(refresh), GraceSeconds: int32(RefreshGrace / time.Second)})
 	if errors.Is(err, pgx.ErrNoRows) {
 		if fam, ferr := q.GetRefreshFamily(ctx, secure.Hash(refresh)); ferr == nil {
-			_ = q.RevokeTokenFamily(ctx, fam)
+			_ = q.RevokeTokenFamily(ctx, fam.FamilyID)
 			s.log.Warn("oauth: refresh token reused after rotation; token family revoked", "client_id", c.ID)
 		}
 		oauthError(w, http.StatusBadRequest, "invalid_grant", "invalid, expired or revoked refresh token")
@@ -190,8 +190,11 @@ func (s *Server) revoke(w http.ResponseWriter, r *http.Request) {
 	tok := r.PostForm.Get("token")
 	q := s.db.Platform()
 	h := secure.Hash(tok)
+	// RFC 7009 §2.1: a client may only revoke its own tokens.
 	if fam, err := q.GetRefreshFamily(r.Context(), h); err == nil {
-		_ = q.RevokeTokenFamily(r.Context(), fam)
+		if fam.ClientID == c.ID {
+			_ = q.RevokeTokenFamily(r.Context(), fam.FamilyID)
+		}
 	} else if p, err := q.ResolveAccessToken(r.Context(), h); err == nil && p.ClientID == c.ID {
 		_, _ = q.RevokeConnection(r.Context(), store.RevokeConnectionParams{UserID: p.UserID, WorkspaceID: p.WorkspaceID, ClientID: c.ID})
 	}

@@ -138,10 +138,12 @@ func (s *Service) mayLogin(ctx context.Context, q *store.Queries, email string, 
 	return len(ws) > 0, err
 }
 
-// joinWorkspaces accepts pending invitations and auto-joins workspaces that
-// list the email's domain.
+// joinWorkspaces runs on sign-in: it accepts the invitations the operator
+// sent, and invites the user to the workspaces that list their email's
+// domain. Nobody else joins a workspace without accepting (see
+// AcceptInvitation): a workspace admin cannot pull people in.
 func (s *Service) joinWorkspaces(ctx context.Context, q *store.Queries, userID uuid.UUID, email string) error {
-	invs, err := q.PendingInvitationsForEmail(ctx, email)
+	invs, err := q.AcceptPreacceptedInvitations(ctx, email)
 	if err != nil {
 		return err
 	}
@@ -149,20 +151,10 @@ func (s *Service) joinWorkspaces(ctx context.Context, q *store.Queries, userID u
 		if err := q.AddMember(ctx, store.AddMemberParams{WorkspaceID: inv.WorkspaceID, UserID: userID, Role: inv.Role}); err != nil {
 			return err
 		}
-		if err := q.AcceptInvitation(ctx, inv.ID); err != nil {
-			return err
-		}
 	}
-	doms, err := q.WorkspacesForDomain(ctx, crm.EmailDomain(email))
-	if err != nil {
-		return err
-	}
-	for _, d := range doms {
-		if err := q.AddMember(ctx, store.AddMemberParams{WorkspaceID: d.WorkspaceID, UserID: userID, Role: d.DefaultRole}); err != nil {
-			return err
-		}
-	}
-	return nil
+	return q.OfferDomainInvitations(ctx, store.OfferDomainInvitationsParams{
+		Email: email, ExpiresAt: s.now().Add(invitationTTL), Domain: crm.EmailDomain(email), UserID: userID,
+	})
 }
 
 // Membership returns the user's role in a workspace, or ErrForbidden.

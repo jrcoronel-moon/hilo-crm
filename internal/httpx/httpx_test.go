@@ -36,6 +36,25 @@ func TestClientIP(t *testing.T) {
 	}
 }
 
+// Rate limits group IPv6 clients by /64: rotating addresses inside one's own
+// network does not reset the limit.
+func TestClientIPKey(t *testing.T) {
+	c := NewClientIP(nil)
+	for remote, want := range map[string]string{
+		"203.0.113.9:1234":                    "203.0.113.9",
+		"[2001:db8:1:2:aaaa::1]:443":          "2001:db8:1:2::/64",
+		"[2001:db8:1:2:ffff:ffff:ffff:1]:443": "2001:db8:1:2::/64",
+		"[2001:db8:1:3::1]:443":               "2001:db8:1:3::/64",
+		"[::ffff:198.51.100.7]:80":            "198.51.100.7",
+	} {
+		r := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
+		r.RemoteAddr = remote
+		if got := c.Key(r); got != want {
+			t.Fatalf("%s: got %s want %s", remote, got, want)
+		}
+	}
+}
+
 func TestRateLimiter(t *testing.T) {
 	now := time.Unix(0, 0)
 	l := NewRateLimiter(60, 3)

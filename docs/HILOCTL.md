@@ -79,7 +79,7 @@ hc token create acme ana@acme.com claude-code --ttl 90d
 | `hc workspace create "<nombre>" --owner <email> [--lang en]` | Crea el workspace con ese propietario; el slug se deriva del nombre. `--lang` (en, es, fr, it, de, pt; por defecto es) elige el idioma del pipeline y los canales iniciales |
 | `hc workspace list` | Slug, nombre, miembros, fecha e id de cada workspace activo |
 | `hc member list <ws>` | Miembros con rol, e invitaciones pendientes con su vencimiento |
-| `hc member add <ws> <email> <admin\|member\|viewer>` | Agrega a quien ya entró alguna vez, o lo invita (entra con su cuenta de Google o Microsoft) |
+| `hc member add <ws> <email> <admin\|member\|viewer>` | Agrega a quien ya entró alguna vez, o lo invita y queda adentro al entrar con su cuenta de Google o Microsoft (las invitaciones desde la web, en cambio, se aceptan explícitamente) |
 | `hc member role <ws> <email> <owner\|admin\|member\|viewer>` | Cambia el rol. No permite dejar el workspace sin propietario |
 | `hc member remove <ws> <email>` | Quita al miembro (sus tokens y conexiones de agentes dejan de servir) |
 

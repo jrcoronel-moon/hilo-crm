@@ -101,6 +101,7 @@ type Invitation struct {
 	ExpiresAt   time.Time  `json:"expires_at"`
 	AcceptedAt  *time.Time `json:"accepted_at"`
 	RevokedAt   *time.Time `json:"revoked_at"`
+	Preaccepted bool       `json:"preaccepted"`
 }
 
 type LeadForm struct {

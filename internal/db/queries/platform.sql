@@ -103,22 +103,54 @@ ON CONFLICT (workspace_id, domain) DO UPDATE SET default_role = EXCLUDED.default
 -- name: RemoveWorkspaceDomain :execrows
 DELETE FROM workspace_domains WHERE workspace_id = $1 AND domain = $2;
 
--- name: WorkspacesForDomain :many
-SELECT d.workspace_id, d.default_role FROM workspace_domains d
-JOIN workspaces w ON w.id = d.workspace_id
-WHERE d.domain = $1 AND w.archived_at IS NULL;
+-- name: OfferDomainInvitations :exec
+-- Workspaces that list the email's domain invite the person instead of adding
+-- them: joining always needs their acceptance. Offered once per workspace: not
+-- again after an answer (accepted or declined), nor to a current member; an
+-- unanswered offer that expired is renewed.
+INSERT INTO invitations (workspace_id, email, role, expires_at)
+SELECT d.workspace_id, sqlc.arg(email), d.default_role, sqlc.arg(expires_at)
+FROM workspace_domains d JOIN workspaces w ON w.id = d.workspace_id AND w.archived_at IS NULL
+WHERE d.domain = sqlc.arg(domain)
+  AND NOT EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = d.workspace_id AND m.user_id = sqlc.arg(user_id))
+  AND NOT EXISTS (SELECT 1 FROM invitations i WHERE i.workspace_id = d.workspace_id AND i.email = sqlc.arg(email)
+                  AND (i.accepted_at IS NOT NULL OR i.revoked_at IS NOT NULL))
+ON CONFLICT (workspace_id, email) WHERE accepted_at IS NULL AND revoked_at IS NULL
+DO UPDATE SET expires_at = GREATEST(invitations.expires_at, EXCLUDED.expires_at);
 
 -- name: CreateInvitation :one
-INSERT INTO invitations (workspace_id, email, role, invited_by, expires_at)
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO invitations (workspace_id, email, role, invited_by, expires_at, preaccepted)
+VALUES ($1, $2, $3, $4, $5, $6)
 ON CONFLICT (workspace_id, email) WHERE accepted_at IS NULL AND revoked_at IS NULL
-DO UPDATE SET role = EXCLUDED.role, expires_at = EXCLUDED.expires_at, invited_by = EXCLUDED.invited_by
+DO UPDATE SET role = EXCLUDED.role, expires_at = EXCLUDED.expires_at, invited_by = EXCLUDED.invited_by,
+              preaccepted = EXCLUDED.preaccepted
 RETURNING *;
 
+-- name: AcceptPreacceptedInvitations :many
+-- Invitations the operator sent are accepted when the person signs in.
+UPDATE invitations i SET accepted_at = now()
+FROM workspaces w
+WHERE w.id = i.workspace_id AND w.archived_at IS NULL
+  AND i.email = $1 AND i.preaccepted AND i.accepted_at IS NULL AND i.revoked_at IS NULL AND i.expires_at > now()
+RETURNING i.workspace_id, i.role;
+
 -- name: PendingInvitationsForEmail :many
-SELECT i.* FROM invitations i JOIN workspaces w ON w.id = i.workspace_id
-WHERE i.email = $1 AND i.accepted_at IS NULL AND i.revoked_at IS NULL
-  AND i.expires_at > now() AND w.archived_at IS NULL;
+-- Invitations waiting for this person's answer, with who sent them.
+SELECT i.id, i.workspace_id, i.role, i.created_at, w.name AS workspace_name,
+       COALESCE(u.email, '') AS invited_by_email
+FROM invitations i
+JOIN workspaces w ON w.id = i.workspace_id AND w.archived_at IS NULL
+LEFT JOIN users u ON u.id = i.invited_by
+WHERE i.email = $1 AND i.accepted_at IS NULL AND i.revoked_at IS NULL AND i.expires_at > now()
+ORDER BY i.created_at;
+
+-- name: GetPendingInvitation :one
+SELECT i.* FROM invitations i JOIN workspaces w ON w.id = i.workspace_id AND w.archived_at IS NULL
+WHERE i.id = $1 AND i.email = $2 AND i.accepted_at IS NULL AND i.revoked_at IS NULL AND i.expires_at > now();
+
+-- name: DeclineInvitation :execrows
+UPDATE invitations SET revoked_at = now()
+WHERE id = $1 AND email = $2 AND accepted_at IS NULL AND revoked_at IS NULL;
 
 -- name: HasPendingInvitation :one
 SELECT EXISTS (

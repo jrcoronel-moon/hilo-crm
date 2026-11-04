@@ -65,7 +65,7 @@ func (l *RateLimiter) Allow(key string) bool {
 func (l *RateLimiter) Middleware(ips *ClientIP) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if !l.Allow(ips.Of(r)) {
+			if !l.Allow(ips.Key(r)) {
 				w.Header().Set("Retry-After", strconv.Itoa(max(1, int(1/l.rate))))
 				WriteError(w, http.StatusTooManyRequests, "rate limit exceeded")
 				return

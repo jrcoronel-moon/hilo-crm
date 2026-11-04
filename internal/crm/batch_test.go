@@ -85,7 +85,7 @@ func TestImportBatch(t *testing.T) {
 func TestHistoricalDatesRules(t *testing.T) {
 	f := setup(t)
 	owner, ws := f.workspace("Acme")
-	writer := f.member(ws, owner, "w@acme.test", "member", crm.AllScopes)
+	writer := f.member(ws, "w@acme.test", "member", crm.AllScopes)
 	future := time.Now().Add(48 * time.Hour).Format(time.DateOnly)
 	for name, c := range map[string]struct {
 		a  crm.Actor

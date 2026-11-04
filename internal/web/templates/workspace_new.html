@@ -1,4 +1,16 @@
 {{define "content"}}
+{{with .View.Invitations}}
+<h2>{{t "Invitaciones pendientes"}}</h2>
+<p class="muted">{{t "Solo entrás a un workspace si aceptás. Si no conocés a quien te invita, rechazá la invitación."}}</p>
+<div class="stack">{{range .}}
+  <div class="card row invite">
+    <div class="grow"><b>{{.WorkspaceName}}</b> · {{roleLabel .Role}}{{with .InvitedByEmail}}<div class="muted small">{{t "Te invitó %s" .}}</div>{{end}}</div>
+    <form method="post" action="/invitations/accept"><input type="hidden" name="csrf" value="{{$.View.Sess.CSRFToken}}"><input type="hidden" name="id" value="{{.ID}}"><button class="btn primary sm">{{t "Aceptar"}}</button></form>
+    <form method="post" action="/invitations/decline"><input type="hidden" name="csrf" value="{{$.View.Sess.CSRFToken}}"><input type="hidden" name="id" value="{{.ID}}"><button class="btn sm">{{t "Rechazar"}}</button></form>
+  </div>{{end}}
+</div>
+<h2>{{t "O creá un workspace nuevo"}}</h2>
+{{end}}
 <p class="muted">{{t "Un workspace agrupa empresas, contactos, oportunidades y pipelines de un equipo. Se crea con un pipeline de ventas y canales por defecto que después podés cambiar."}}</p>
 <form method="post" action="/workspaces" class="stack">
   <input type="hidden" name="csrf" value="{{.View.Sess.CSRFToken}}">

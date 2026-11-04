@@ -302,14 +302,19 @@ func (q *Queries) GetOAuthClient(ctx context.Context, clientID string) (OauthCli
 }
 
 const getRefreshFamily = `-- name: GetRefreshFamily :one
-SELECT family_id FROM oauth_tokens WHERE refresh_hash = $1
+SELECT family_id, client_id FROM oauth_tokens WHERE refresh_hash = $1
 `
 
-func (q *Queries) GetRefreshFamily(ctx context.Context, refreshHash string) (uuid.UUID, error) {
+type GetRefreshFamilyRow struct {
+	FamilyID uuid.UUID `json:"family_id"`
+	ClientID string    `json:"client_id"`
+}
+
+func (q *Queries) GetRefreshFamily(ctx context.Context, refreshHash string) (GetRefreshFamilyRow, error) {
 	row := q.db.QueryRow(ctx, getRefreshFamily, refreshHash)
-	var family_id uuid.UUID
-	err := row.Scan(&family_id)
-	return family_id, err
+	var i GetRefreshFamilyRow
+	err := row.Scan(&i.FamilyID, &i.ClientID)
+	return i, err
 }
 
 const getUsedOAuthCodeFamily = `-- name: GetUsedOAuthCodeFamily :one

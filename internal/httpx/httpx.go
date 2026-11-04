@@ -140,6 +140,21 @@ func (c *ClientIP) Of(r *http.Request) string {
 	return peer.Unmap().String()
 }
 
+// Key is the rate-limit key for r: the client address, or its /64 network
+// for IPv6, since a single subscriber usually holds a whole /64 and could
+// otherwise rotate addresses to get a fresh limit each time.
+func (c *ClientIP) Key(r *http.Request) string {
+	ip := c.Of(r)
+	a, err := netip.ParseAddr(ip)
+	if err != nil {
+		return ip
+	}
+	if a = a.Unmap(); a.Is4() {
+		return a.String()
+	}
+	return netip.PrefixFrom(a.WithZone(""), 64).Masked().String()
+}
+
 // WriteJSON writes v as JSON with the given status.
 func WriteJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")

@@ -46,8 +46,10 @@ func (s *Service) Invitations(ctx context.Context, c Caller) ([]store.Invitation
 	return s.db.Platform().ListInvitations(ctx, c.WorkspaceID)
 }
 
-// Invite invites an email with a role. If the user already exists they are
-// added immediately; otherwise they join on first login.
+// Invite invites an email with a role. The person joins only by accepting
+// the invitation (AcceptInvitation), so a workspace admin cannot pull someone
+// in. The operator (hiloctl), who already holds the database, adds an
+// existing user directly, and anyone else on their first sign-in.
 func (s *Service) Invite(ctx context.Context, c Caller, email, role string) error {
 	if err := c.requireAdmin(); err != nil {
 		return err
@@ -60,16 +62,53 @@ func (s *Service) Invite(ctx context.Context, c Caller, email, role string) erro
 		return &crm.ValidationError{Field: "email", Msg: "not a valid email address"}
 	}
 	return s.db.InTx(ctx, func(q *store.Queries) error {
-		if u, err := q.GetUserByEmail(ctx, email); err == nil {
-			return q.AddMember(ctx, store.AddMemberParams{WorkspaceID: c.WorkspaceID, UserID: u.ID, Role: role})
-		} else if !errors.Is(err, pgx.ErrNoRows) {
-			return err
+		if c.UserID == uuid.Nil {
+			if u, err := q.GetUserByEmail(ctx, email); err == nil {
+				return q.AddMember(ctx, store.AddMemberParams{WorkspaceID: c.WorkspaceID, UserID: u.ID, Role: role})
+			} else if !errors.Is(err, pgx.ErrNoRows) {
+				return err
+			}
 		}
 		_, err := q.CreateInvitation(ctx, store.CreateInvitationParams{
 			WorkspaceID: c.WorkspaceID, Email: email, Role: role, InvitedBy: c.by(), ExpiresAt: s.now().Add(invitationTTL),
+			Preaccepted: c.UserID == uuid.Nil,
 		})
 		return err
 	})
+}
+
+// MyInvitations lists the invitations waiting for the person's answer.
+func (s *Service) MyInvitations(ctx context.Context, email string) ([]store.PendingInvitationsForEmailRow, error) {
+	return s.db.Platform().PendingInvitationsForEmail(ctx, email)
+}
+
+// AcceptInvitation adds the user to the workspace of an invitation sent to
+// their email and returns that workspace.
+func (s *Service) AcceptInvitation(ctx context.Context, userID uuid.UUID, email string, id uuid.UUID) (uuid.UUID, error) {
+	var ws uuid.UUID
+	err := s.db.InTx(ctx, func(q *store.Queries) error {
+		inv, err := q.GetPendingInvitation(ctx, store.GetPendingInvitationParams{ID: id, Email: email})
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotFound
+		} else if err != nil {
+			return err
+		}
+		if err := q.AddMember(ctx, store.AddMemberParams{WorkspaceID: inv.WorkspaceID, UserID: userID, Role: inv.Role}); err != nil {
+			return err
+		}
+		ws = inv.WorkspaceID
+		return q.AcceptInvitation(ctx, inv.ID)
+	})
+	return ws, err
+}
+
+// DeclineInvitation turns down an invitation sent to the person's email.
+func (s *Service) DeclineInvitation(ctx context.Context, email string, id uuid.UUID) error {
+	n, err := s.db.Platform().DeclineInvitation(ctx, store.DeclineInvitationParams{ID: id, Email: email})
+	if err == nil && n == 0 {
+		err = ErrNotFound
+	}
+	return err
 }
 
 // RevokeInvitation cancels a pending invitation (admin).
@@ -199,6 +238,17 @@ func (s *Service) AddWorkspaceDomain(ctx context.Context, c Caller, domain, defa
 	}
 	if defaultRole == "admin" && c.Role != "owner" {
 		return ErrForbidden
+	}
+	// Only a domain the admin's own email proves: otherwise any workspace could
+	// claim another company's domain and invite all its people.
+	if c.UserID != uuid.Nil && !c.IsSuperadmin {
+		u, err := s.db.Platform().GetUser(ctx, c.UserID)
+		if err != nil {
+			return err
+		}
+		if crm.EmailDomain(u.Email) != d {
+			return &crm.ValidationError{Field: "domain", Msg: "must be the domain of your own email address"}
+		}
 	}
 	return s.db.Platform().AddWorkspaceDomain(ctx, store.AddWorkspaceDomainParams{WorkspaceID: c.WorkspaceID, Domain: d, DefaultRole: defaultRole})
 }

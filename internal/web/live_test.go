@@ -49,7 +49,7 @@ func TestLiveStreamEndsWhenAccessEnds(t *testing.T) {
 		t.Fatal(err)
 	}
 	owner := identity.Caller{UserID: u.ID, WorkspaceID: ws.ID, Role: "owner"}
-	if err := id.Invite(ctx, owner, "bob@acme.test", "member"); err != nil {
+	if err := id.Invite(ctx, identity.Operator(owner.WorkspaceID), "bob@acme.test", "member"); err != nil {
 		t.Fatal(err)
 	}
 	bob, err := id.Login(ctx, identity.ExternalIdentity{Provider: "dev", Subject: "b", Email: "bob@acme.test", EmailVerified: true})

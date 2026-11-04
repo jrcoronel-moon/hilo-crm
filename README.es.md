@@ -323,6 +323,10 @@ Un email verificado por Google o Microsoft cuyo dominio esté habilitado por un 
 pendiente. Sin dominios configurados, solo superadmins e invitados. Los superadmins se definen con
 `SUPERADMIN_EMAILS` o con `hiloctl superadmin grant <email>`.
 
+Nadie entra a un workspace sin aceptar: las invitaciones, y las que un workspace ofrece a todos los de su dominio de
+email, esperan en la página de invitaciones hasta que la persona las acepta o rechaza. Un admin solo puede cargar el
+dominio de su propio email. Solo el operador (`hiloctl member add`) agrega personas directamente.
+
 | Rol | Puede |
 |---|---|
 | Lector | leer |

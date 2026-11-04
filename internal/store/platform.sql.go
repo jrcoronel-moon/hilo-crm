@@ -21,6 +21,40 @@ func (q *Queries) AcceptInvitation(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const acceptPreacceptedInvitations = `-- name: AcceptPreacceptedInvitations :many
+UPDATE invitations i SET accepted_at = now()
+FROM workspaces w
+WHERE w.id = i.workspace_id AND w.archived_at IS NULL
+  AND i.email = $1 AND i.preaccepted AND i.accepted_at IS NULL AND i.revoked_at IS NULL AND i.expires_at > now()
+RETURNING i.workspace_id, i.role
+`
+
+type AcceptPreacceptedInvitationsRow struct {
+	WorkspaceID uuid.UUID `json:"workspace_id"`
+	Role        string    `json:"role"`
+}
+
+// Invitations the operator sent are accepted when the person signs in.
+func (q *Queries) AcceptPreacceptedInvitations(ctx context.Context, email string) ([]AcceptPreacceptedInvitationsRow, error) {
+	rows, err := q.db.Query(ctx, acceptPreacceptedInvitations, email)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []AcceptPreacceptedInvitationsRow{}
+	for rows.Next() {
+		var i AcceptPreacceptedInvitationsRow
+		if err := rows.Scan(&i.WorkspaceID, &i.Role); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const addMember = `-- name: AddMember :exec
 INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1, $2, $3)
 ON CONFLICT (workspace_id, user_id) DO NOTHING
@@ -114,11 +148,12 @@ func (q *Queries) CreateIdentity(ctx context.Context, arg CreateIdentityParams) 
 }
 
 const createInvitation = `-- name: CreateInvitation :one
-INSERT INTO invitations (workspace_id, email, role, invited_by, expires_at)
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO invitations (workspace_id, email, role, invited_by, expires_at, preaccepted)
+VALUES ($1, $2, $3, $4, $5, $6)
 ON CONFLICT (workspace_id, email) WHERE accepted_at IS NULL AND revoked_at IS NULL
-DO UPDATE SET role = EXCLUDED.role, expires_at = EXCLUDED.expires_at, invited_by = EXCLUDED.invited_by
-RETURNING id, workspace_id, email, role, invited_by, created_at, expires_at, accepted_at, revoked_at
+DO UPDATE SET role = EXCLUDED.role, expires_at = EXCLUDED.expires_at, invited_by = EXCLUDED.invited_by,
+              preaccepted = EXCLUDED.preaccepted
+RETURNING id, workspace_id, email, role, invited_by, created_at, expires_at, accepted_at, revoked_at, preaccepted
 `
 
 type CreateInvitationParams struct {
@@ -127,6 +162,7 @@ type CreateInvitationParams struct {
 	Role        string     `json:"role"`
 	InvitedBy   *uuid.UUID `json:"invited_by"`
 	ExpiresAt   time.Time  `json:"expires_at"`
+	Preaccepted bool       `json:"preaccepted"`
 }
 
 func (q *Queries) CreateInvitation(ctx context.Context, arg CreateInvitationParams) (Invitation, error) {
@@ -136,6 +172,7 @@ func (q *Queries) CreateInvitation(ctx context.Context, arg CreateInvitationPara
 		arg.Role,
 		arg.InvitedBy,
 		arg.ExpiresAt,
+		arg.Preaccepted,
 	)
 	var i Invitation
 	err := row.Scan(
@@ -148,6 +185,7 @@ func (q *Queries) CreateInvitation(ctx context.Context, arg CreateInvitationPara
 		&i.ExpiresAt,
 		&i.AcceptedAt,
 		&i.RevokedAt,
+		&i.Preaccepted,
 	)
 	return i, err
 }
@@ -234,6 +272,24 @@ func (q *Queries) CreateWorkspace(ctx context.Context, arg CreateWorkspaceParams
 	return i, err
 }
 
+const declineInvitation = `-- name: DeclineInvitation :execrows
+UPDATE invitations SET revoked_at = now()
+WHERE id = $1 AND email = $2 AND accepted_at IS NULL AND revoked_at IS NULL
+`
+
+type DeclineInvitationParams struct {
+	ID    uuid.UUID `json:"id"`
+	Email string    `json:"email"`
+}
+
+func (q *Queries) DeclineInvitation(ctx context.Context, arg DeclineInvitationParams) (int64, error) {
+	result, err := q.db.Exec(ctx, declineInvitation, arg.ID, arg.Email)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const deleteSession = `-- name: DeleteSession :exec
 DELETE FROM sessions WHERE token_hash = $1
 `
@@ -291,6 +347,34 @@ func (q *Queries) GetMembership(ctx context.Context, arg GetMembershipParams) (s
 	var role string
 	err := row.Scan(&role)
 	return role, err
+}
+
+const getPendingInvitation = `-- name: GetPendingInvitation :one
+SELECT i.id, i.workspace_id, i.email, i.role, i.invited_by, i.created_at, i.expires_at, i.accepted_at, i.revoked_at, i.preaccepted FROM invitations i JOIN workspaces w ON w.id = i.workspace_id AND w.archived_at IS NULL
+WHERE i.id = $1 AND i.email = $2 AND i.accepted_at IS NULL AND i.revoked_at IS NULL AND i.expires_at > now()
+`
+
+type GetPendingInvitationParams struct {
+	ID    uuid.UUID `json:"id"`
+	Email string    `json:"email"`
+}
+
+func (q *Queries) GetPendingInvitation(ctx context.Context, arg GetPendingInvitationParams) (Invitation, error) {
+	row := q.db.QueryRow(ctx, getPendingInvitation, arg.ID, arg.Email)
+	var i Invitation
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.Email,
+		&i.Role,
+		&i.InvitedBy,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+		&i.AcceptedAt,
+		&i.RevokedAt,
+		&i.Preaccepted,
+	)
+	return i, err
 }
 
 const getSession = `-- name: GetSession :one
@@ -506,7 +590,7 @@ func (q *Queries) ListAllWorkspaces(ctx context.Context) ([]ListAllWorkspacesRow
 }
 
 const listInvitations = `-- name: ListInvitations :many
-SELECT id, workspace_id, email, role, invited_by, created_at, expires_at, accepted_at, revoked_at FROM invitations
+SELECT id, workspace_id, email, role, invited_by, created_at, expires_at, accepted_at, revoked_at, preaccepted FROM invitations
 WHERE workspace_id = $1 AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > now()
 ORDER BY created_at DESC
 `
@@ -530,6 +614,7 @@ func (q *Queries) ListInvitations(ctx context.Context, workspaceID uuid.UUID) ([
 			&i.ExpiresAt,
 			&i.AcceptedAt,
 			&i.RevokedAt,
+			&i.Preaccepted,
 		); err != nil {
 			return nil, err
 		}
@@ -739,31 +824,75 @@ func (q *Queries) ListWorkspaceDomains(ctx context.Context, workspaceID uuid.UUI
 	return items, nil
 }
 
-const pendingInvitationsForEmail = `-- name: PendingInvitationsForEmail :many
-SELECT i.id, i.workspace_id, i.email, i.role, i.invited_by, i.created_at, i.expires_at, i.accepted_at, i.revoked_at FROM invitations i JOIN workspaces w ON w.id = i.workspace_id
-WHERE i.email = $1 AND i.accepted_at IS NULL AND i.revoked_at IS NULL
-  AND i.expires_at > now() AND w.archived_at IS NULL
+const offerDomainInvitations = `-- name: OfferDomainInvitations :exec
+INSERT INTO invitations (workspace_id, email, role, expires_at)
+SELECT d.workspace_id, $1, d.default_role, $2
+FROM workspace_domains d JOIN workspaces w ON w.id = d.workspace_id AND w.archived_at IS NULL
+WHERE d.domain = $3
+  AND NOT EXISTS (SELECT 1 FROM workspace_members m WHERE m.workspace_id = d.workspace_id AND m.user_id = $4)
+  AND NOT EXISTS (SELECT 1 FROM invitations i WHERE i.workspace_id = d.workspace_id AND i.email = $1
+                  AND (i.accepted_at IS NOT NULL OR i.revoked_at IS NOT NULL))
+ON CONFLICT (workspace_id, email) WHERE accepted_at IS NULL AND revoked_at IS NULL
+DO UPDATE SET expires_at = GREATEST(invitations.expires_at, EXCLUDED.expires_at)
 `
 
-func (q *Queries) PendingInvitationsForEmail(ctx context.Context, email string) ([]Invitation, error) {
+type OfferDomainInvitationsParams struct {
+	Email     string    `json:"email"`
+	ExpiresAt time.Time `json:"expires_at"`
+	Domain    string    `json:"domain"`
+	UserID    uuid.UUID `json:"user_id"`
+}
+
+// Workspaces that list the email's domain invite the person instead of adding
+// them: joining always needs their acceptance. Offered once per workspace: not
+// again after an answer (accepted or declined), nor to a current member; an
+// unanswered offer that expired is renewed.
+func (q *Queries) OfferDomainInvitations(ctx context.Context, arg OfferDomainInvitationsParams) error {
+	_, err := q.db.Exec(ctx, offerDomainInvitations,
+		arg.Email,
+		arg.ExpiresAt,
+		arg.Domain,
+		arg.UserID,
+	)
+	return err
+}
+
+const pendingInvitationsForEmail = `-- name: PendingInvitationsForEmail :many
+SELECT i.id, i.workspace_id, i.role, i.created_at, w.name AS workspace_name,
+       COALESCE(u.email, '') AS invited_by_email
+FROM invitations i
+JOIN workspaces w ON w.id = i.workspace_id AND w.archived_at IS NULL
+LEFT JOIN users u ON u.id = i.invited_by
+WHERE i.email = $1 AND i.accepted_at IS NULL AND i.revoked_at IS NULL AND i.expires_at > now()
+ORDER BY i.created_at
+`
+
+type PendingInvitationsForEmailRow struct {
+	ID             uuid.UUID `json:"id"`
+	WorkspaceID    uuid.UUID `json:"workspace_id"`
+	Role           string    `json:"role"`
+	CreatedAt      time.Time `json:"created_at"`
+	WorkspaceName  string    `json:"workspace_name"`
+	InvitedByEmail string    `json:"invited_by_email"`
+}
+
+// Invitations waiting for this person's answer, with who sent them.
+func (q *Queries) PendingInvitationsForEmail(ctx context.Context, email string) ([]PendingInvitationsForEmailRow, error) {
 	rows, err := q.db.Query(ctx, pendingInvitationsForEmail, email)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Invitation{}
+	items := []PendingInvitationsForEmailRow{}
 	for rows.Next() {
-		var i Invitation
+		var i PendingInvitationsForEmailRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.WorkspaceID,
-			&i.Email,
 			&i.Role,
-			&i.InvitedBy,
 			&i.CreatedAt,
-			&i.ExpiresAt,
-			&i.AcceptedAt,
-			&i.RevokedAt,
+			&i.WorkspaceName,
+			&i.InvitedByEmail,
 		); err != nil {
 			return nil, err
 		}
@@ -933,35 +1062,4 @@ func (q *Queries) UpdateMemberRole(ctx context.Context, arg UpdateMemberRolePara
 		return 0, err
 	}
 	return result.RowsAffected(), nil
-}
-
-const workspacesForDomain = `-- name: WorkspacesForDomain :many
-SELECT d.workspace_id, d.default_role FROM workspace_domains d
-JOIN workspaces w ON w.id = d.workspace_id
-WHERE d.domain = $1 AND w.archived_at IS NULL
-`
-
-type WorkspacesForDomainRow struct {
-	WorkspaceID uuid.UUID `json:"workspace_id"`
-	DefaultRole string    `json:"default_role"`
-}
-
-func (q *Queries) WorkspacesForDomain(ctx context.Context, domain string) ([]WorkspacesForDomainRow, error) {
-	rows, err := q.db.Query(ctx, workspacesForDomain, domain)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []WorkspacesForDomainRow{}
-	for rows.Next() {
-		var i WorkspacesForDomainRow
-		if err := rows.Scan(&i.WorkspaceID, &i.DefaultRole); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }

@@ -607,5 +607,14 @@
  "— ninguno —": "— none —",
  "••••••••%s · vacía = no cambiar": "••••••••%s · empty = keep",
  "↑ saliente": "↑ outbound",
- "↓ entrante": "↓ inbound"
+ "↓ entrante": "↓ inbound",
+ "Aceptar": "Accept",
+ "Rechazar": "Decline",
+ "Invitaciones": "Invitations",
+ "Invitaciones pendientes": "Pending invitations",
+ "O creá un workspace nuevo": "Or create a new workspace",
+ "Solo entrás a un workspace si aceptás. Si no conocés a quien te invita, rechazá la invitación.": "You only join a workspace if you accept. If you don't know who invited you, decline the invitation.",
+ "Te invitó %s": "Invited by %s",
+ "Tenés invitaciones a otros workspaces.": "You have invitations to other workspaces.",
+ "Ver invitaciones": "See invitations"
 }

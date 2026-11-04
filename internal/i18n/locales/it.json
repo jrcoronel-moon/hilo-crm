@@ -607,5 +607,14 @@
  "— ninguno —": "— nessuno —",
  "••••••••%s · vacía = no cambiar": "••••••••%s · vuota = non cambiare",
  "↑ saliente": "↑ in uscita",
- "↓ entrante": "↓ in entrata"
+ "↓ entrante": "↓ in entrata",
+ "Aceptar": "Accetta",
+ "Rechazar": "Rifiuta",
+ "Invitaciones": "Inviti",
+ "Invitaciones pendientes": "Inviti in sospeso",
+ "O creá un workspace nuevo": "Oppure crea un nuovo workspace",
+ "Solo entrás a un workspace si aceptás. Si no conocés a quien te invita, rechazá la invitación.": "Entri in un workspace solo se accetti. Se non conosci chi ti invita, rifiuta l'invito.",
+ "Te invitó %s": "Invitato da %s",
+ "Tenés invitaciones a otros workspaces.": "Hai inviti ad altri workspace.",
+ "Ver invitaciones": "Vedi inviti"
 }

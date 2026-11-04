@@ -85,7 +85,7 @@ func loopbackMatch(registered, requested string) bool {
 // register implements Dynamic Client Registration (RFC 7591).
 func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 	cors(w)
-	if !s.registerLimit.Allow(s.ips.Of(r)) {
+	if !s.registerLimit.Allow(s.ips.Key(r)) {
 		oauthError(w, http.StatusTooManyRequests, "slow_down", "too many registrations from this address")
 		return
 	}

@@ -42,7 +42,7 @@ func setup(t *testing.T) *env {
 func (e *env) token(ws identity.Caller, email, role string, readOnly bool) string {
 	e.t.Helper()
 	if role != "owner" {
-		if err := e.id.Invite(e.ctx, ws, email, role); err != nil {
+		if err := e.id.Invite(e.ctx, identity.Operator(ws.WorkspaceID), email, role); err != nil {
 			e.t.Fatal(err)
 		}
 	}

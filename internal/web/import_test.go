@@ -117,7 +117,7 @@ func TestImportCSVPage(t *testing.T) {
 	}
 
 	// Members cannot import.
-	if err := id.Invite(ctx, identity.Caller{UserID: u.ID, WorkspaceID: ws.ID, Role: "owner"}, "bob@acme.test", "member"); err != nil {
+	if err := id.Invite(ctx, identity.Operator(ws.ID), "bob@acme.test", "member"); err != nil {
 		t.Fatal(err)
 	}
 	bob, err := id.Login(ctx, identity.ExternalIdentity{Provider: "dev", Subject: "b", Email: "bob@acme.test", EmailVerified: true})

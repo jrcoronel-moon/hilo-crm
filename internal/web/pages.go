@@ -333,7 +333,38 @@ func (h *Handler) dashboard(w http.ResponseWriter, r *http.Request, v view) {
 }
 
 func (h *Handler) newWorkspacePage(w http.ResponseWriter, r *http.Request, v view) {
-	h.render(w, r, http.StatusOK, "workspace_new", page{Title: i18n.M("Nuevo workspace"), View: &v})
+	title := i18n.M("Nuevo workspace")
+	if len(v.Invitations) > 0 {
+		title = i18n.M("Invitaciones")
+	}
+	h.render(w, r, http.StatusOK, "workspace_new", page{Title: title, View: &v, Nav: "invitations"})
+}
+
+// acceptInvitation joins the workspace the user was invited to and opens it.
+func (h *Handler) acceptInvitation(w http.ResponseWriter, r *http.Request, v view) {
+	err := withID(r.PostFormValue("id"), func(id uuid.UUID) error {
+		ws, err := h.id.AcceptInvitation(r.Context(), v.Sess.UserID, v.Sess.Email, id)
+		if err != nil {
+			return err
+		}
+		return h.id.SwitchWorkspace(r.Context(), v.Sess, ws)
+	})
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+// declineInvitation turns an invitation down.
+func (h *Handler) declineInvitation(w http.ResponseWriter, r *http.Request, v view) {
+	if err := withID(r.PostFormValue("id"), func(id uuid.UUID) error {
+		return h.id.DeclineInvitation(r.Context(), v.Sess.Email, id)
+	}); err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	http.Redirect(w, r, "/workspaces/new", http.StatusSeeOther)
 }
 
 func (h *Handler) createWorkspace(w http.ResponseWriter, r *http.Request, v view) {

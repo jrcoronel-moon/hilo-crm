@@ -607,5 +607,14 @@
  "— ninguno —": "— nenhum —",
  "••••••••%s · vacía = no cambiar": "••••••••%s · vazia = não alterar",
  "↑ saliente": "↑ enviada",
- "↓ entrante": "↓ recebida"
+ "↓ entrante": "↓ recebida",
+ "Aceptar": "Aceitar",
+ "Rechazar": "Recusar",
+ "Invitaciones": "Convites",
+ "Invitaciones pendientes": "Convites pendentes",
+ "O creá un workspace nuevo": "Ou crie um novo workspace",
+ "Solo entrás a un workspace si aceptás. Si no conocés a quien te invita, rechazá la invitación.": "Você só entra em um workspace se aceitar. Se não conhece quem te convidou, recuse o convite.",
+ "Te invitó %s": "Convidado por %s",
+ "Tenés invitaciones a otros workspaces.": "Você tem convites para outros workspaces.",
+ "Ver invitaciones": "Ver convites"
 }

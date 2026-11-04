@@ -86,13 +86,64 @@ func TestInvitationsAndDomainAutoJoin(t *testing.T) {
 	if err != nil {
 		t.Fatalf("invited email must be able to sign in: %v", err)
 	}
+	// Signing in does not join: the person accepts the invitation.
+	if _, err := id.Membership(ctx, g.ID, o.WorkspaceID); err == nil {
+		t.Fatal("joined without accepting the invitation")
+	}
+	invs, err := id.MyInvitations(ctx, g.Email)
+	if err != nil || len(invs) != 1 || invs[0].WorkspaceName != "Acme" || invs[0].InvitedByEmail != "root@acme.test" {
+		t.Fatalf("pending invitations: %v %+v", err, invs)
+	}
+	if _, err := id.AcceptInvitation(ctx, g.ID, "someone@else.test", invs[0].ID); !errors.Is(err, identity.ErrNotFound) {
+		t.Fatalf("accepted an invitation sent to another email: %v", err)
+	}
+	if ws, err := id.AcceptInvitation(ctx, g.ID, g.Email, invs[0].ID); err != nil || ws != o.WorkspaceID {
+		t.Fatalf("accept: %v", err)
+	}
 	if role, err := id.Membership(ctx, g.ID, o.WorkspaceID); err != nil || role != "viewer" {
 		t.Fatalf("invitation not accepted: %v %s", err, role)
 	}
-	// Workspace auto-join requires the domain to be allowed on the platform too.
-	if err := id.AddWorkspaceDomain(ctx, o, "partner.test", "member"); err != nil {
+	if _, err := id.AcceptInvitation(ctx, g.ID, g.Email, invs[0].ID); !errors.Is(err, identity.ErrNotFound) {
+		t.Fatalf("invitation accepted twice: %v", err)
+	}
+
+	// An existing user is invited too, never added directly by an admin...
+	_ = id.AddPlatformDomain(ctx, true, uuid.Nil, "acme.test")
+	b, _ := login(t, id, "bob@acme.test", true)
+	if err := id.Invite(ctx, o, b.Email, "member"); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := id.Membership(ctx, b.ID, o.WorkspaceID); err == nil {
+		t.Fatal("existing user added without accepting")
+	}
+	invs, _ = id.MyInvitations(ctx, b.Email)
+	if len(invs) != 1 {
+		t.Fatalf("bob's invitations: %+v", invs)
+	}
+	if err := id.DeclineInvitation(ctx, b.Email, invs[0].ID); err != nil {
+		t.Fatal(err)
+	}
+	if invs, _ = id.MyInvitations(ctx, b.Email); len(invs) != 0 {
+		t.Fatalf("declined invitation still pending: %+v", invs)
+	}
+	// ...only the operator (hiloctl) adds people directly.
+	if err := id.Invite(ctx, identity.Operator(o.WorkspaceID), b.Email, "member"); err != nil {
+		t.Fatal(err)
+	}
+	if role, _ := id.Membership(ctx, b.ID, o.WorkspaceID); role != "member" {
+		t.Fatalf("operator add: %q", role)
+	}
+
+	// A workspace may only claim the domain of its admin's own email.
+	plain := o
+	plain.IsSuperadmin = false
+	if err := id.AddWorkspaceDomain(ctx, plain, "partner.test", "member"); err == nil {
+		t.Fatal("claimed a domain the admin's email does not prove")
+	}
+	if err := id.AddWorkspaceDomain(ctx, identity.Operator(o.WorkspaceID), "partner.test", "member"); err != nil {
+		t.Fatal(err)
+	}
+	// Workspace auto-join requires the domain to be allowed on the platform too.
 	if _, err := login(t, id, "p@partner.test", true); !errors.Is(err, identity.ErrNotAllowed) {
 		t.Fatalf("workspace domain alone must not open sign-in: %v", err)
 	}
@@ -101,9 +152,24 @@ func TestInvitationsAndDomainAutoJoin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if role, _ := id.Membership(ctx, p.ID, o.WorkspaceID); role != "member" {
-		t.Fatalf("auto-join role %q", role)
+	// The domain offers an invitation; joining still needs acceptance.
+	if _, err := id.Membership(ctx, p.ID, o.WorkspaceID); err == nil {
+		t.Fatal("domain auto-joined without acceptance")
 	}
+	invs, _ = id.MyInvitations(ctx, p.Email)
+	if len(invs) != 1 || invs[0].Role != "member" {
+		t.Fatalf("domain invitation: %+v", invs)
+	}
+	if err := id.DeclineInvitation(ctx, p.Email, invs[0].ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := login(t, id, "p@partner.test", true); err != nil {
+		t.Fatal(err)
+	}
+	if invs, _ = id.MyInvitations(ctx, p.Email); len(invs) != 0 {
+		t.Fatalf("declined domain invitation offered again: %+v", invs)
+	}
+
 	admin := identity.Caller{UserID: p.ID, WorkspaceID: o.WorkspaceID, Role: "admin"}
 	if err := id.AddWorkspaceDomain(ctx, admin, "x.test", "admin"); !errors.Is(err, identity.ErrForbidden) {
 		t.Fatalf("only owners may auto-grant admin: %v", err)
@@ -121,7 +187,7 @@ func TestRolesAndOwnership(t *testing.T) {
 	a, _ := login(t, id, "admin@acme.test", true)
 	m, _ := login(t, id, "member@acme.test", true)
 	for _, u := range []store.User{a, m} {
-		if err := id.Invite(ctx, o, u.Email, "member"); err != nil {
+		if err := id.Invite(ctx, identity.Operator(o.WorkspaceID), u.Email, "member"); err != nil {
 			t.Fatal(err)
 		}
 	}

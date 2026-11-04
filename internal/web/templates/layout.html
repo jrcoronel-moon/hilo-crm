@@ -104,6 +104,7 @@
       <div class="actions">{{block "actions" .}}{{end}}</div>
     </header>
     <div class="body">
+      {{if and .View .View.Invitations (ne .Nav "invitations")}}<div class="notice info"><svg class="i sm"><use href="#i-users"/></svg><span>{{t "Tenés invitaciones a otros workspaces."}} <a href="/workspaces/new">{{t "Ver invitaciones"}}</a></span></div>{{end}}
       {{if .Error}}<div class="notice err" role="alert"><svg class="i sm"><use href="#i-alert"/></svg>{{.Error}}</div>{{end}}
       {{block "content" .}}{{end}}
     </div>

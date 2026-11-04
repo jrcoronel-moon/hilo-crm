@@ -67,7 +67,7 @@ func (h *Handler) authStart(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	if !h.loginLimit.Allow(h.ips.Of(r)) {
+	if !h.loginLimit.Allow(h.ips.Key(r)) {
 		http.Error(w, "too many attempts", http.StatusTooManyRequests)
 		return
 	}

@@ -40,6 +40,10 @@ func describeScopes(scope string) []scopeInfo {
 // authorize validates the request, makes sure the user is signed in, and
 // shows the consent screen, unless a workspace admin preapproved the client.
 func (h *Handler) authorize(w http.ResponseWriter, r *http.Request) {
+	if !h.authorizeLimit.Allow(h.ips.Key(r)) {
+		http.Error(w, "too many authorization requests, try again in a minute", http.StatusTooManyRequests)
+		return
+	}
 	p, err := h.oauth.ParseAuthorize(r.Context(), r.URL.Query())
 	if err != nil {
 		var ae *oauth.AuthorizeError

@@ -30,7 +30,7 @@ type captchaVerifier interface {
 }
 
 func (h *Handler) submitForm(w http.ResponseWriter, r *http.Request) {
-	if !h.formLimit.Allow(h.ips.Of(r)) {
+	if !h.formLimit.Allow(h.ips.Key(r)) {
 		httpx.WriteError(w, http.StatusTooManyRequests, "too many submissions, try again later")
 		return
 	}

@@ -322,6 +322,10 @@ A Google- or Microsoft-verified email whose domain is enabled by a superadmin, o
 Without configured domains, only superadmins and invited people. Superadmins are defined with `SUPERADMIN_EMAILS` or
 with `hiloctl superadmin grant <email>`.
 
+Nobody joins a workspace without accepting: invitations, and the ones a workspace offers to everyone with its email
+domain, wait on the invitations page until the person accepts or declines them. An admin can only list the domain of
+their own email. Only the operator (`hiloctl member add`) adds people directly.
+
 | Role | Can |
 |---|---|
 | Viewer | read |

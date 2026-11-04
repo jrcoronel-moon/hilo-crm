@@ -337,7 +337,9 @@ func TestWebSecurity(t *testing.T) {
 		t.Fatalf("unlisted domain signed in: %s", res.Header.Get("Location"))
 	}
 	// Open redirect via return_to is neutralised.
-	for _, rt := range []string{"//evil.example", "https://evil.example", "/\\evil.example"} {
+	// Browsers drop tabs and newlines from a Location: "/\t/evil.example"
+	// would land on //evil.example.
+	for _, rt := range []string{"//evil.example", "https://evil.example", "/\\evil.example", "/\t/evil.example", "/\v/evil.example", "/ /evil.example", "/\u00a0/evil.example"} {
 		res, _ = s.devLogin("root@acme.test", rt)
 		if loc := res.Header.Get("Location"); loc != "/" {
 			t.Fatalf("return_to %q redirected to %q", rt, loc)
@@ -510,12 +512,21 @@ func TestRefreshReuseRevokesFamily(t *testing.T) {
 	if st, _ = s.token(url.Values{"grant_type": {"refresh_token"}, "client_id": {clientID}, "refresh_token": {tk3.Refresh}}); st != http.StatusBadRequest {
 		t.Fatalf("cross-client refresh: %d", st)
 	}
-	// RFC 7009 revocation.
-	res, _ := s.do("POST", "/oauth/revoke", url.Values{"client_id": {cid2}, "token": {tk3.Refresh}})
+	// RFC 7009 revocation: only the client the token was issued to may revoke
+	// it (another client always gets 200, but nothing happens).
+	cid3, tk4 := s.connectAgent(find(t, csrfRe, func() string { _, p := s.do("GET", "/settings/agents", nil); return p }()))
+	res, _ := s.do("POST", "/oauth/revoke", url.Values{"client_id": {cid2}, "token": {tk4.Refresh}})
 	if res.StatusCode != http.StatusOK {
 		t.Fatal(res.StatusCode)
 	}
-	if _, err := mcpSession(t, s.base, tk3.Access); err == nil {
+	if _, err := mcpSession(t, s.base, tk4.Access); err != nil {
+		t.Fatalf("another client revoked the token: %v", err)
+	}
+	res, _ = s.do("POST", "/oauth/revoke", url.Values{"client_id": {cid3}, "token": {tk4.Refresh}})
+	if res.StatusCode != http.StatusOK {
+		t.Fatal(res.StatusCode)
+	}
+	if _, err := mcpSession(t, s.base, tk4.Access); err == nil {
 		t.Fatal("revoked token still works")
 	}
 }
@@ -693,6 +704,7 @@ func TestBoardDragAndDrop(t *testing.T) {
 	if strings.Contains(res.Header.Get("Location"), "error") {
 		t.Fatalf("viewer login: %s", res.Header.Get("Location"))
 	}
+	s.acceptInvitations()
 	_, page = s.do("GET", "/board", nil)
 	viewerCSRF := find(t, csrfRe, page)
 	v := url.Values{"csrf": {viewerCSRF}, "opportunity": {created.Record.ID.String()}, "stage": {stage("Lead")}}
@@ -973,6 +985,7 @@ func TestBranding(t *testing.T) {
 	_, _ = s.do("POST", "/settings/invite", url.Values{"csrf": {csrf}, "email": {"m@acme.test"}, "role": {"member"}})
 	_, _ = s.do("POST", "/logout", url.Values{"csrf": {csrf}})
 	s.devLogin("m@acme.test", "/")
+	s.acceptInvitations()
 	_, page = s.do("GET", "/board", nil)
 	mcsrf := find(t, csrfRe, page)
 	if res, _ = s.do("POST", "/admin/brand-name", url.Values{"csrf": {mcsrf}, "name": {"pwned"}}); res.StatusCode != http.StatusForbidden {

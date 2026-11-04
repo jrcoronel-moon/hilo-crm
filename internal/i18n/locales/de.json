@@ -607,5 +607,14 @@
  "— ninguno —": "— keiner —",
  "••••••••%s · vacía = no cambiar": "••••••••%s · leer = nicht ändern",
  "↑ saliente": "↑ ausgehend",
- "↓ entrante": "↓ eingehend"
+ "↓ entrante": "↓ eingehend",
+ "Aceptar": "Annehmen",
+ "Rechazar": "Ablehnen",
+ "Invitaciones": "Einladungen",
+ "Invitaciones pendientes": "Offene Einladungen",
+ "O creá un workspace nuevo": "Oder erstelle einen neuen Workspace",
+ "Solo entrás a un workspace si aceptás. Si no conocés a quien te invita, rechazá la invitación.": "Du trittst einem Workspace nur bei, wenn du annimmst. Wenn du die einladende Person nicht kennst, lehne die Einladung ab.",
+ "Te invitó %s": "Eingeladen von %s",
+ "Tenés invitaciones a otros workspaces.": "Du hast Einladungen zu anderen Workspaces.",
+ "Ver invitaciones": "Einladungen ansehen"
 }

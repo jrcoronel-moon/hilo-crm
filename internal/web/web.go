@@ -22,6 +22,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/google/uuid"
 
@@ -35,6 +36,7 @@ import (
 	"github.com/jrcoronel-moon/hilo-crm/internal/identity"
 	"github.com/jrcoronel-moon/hilo-crm/internal/oauth"
 	"github.com/jrcoronel-moon/hilo-crm/internal/secure"
+	"github.com/jrcoronel-moon/hilo-crm/internal/store"
 )
 
 //go:embed templates/*.html
@@ -56,8 +58,11 @@ type Handler struct {
 
 	loginLimit *httpx.RateLimiter
 	formLimit  *httpx.RateLimiter
-	captcha    captchaVerifier // Cloudflare Turnstile (keys are per workspace)
-	http       *http.Client    // to the identity providers
+	// authorizeLimit caps OAuth authorization requests, which anyone can send
+	// and which may fetch a client's metadata document from the internet.
+	authorizeLimit *httpx.RateLimiter
+	captcha        captchaVerifier // Cloudflare Turnstile (keys are per workspace)
+	http           *http.Client    // to the identity providers
 
 	hub  *events.Hub     // live updates (nil: disabled)
 	done <-chan struct{} // closed when the process shuts down
@@ -68,7 +73,8 @@ func New(cfg *config.Config, brand *branding.Service, crmSvc *crm.Service, idSvc
 	h := &Handler{
 		cfg: cfg, brand: brand, crm: crmSvc, id: idSvc, oauth: oa, log: log, ips: httpx.NewClientIP(cfg.TrustedProxies),
 		loginLimit: httpx.NewRateLimiter(30, 30), formLimit: httpx.NewRateLimiter(10, 10),
-		http: &http.Client{Timeout: 15 * time.Second},
+		authorizeLimit: httpx.NewRateLimiter(60, 30),
+		http:           &http.Client{Timeout: 15 * time.Second},
 	}
 	h.captcha = captcha.NewTurnstile(cfg.TurnstileVerifyURL)
 	return h, h.parseTemplates()
@@ -123,6 +129,8 @@ func (h *Handler) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /workspaces/new", h.session(h.newWorkspacePage))
 	mux.HandleFunc("POST /workspaces", h.session(h.createWorkspace))
 	mux.HandleFunc("POST /workspaces/switch", h.session(h.switchWorkspace))
+	mux.HandleFunc("POST /invitations/accept", h.session(h.acceptInvitation))
+	mux.HandleFunc("POST /invitations/decline", h.session(h.declineInvitation))
 	if h.cfg.UIMode() == config.UIMinimal {
 		return
 	}
@@ -220,6 +228,9 @@ type view struct {
 	Side       string // sidebar layout class from the hilo_side cookie
 	AgentCount int    // OAuth agents connected (sidebar)
 	TokenCount int    // active personal access tokens (sidebar)
+	// Invitations wait for the user's answer: nobody joins a workspace
+	// without accepting.
+	Invitations []store.PendingInvitationsForEmailRow
 }
 
 type workspaceItem struct {
@@ -301,6 +312,9 @@ func (h *Handler) loadView(ctx context.Context, sess identity.Session) (view, er
 		return view{}, err
 	}
 	v := view{Sess: sess}
+	if inv, err := h.id.MyInvitations(ctx, sess.Email); err == nil {
+		v.Invitations = inv
+	}
 	for _, w := range list {
 		v.Workspaces = append(v.Workspaces, workspaceItem{ID: w.ID, Name: w.Name, Role: w.Role})
 	}
@@ -469,9 +483,12 @@ func sideClass(r *http.Request) string {
 	return ""
 }
 
-// safeReturn accepts only same-site absolute paths (no //host, no \).
+// safeReturn accepts only same-site absolute paths (no //host, no \). Spaces
+// and control characters are refused too: browsers drop tabs and newlines
+// from a Location, so "/\t/evil.com" would become "//evil.com".
 func safeReturn(s string) string {
-	if s == "" || !strings.HasPrefix(s, "/") || strings.HasPrefix(s, "//") || strings.ContainsAny(s, "\\\r\n") || len(s) > 4000 {
+	if s == "" || !strings.HasPrefix(s, "/") || strings.HasPrefix(s, "//") || strings.Contains(s, "\\") || len(s) > 4000 ||
+		strings.ContainsFunc(s, func(r rune) bool { return r <= ' ' || r == 0x7f || unicode.IsSpace(r) || unicode.IsControl(r) }) {
 		return "/"
 	}
 	return s

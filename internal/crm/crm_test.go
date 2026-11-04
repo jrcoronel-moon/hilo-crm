@@ -46,9 +46,9 @@ func (f *fixture) workspace(name string) (owner crm.Actor, wsID uuid.UUID) {
 	return crm.NewActor(u.ID, ws.ID, "owner", "session", "", ""), ws.ID
 }
 
-func (f *fixture) member(ws uuid.UUID, owner crm.Actor, email, role, scopes string) crm.Actor {
+func (f *fixture) member(ws uuid.UUID, email, role, scopes string) crm.Actor {
 	f.t.Helper()
-	c := identity.Caller{UserID: owner.UserID, WorkspaceID: ws, Role: "owner"}
+	c := identity.Operator(ws)
 	if err := f.id.Invite(f.ctx, c, email, map[string]string{"owner": "admin"}[role]+strings.TrimPrefix(role, "owner")); err != nil {
 		f.t.Fatal(err)
 	}
@@ -234,10 +234,10 @@ func TestConfigurePipelineRules(t *testing.T) {
 
 func TestPermissions(t *testing.T) {
 	f := setup(t)
-	owner, ws := f.workspace("Acme")
-	viewer := f.member(ws, owner, "viewer@x.com", "viewer", "")
-	member := f.member(ws, owner, "member@x.com", "member", "")
-	readToken := f.member(ws, owner, "admin@x.com", "admin", "crm:read")
+	_, ws := f.workspace("Acme")
+	viewer := f.member(ws, "viewer@x.com", "viewer", "")
+	member := f.member(ws, "member@x.com", "member", "")
+	readToken := f.member(ws, "admin@x.com", "admin", "crm:read")
 
 	if _, _, err := f.crm.UpsertCompany(f.ctx, viewer, crm.CompanyInput{Name: s("X")}); !errors.Is(err, crm.ErrForbidden) {
 		t.Fatalf("viewer wrote: %v", err)
