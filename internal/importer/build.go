@@ -61,7 +61,7 @@ func Build(kind string, t Table, m Mapping, o Options) Result {
 				if r.custom == nil {
 					r.custom = map[string]any{}
 				}
-				r.custom[t.Header[j]] = cells[j]
+				r.custom[strings.TrimPrefix(t.Header[j], customPrefix)] = cells[j]
 			default:
 				r.vals[target] = cells[j]
 			}

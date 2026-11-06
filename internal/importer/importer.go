@@ -33,8 +33,12 @@ const (
 // Kinds lists the record kinds in load order.
 var Kinds = []string{KindCompany, KindContact, KindOpportunity, KindInteraction}
 
-// Custom is the mapping target that stores a column under custom[<header>].
-const Custom = "custom"
+// Custom is the mapping target that stores a column under custom[<header>],
+// without the customPrefix of a Hilo export ("custom:segment" → segment).
+const (
+	Custom       = "custom"
+	customPrefix = "custom:"
+)
 
 // Table is a parsed CSV: the header and the data rows, all of the same width.
 type Table struct {
@@ -72,7 +76,7 @@ func Parse(r io.Reader, maxBytes int64, maxRows int) (Table, error) {
 		empty := true
 		for i := range row {
 			if i < len(rec) {
-				row[i] = strings.TrimSpace(rec[i])
+				row[i] = unformula(strings.TrimSpace(rec[i]))
 				empty = empty && row[i] == ""
 			}
 		}
@@ -88,6 +92,15 @@ func Parse(r io.Reader, maxBytes int64, maxRows int) (Table, error) {
 		return Table{}, errors.New("the file has a header but no rows")
 	}
 	return t, nil
+}
+
+// unformula removes the apostrophe that neutralises a formula in an export
+// (crm.SafeCSV): "'+54 11 5555" is the phone "+54 11 5555".
+func unformula(c string) string {
+	if len(c) > 1 && c[0] == '\'' && strings.ContainsRune("=+-@", rune(c[1])) {
+		return c[1:]
+	}
+	return c
 }
 
 // delimiter picks the separator that appears most in the first line.
@@ -210,11 +223,16 @@ func ValidKind(kind string) bool { return fields[kind] != nil }
 type Mapping []string
 
 // Guess maps the header to fields by name: "Email", "correo", "E-mail
-// address" all map to email. Columns it does not recognise stay unmapped.
+// address" all map to email, and "custom:<key>" (a Hilo export) to a custom
+// field. Columns it does not recognise stay unmapped.
 func Guess(kind string, header []string) Mapping {
 	m := make(Mapping, len(header))
 	taken := map[string]bool{}
 	for i, h := range header {
+		if strings.HasPrefix(h, customPrefix) && kind != KindInteraction {
+			m[i] = Custom
+			continue
+		}
 		n := normalize(h)
 		for _, f := range fields[kind] {
 			if taken[f.Key] || (normalize(f.Key) != n && !contains(f.Aliases, n)) {

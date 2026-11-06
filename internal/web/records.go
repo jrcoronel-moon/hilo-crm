@@ -202,7 +202,7 @@ func (h *Handler) exportCSV(w http.ResponseWriter, r *http.Request, v view) {
 			if o.LastInteractionAt != nil {
 				last = o.LastInteractionAt.Format(time.RFC3339)
 			}
-			_ = cw.Write(safeCSV([]string{o.ID.String(), o.Title, o.Kind, o.CompanyName, o.StageName, o.StageCategory, o.Status,
+			_ = cw.Write(crm.SafeCSV([]string{o.ID.String(), o.Title, o.Kind, o.CompanyName, o.StageName, o.StageCategory, o.Status,
 				strconv.FormatFloat(o.Amount, 'f', 2, 64), o.Currency, strconv.Itoa(o.Probability), o.ExpectedCloseDate,
 				strings.Join(o.Tags, ", "), o.NextStep, last, o.CreatedAt.Format(time.RFC3339), o.UpdatedAt.Format(time.RFC3339)}))
 			written++
@@ -213,17 +213,6 @@ func (h *Handler) exportCSV(w http.ResponseWriter, r *http.Request, v view) {
 		fq.Cursor = page.NextCursor
 	}
 	cw.Flush()
-}
-
-// safeCSV prefixes cells starting with a formula trigger with an apostrophe
-// (OWASP CSV injection guidance).
-func safeCSV(row []string) []string {
-	for i, c := range row {
-		if c != "" && strings.ContainsRune("=+-@\t\r", rune(c[0])) {
-			row[i] = "'" + c
-		}
-	}
-	return row
 }
 
 // ───────────── interactions ─────────────

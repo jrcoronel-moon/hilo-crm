@@ -262,7 +262,7 @@ MCP server URL: `https://<your-domain>/mcp`
 
 ### MCP tools
 
-The server exposes 24 tools: everything an agent needs to run the CRM, and nothing more.
+The server exposes 25 tools: everything an agent needs to run the CRM, and nothing more.
 
 | For | Tools |
 |---|---|
@@ -270,7 +270,7 @@ The server exposes 24 tools: everything an agent needs to run the CRM, and nothi
 | **Write** (6): record what the agent did or saw | `upsert_company`, `upsert_contact` (by id, `external_id`, domain or email) · `upsert_opportunity` (amount, probability, close date, next step, owner, channel and links) · `move_opportunity_stage` (moving to lost requires a reason) · `log_interaction` (email, call, meeting, note, message, social or form; inbound, outbound or internal) · `archive_record` (deletes nothing: takes the record out of lists and keeps it in the history and the audit) |
 | **Batch work** (1): migrate in a few calls | `bulk_upsert`: up to 200 records per call, with `dry_run` to validate a whole migration without saving |
 | **Agents that come back on their own** (2) | `needs_attention`: open opportunities that need someone, with the reason (next step overdue, close date passed, no activity, no owner, no next step) · `list_changes`: everything that changed, with a cursor, telling apart whether a person, an agent or a form did it |
-| **Administration** (2): admins only | `configure_pipeline` (stages in order, with category and probability) · `upsert_channel` |
+| **Administration** (3): admins only | `configure_pipeline` (stages in order, with category and probability) · `upsert_channel` · `export_records` (companies, contacts or opportunities as CSV, in parts for large workspaces) |
 
 References between records accept Hilo's id, the natural key (company domain, contact email) or the source system's
 `external_id`, so an agent that syncs or migrates doesn't need to keep ids.
@@ -382,6 +382,10 @@ duplicates.
 A CSV from another CRM or a spreadsheet is loaded from *Settings → Import* (one record type per file: Hilo recognizes
 columns in Spanish or English, lets you adjust them and validates everything with a dry run before saving) or with
 `hiloctl import-csv` for large files. Both go through the same `upsert`s the agents use.
+
+*Settings → Export* downloads companies, contacts or opportunities as CSV, one file per type, in the columns Import
+reads: the files load as they are into another workspace (companies, then contacts, then opportunities). Agents get
+the same files with `export_records`. Only admins export, and every export is recorded in the audit log.
 
 `hiloctl` with no arguments lists every command. It acts as the server operator, with the same rules as the web (for
 example, no workspace is ever left without an owner). The token is shown only once.

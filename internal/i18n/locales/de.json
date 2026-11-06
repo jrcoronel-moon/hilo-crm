@@ -616,5 +616,12 @@
  "Solo entrás a un workspace si aceptás. Si no conocés a quien te invita, rechazá la invitación.": "Du trittst einem Workspace nur bei, wenn du annimmst. Wenn du die einladende Person nicht kennst, lehne die Einladung ab.",
  "Te invitó %s": "Eingeladen von %s",
  "Tenés invitaciones a otros workspaces.": "Du hast Einladungen zu anderen Workspaces.",
- "Ver invitaciones": "Einladungen ansehen"
+ "Ver invitaciones": "Einladungen ansehen",
+ "Cada exportación queda en Auditoría. Los agentes exportan con la herramienta": "Jeder Export wird im Audit festgehalten. Agenten exportieren mit dem Tool",
+ "Exportar a CSV": "Als CSV exportieren",
+ "Un archivo por tipo de registro, con todos los registros activos del workspace. Las columnas son las que lee Importar, así que el archivo se carga tal cual en otro workspace o en otro Hilo: en orden empresas → contactos → oportunidades.": "Eine Datei pro Datensatztyp, mit allen aktiven Datensätzen des Workspace. Die Spalten sind die, die Importieren liest: Die Datei lässt sich unverändert in einen anderen Workspace oder ein anderes Hilo laden, in der Reihenfolge Unternehmen → Kontakte → Opportunities.",
+ "exportó las empresas": "hat die Unternehmen exportiert",
+ "exportó los contactos": "hat die Kontakte exportiert",
+ "exportó las oportunidades": "hat die Opportunities exportiert",
+ "todo el workspace en un solo archivo JSON, interacciones incluidas, con": "den ganzen Workspace in einer einzigen JSON-Datei, Interaktionen inklusive, mit"
 }

@@ -165,6 +165,7 @@ func (h *Handler) Routes(mux *http.ServeMux) {
 	})
 	mux.HandleFunc("GET /settings/import", h.member(h.importForm))
 	mux.HandleFunc("POST /settings/import", h.member(h.importCSV))
+	mux.HandleFunc("POST /settings/export", h.member(h.exportRecords))
 	mux.HandleFunc("GET /settings/{section}", h.member(h.settings))
 	mux.HandleFunc("POST /settings/{action}", h.member(h.settingsAction))
 	mux.HandleFunc("GET /admin", h.session(h.adminPage))

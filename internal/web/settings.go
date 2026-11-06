@@ -64,6 +64,10 @@ var settingsSections = map[string]settingsSection{
 		d.Domains, err = h.id.WorkspaceDomains(r.Context(), v.caller())
 		return err
 	}},
+	"export": {title: i18n.M("Exportar"), admin: true, load: func(_ *Handler, _ *http.Request, _ view, d *settingsData) error {
+		d.ExportKinds = exportKinds
+		return nil
+	}},
 	"audit": {title: i18n.M("Auditoría"), admin: true, load: func(h *Handler, r *http.Request, v view, d *settingsData) error {
 		var err error
 		d.Audit, err = h.crm.ListAudit(r.Context(), v.Actor, "", 100)
@@ -95,6 +99,7 @@ type settingsData struct {
 	PATs         []store.ListPATsRow
 	Connections  []store.ListConnectionsRow
 	Audit        []crm.AuditEntry
+	ExportKinds  []importKind
 	NewToken     string
 	MCPURL       string
 	Categories   []string

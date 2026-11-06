@@ -140,7 +140,7 @@ func TestToolsFilteredByPermission(t *testing.T) {
 	member := toolNames(t, e.connect(e.token(ws, "m@x.com", "member", false)))
 	readOnly := toolNames(t, e.connect(e.token(ws, "a@x.com", "admin", true)))
 
-	if len(owner) != 24 || !slices.Contains(owner, "list_changes") || !slices.Contains(owner, "needs_attention") || !slices.Contains(owner, "bulk_upsert") || !slices.Contains(owner, "configure_pipeline") || !slices.Contains(owner, "list_interactions") || !slices.Contains(owner, "list_tags") {
+	if len(owner) != 25 || !slices.Contains(owner, "export_records") || !slices.Contains(owner, "list_changes") || !slices.Contains(owner, "needs_attention") || !slices.Contains(owner, "bulk_upsert") || !slices.Contains(owner, "configure_pipeline") || !slices.Contains(owner, "list_interactions") || !slices.Contains(owner, "list_tags") {
 		t.Fatalf("owner tools (%d): %v", len(owner), owner)
 	}
 	for _, list := range [][]string{viewer, readOnly} {
@@ -148,7 +148,7 @@ func TestToolsFilteredByPermission(t *testing.T) {
 			t.Fatalf("read-only caller sees write tools: %v", list)
 		}
 	}
-	if !slices.Contains(member, "log_interaction") || slices.Contains(member, "configure_pipeline") {
+	if !slices.Contains(member, "log_interaction") || slices.Contains(member, "configure_pipeline") || slices.Contains(member, "export_records") {
 		t.Fatalf("member tools: %v", member)
 	}
 }
@@ -201,6 +201,32 @@ func TestAgentFlow(t *testing.T) {
 	}
 	if out, isErr = call(t, cs, "needs_attention", map[string]any{}); isErr || !strings.Contains(out, "no_next_step") {
 		t.Fatalf("needs_attention: %s", out)
+	}
+	// export_records: CSV in the importer's columns, in parts when asked.
+	if out, isErr = call(t, cs, "export_records", map[string]any{"kind": "contact"}); isErr || !strings.Contains(out, `"total":1`) ||
+		!strings.Contains(out, `hank@globex.com`) || !strings.Contains(out, `globex.com,Globex`) || strings.Contains(out, "next_offset") {
+		t.Fatalf("export contacts: %s", out)
+	}
+	if _, isErr = call(t, cs, "upsert_company", map[string]any{"name": "Initrode"}); isErr {
+		t.Fatal("upsert_company failed")
+	}
+	var part struct {
+		Total      int    `json:"total"`
+		Rows       int    `json:"rows"`
+		NextOffset int    `json:"next_offset"`
+		CSV        string `json:"csv"`
+	}
+	out, isErr = call(t, cs, "export_records", map[string]any{"kind": "company", "limit": 1})
+	if err := json.Unmarshal([]byte(out), &part); isErr || err != nil || part.Total != 2 || part.Rows != 1 || part.NextOffset != 1 ||
+		!strings.HasPrefix(part.CSV, "external_id,name,domain,") {
+		t.Fatalf("export part 1: %s", out)
+	}
+	if out, isErr = call(t, cs, "export_records", map[string]any{"kind": "company", "offset": 1, "limit": 1}); isErr ||
+		!strings.Contains(out, `"rows":1`) || strings.Contains(out, "next_offset") || !strings.Contains(out, `external_id,name,domain,`) {
+		t.Fatalf("export part 2: %s", out)
+	}
+	if out, isErr = call(t, cs, "export_records", map[string]any{"kind": "interaction"}); !isErr || !strings.Contains(out, "kind") {
+		t.Fatalf("export of an unknown kind: %s", out)
 	}
 	batch := map[string]any{"dry_run": true,
 		"companies": []any{map[string]any{"name": "Initech", "external_id": "x:1"}},

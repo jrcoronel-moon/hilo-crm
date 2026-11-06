@@ -262,7 +262,7 @@ URL del servidor MCP: `https://<tu-dominio>/mcp`
 
 ### Herramientas MCP
 
-El servidor expone 24 herramientas: todo lo que un agente necesita para operar el CRM, y nada más.
+El servidor expone 25 herramientas: todo lo que un agente necesita para operar el CRM, y nada más.
 
 | Para qué | Herramientas |
 |---|---|
@@ -270,7 +270,7 @@ El servidor expone 24 herramientas: todo lo que un agente necesita para operar e
 | **Escribir** (6): dejar asentado lo que el agente hizo o vio | `upsert_company`, `upsert_contact` (por id, `external_id`, dominio o email) · `upsert_opportunity` (monto, probabilidad, cierre, próximo paso, dueño, canal y links) · `move_opportunity_stage` (pasar a perdida exige motivo) · `log_interaction` (email, llamada, reunión, nota, mensaje, social o formulario; entrante, saliente o interna) · `archive_record` (no borra: saca el registro de las listas y lo deja en el historial y la auditoría) |
 | **Trabajo en lote** (1): migrar en pocas llamadas | `bulk_upsert`: hasta 200 registros por llamada, con `dry_run` para validar una migración entera sin guardar |
 | **Agentes que vuelven solos** (2) | `needs_attention`: oportunidades abiertas que necesitan a alguien, con el motivo (próximo paso vencido, cierre pasado, sin actividad, sin dueño, sin próximo paso) · `list_changes`: todo lo que cambió, con cursor, distinguiendo si lo hizo una persona, un agente o un formulario |
-| **Administración** (2): solo admins | `configure_pipeline` (etapas en orden, con categoría y probabilidad) · `upsert_channel` |
+| **Administración** (3): solo admins | `configure_pipeline` (etapas en orden, con categoría y probabilidad) · `upsert_channel` · `export_records` (empresas, contactos u oportunidades en CSV, por partes si el workspace es grande) |
 
 Las referencias entre registros aceptan el id de Hilo, la clave natural (dominio de la empresa, email del contacto) o
 el `external_id` del sistema de origen, así que un agente que sincroniza o migra no necesita guardar ids.
@@ -385,6 +385,11 @@ mover un workspace a otro Hilo y como formato de migraciones grandes sin agente.
 Un CSV de otro CRM o de una planilla se carga desde *Ajustes → Importar* (un tipo de registro por archivo: Hilo
 reconoce las columnas en español o inglés, te deja ajustarlas y valida todo con una prueba antes de guardar) o con
 `hiloctl import-csv` para archivos grandes. Ambos pasan por los mismos `upsert` que usan los agentes.
+
+*Ajustes → Exportar* descarga empresas, contactos u oportunidades en CSV, un archivo por tipo, con las columnas que
+lee Importar: los archivos se cargan tal cual en otro workspace (empresas, después contactos, después
+oportunidades). Los agentes obtienen los mismos archivos con `export_records`. Solo exportan los admins, y cada
+exportación queda en la auditoría.
 
 `hiloctl` sin argumentos lista todos los comandos. Actúa como operador del servidor, con las mismas reglas que la
 web (por ejemplo, ningún workspace se queda sin propietario). El token se muestra una sola vez.

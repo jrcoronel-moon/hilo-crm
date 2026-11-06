@@ -1,0 +1,16 @@
+{{define "content"}}
+{{$d := .Data}}
+<section class="card">
+  <div class="card-head"><div><h2>{{t "Exportar a CSV"}}</h2><p class="muted small">{{t "Un archivo por tipo de registro, con todos los registros activos del workspace. Las columnas son las que lee Importar, así que el archivo se carga tal cual en otro workspace o en otro Hilo: en orden empresas → contactos → oportunidades."}}</p></div></div>
+  <div class="row">
+    {{range $d.ExportKinds}}
+    <form method="post" action="/settings/export">
+      <input type="hidden" name="csrf" value="{{$d.CSRF}}">
+      <input type="hidden" name="kind" value="{{.Key}}">
+      <button class="btn"><svg class="i sm"><use href="#i-download"/></svg>{{t .Label}}</button>
+    </form>
+    {{end}}
+  </div>
+  <p class="muted small">{{t "Cada exportación queda en Auditoría. Los agentes exportan con la herramienta"}} <code>export_records</code>; {{t "todo el workspace en un solo archivo JSON, interacciones incluidas, con"}} <code>hiloctl export</code>.</p>
+</section>
+{{end}}

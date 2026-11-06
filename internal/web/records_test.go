@@ -18,12 +18,3 @@ func TestParseAmount(t *testing.T) {
 		}
 	}
 }
-
-func TestSafeCSV(t *testing.T) {
-	row := safeCSV([]string{"=1+1", "+cmd", "-2", "@SUM(A1)", "normal", "", "\tx"})
-	for i, want := range []string{"'=1+1", "'+cmd", "'-2", "'@SUM(A1)", "normal", "", "'\tx"} {
-		if row[i] != want {
-			t.Errorf("cell %d: got %q want %q", i, row[i], want)
-		}
-	}
-}
