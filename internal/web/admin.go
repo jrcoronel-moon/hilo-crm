@@ -4,6 +4,8 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/google/uuid"
+
 	"github.com/jrcoronel-moon/hilo-crm/internal/branding"
 	"github.com/jrcoronel-moon/hilo-crm/internal/crm"
 	"github.com/jrcoronel-moon/hilo-crm/internal/i18n"
@@ -15,6 +17,7 @@ type adminData struct {
 	CSRF       string
 	Domains    []store.PlatformAllowedDomain
 	Workspaces []store.ListAllWorkspacesRow
+	Member     map[uuid.UUID]bool // workspaces the superadmin already belongs to
 }
 
 func (h *Handler) adminPage(w http.ResponseWriter, r *http.Request, v view) {
@@ -33,7 +36,7 @@ func (h *Handler) adminPage(w http.ResponseWriter, r *http.Request, v view) {
 		return
 	}
 	h.render(w, r, http.StatusOK, "admin", page{Title: i18n.M("Superadmin"), View: &v, Nav: "admin", Flash: flashes[r.URL.Query().Get("ok")],
-		Data: adminData{CSRF: v.Sess.CSRFToken, Domains: doms, Workspaces: wss}})
+		Data: adminData{CSRF: v.Sess.CSRFToken, Domains: doms, Workspaces: wss, Member: v.memberOf()}})
 }
 
 func (h *Handler) adminAction(w http.ResponseWriter, r *http.Request, v view) {
@@ -49,6 +52,9 @@ func (h *Handler) adminAction(w http.ResponseWriter, r *http.Request, v view) {
 		err = h.uploadLogo(r, v)
 	case "brand-logo-reset":
 		err = h.brand.ClearLogo(r.Context(), v.Sess.IsSuperadmin, v.Sess.UserID)
+	case "join":
+		h.adminJoin(w, r, v)
+		return
 	default:
 		http.NotFound(w, r)
 		return
@@ -59,6 +65,25 @@ func (h *Handler) adminAction(w http.ResponseWriter, r *http.Request, v view) {
 	}
 	h.log.Info("superadmin action", "action", r.PathValue("action"), "user_id", v.Sess.UserID)
 	http.Redirect(w, r, "/admin?ok=saved", http.StatusSeeOther)
+}
+
+// adminJoin enters a workspace: the superadmin becomes an admin member (see
+// identity.SuperadminJoin) and it becomes their current workspace.
+func (h *Handler) adminJoin(w http.ResponseWriter, r *http.Request, v view) {
+	ws, err := uuid.Parse(r.PostFormValue("workspace"))
+	if err != nil {
+		h.fail(w, r, identity.ErrNotFound)
+		return
+	}
+	if err = h.id.SuperadminJoin(r.Context(), v.Sess.UserID, v.Sess.IsSuperadmin, ws); err == nil {
+		err = h.id.SwitchWorkspace(r.Context(), v.Sess, ws)
+	}
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	h.log.Info("superadmin action", "action", "join", "user_id", v.Sess.UserID, "workspace_id", ws)
+	http.Redirect(w, r, "/board", http.StatusSeeOther)
 }
 
 // uploadLogo reads the multipart file (size already capped by the body

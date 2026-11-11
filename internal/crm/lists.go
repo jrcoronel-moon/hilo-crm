@@ -278,7 +278,7 @@ func (s *Service) FindOrCreateCompany(ctx context.Context, a Actor, name, domain
 type CompanyRow struct {
 	ID                     uuid.UUID
 	Name, Domain, Industry string
-	Country                string
+	Country, LogoURL       string
 	Tags                   []string
 	Contacts, OpenOpps     int
 	LastActivity           *time.Time
@@ -292,27 +292,44 @@ func (s *Service) CompanyRows(ctx context.Context, a Actor, f ListFilter) (Page[
 		if err != nil {
 			return err
 		}
-		rows, err := q.CompaniesWithStats(ctx, store.CompaniesWithStatsParams{WorkspaceID: a.WorkspaceID, Query: la.query, Tag: la.tag, Cursor: la.cur, Lim: la.limit})
+		rows, err := q.CompaniesWithStats(ctx, store.CompaniesWithStatsParams{WorkspaceID: a.WorkspaceID, Query: la.query, Tag: la.tag,
+			Industry: strPtrIf(f.Industry), Country: strPtrIf(f.Country), OwnerID: la.owner, Cursor: la.cur,
+			SortBy: f.Sort, Descending: f.Desc, Off: f.offset(), Lim: la.limit})
 		if err != nil {
 			return err
 		}
 		out.Items = make([]CompanyRow, 0, len(rows))
 		for _, r := range rows {
 			out.Items = append(out.Items, CompanyRow{ID: r.ID, Name: r.Name, Domain: deref(r.Domain), Industry: r.Industry, Country: r.Country,
-				Tags: r.Tags, Contacts: int(r.Contacts), OpenOpps: int(r.OpenOpps), LastActivity: notEpoch(r.LastActivity)})
+				LogoURL: r.LogoUrl, Tags: r.Tags, Contacts: int(r.Contacts), OpenOpps: int(r.OpenOpps), LastActivity: notEpoch(r.LastActivity)})
 		}
 		out.NextCursor = nextCursor(rows, la.limit, func(r store.CompaniesWithStatsRow) uuid.UUID { return r.ID })
+		out.NextOffset = nextOffset(len(rows), la.limit, f.TableOptions)
 		return nil
 	})
 	return out, err
+}
+
+// CompanyFacets are the industries and countries in use, for the companies
+// table filters.
+func (s *Service) CompanyFacets(ctx context.Context, a Actor) (industries, countries []string, err error) {
+	err = s.tx(ctx, a, PermRead, func(q *store.Queries) error {
+		if industries, err = q.CompanyIndustries(ctx, a.WorkspaceID); err != nil {
+			return err
+		}
+		countries, err = q.CompanyCountries(ctx, a.WorkspaceID)
+		return err
+	})
+	return industries, countries, err
 }
 
 // ContactRow is one line of the contacts list.
 type ContactRow struct {
 	ID                        uuid.UUID
 	Name, Email, Title, Phone string
+	PhotoURL                  string
 	CompanyID                 *uuid.UUID
-	Company                   string
+	Company, CompanyLogoURL   string
 	Tags                      []string
 	LastActivity              *time.Time
 }
@@ -326,16 +343,18 @@ func (s *Service) ContactRows(ctx context.Context, a Actor, f ListFilter) (Page[
 			return err
 		}
 		rows, err := q.ContactsWithStats(ctx, store.ContactsWithStatsParams{WorkspaceID: a.WorkspaceID, Query: la.query, CompanyID: la.company,
-			Tag: la.tag, Cursor: la.cur, Lim: la.limit})
+			Tag: la.tag, OwnerID: la.owner, Cursor: la.cur, SortBy: f.Sort, Descending: f.Desc, Off: f.offset(), Lim: la.limit})
 		if err != nil {
 			return err
 		}
 		out.Items = make([]ContactRow, 0, len(rows))
 		for _, r := range rows {
 			out.Items = append(out.Items, ContactRow{ID: r.ID, Name: strings.TrimSpace(r.FirstName + " " + r.LastName), Email: deref(r.Email),
-				Title: r.Title, Phone: r.Phone, CompanyID: r.CompanyID, Company: deref(r.CompanyName), Tags: r.Tags, LastActivity: notEpoch(r.LastActivity)})
+				Title: r.Title, Phone: r.Phone, PhotoURL: r.PhotoUrl, CompanyID: r.CompanyID, Company: deref(r.CompanyName), CompanyLogoURL: r.CompanyLogoUrl,
+				Tags: r.Tags, LastActivity: notEpoch(r.LastActivity)})
 		}
 		out.NextCursor = nextCursor(rows, la.limit, func(r store.ContactsWithStatsRow) uuid.UUID { return r.ID })
+		out.NextOffset = nextOffset(len(rows), la.limit, f.TableOptions)
 		return nil
 	})
 	return out, err

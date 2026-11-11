@@ -23,6 +23,7 @@ type ContactInput struct {
 	Phone         *string         `json:"phone,omitempty"`
 	Title         *string         `json:"title,omitempty" jsonschema:"job title"`
 	LinkedInURL   *string         `json:"linkedin_url,omitempty"`
+	PhotoURL      *string         `json:"photo_url,omitempty" jsonschema:"https URL of the person's photo (PNG, JPEG, WebP or GIF); shown on their avatar; empty string clears"`
 	Owner         *string         `json:"owner,omitempty" jsonschema:"member id or email; empty string clears"`
 	SourceChannel *string         `json:"source_channel,omitempty" jsonschema:"channel id or name; empty string clears"`
 	Tags          *[]string       `json:"tags,omitempty" jsonschema:"replaces all tags"`
@@ -39,6 +40,7 @@ type ContactView struct {
 	Phone           string          `json:"phone,omitempty"`
 	Title           string          `json:"title,omitempty"`
 	LinkedInURL     string          `json:"linkedin_url,omitempty"`
+	PhotoURL        string          `json:"photo_url,omitempty"`
 	OwnerID         *uuid.UUID      `json:"owner_id,omitempty"`
 	SourceChannelID *uuid.UUID      `json:"source_channel_id,omitempty"`
 	Tags            []string        `json:"tags,omitempty"`
@@ -51,7 +53,7 @@ type ContactView struct {
 func contactView(c store.Contact) ContactView {
 	return ContactView{
 		ID: c.ID, CompanyID: c.CompanyID, FirstName: c.FirstName, LastName: c.LastName, Email: deref(c.Email),
-		Phone: c.Phone, Title: c.Title, LinkedInURL: c.LinkedinUrl, OwnerID: c.OwnerID,
+		Phone: c.Phone, Title: c.Title, LinkedInURL: c.LinkedinUrl, PhotoURL: c.PhotoUrl, OwnerID: c.OwnerID,
 		SourceChannelID: c.SourceChannelID, Tags: c.Tags, Custom: emptyObjNil(c.Custom),
 		ExternalID: deref(c.ExternalID), CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
 	}
@@ -118,6 +120,7 @@ func upsertContact(ctx context.Context, q *store.Queries, ws uuid.UUID, in Conta
 	p.line(&c.Phone, "phone", in.Phone, 40)
 	p.line(&c.Title, "title", in.Title, 150)
 	p.with(&c.LinkedinUrl, in.LinkedInURL, func(v string) (string, error) { return cleanURL("linkedin_url", v) })
+	p.with(&c.PhotoUrl, in.PhotoURL, func(v string) (string, error) { return cleanImageURL("photo_url", v) })
 	p.ref(&c.OwnerID, in.Owner, r.owner)
 	p.ref(&c.SourceChannelID, in.SourceChannel, r.channel)
 	p.tags(&c.Tags, "tags", in.Tags)
@@ -132,7 +135,7 @@ func upsertContact(ctx context.Context, q *store.Queries, ws uuid.UUID, in Conta
 	c, err = q.SaveContact(ctx, store.SaveContactParams{
 		ID: c.ID, WorkspaceID: ws, CompanyID: c.CompanyID, FirstName: c.FirstName, LastName: c.LastName, Email: c.Email,
 		Phone: c.Phone, Title: c.Title, LinkedinUrl: c.LinkedinUrl, OwnerID: c.OwnerID,
-		SourceChannelID: c.SourceChannelID, Tags: c.Tags, Custom: c.Custom, ExternalID: c.ExternalID,
+		SourceChannelID: c.SourceChannelID, Tags: c.Tags, Custom: c.Custom, ExternalID: c.ExternalID, PhotoUrl: c.PhotoUrl,
 	})
 	return c, created, err
 }

@@ -3,7 +3,7 @@
 #   docker build --target web --build-arg GIT_SHA=$(git rev-parse --short HEAD) .
 
 # ───── build ─────
-FROM golang:1.27.3-alpine AS build
+FROM golang:1.27.4-alpine AS build
 WORKDIR /src
 # Dependencies in their own layer: code changes do not re-download them.
 COPY go.mod go.sum ./

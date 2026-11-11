@@ -98,8 +98,8 @@ Con `bulk_upsert` (lotes de hasta 200) o, registro por registro, con:
 
 | Paso | Herramienta | Claves |
 |---|---|---|
-| Empresas | `upsert_company` | `external_id`, `name`, `domain`, `industry`, `size_range`, `country`, `website`, `description`, `owner`, `tags`, `custom` |
-| Contactos | `upsert_contact` | `external_id`, `email`, `first_name`, `last_name`, `phone`, `title`, `linkedin_url`, `company` (dominio o id), `owner`, `tags`, `custom` |
+| Empresas | `upsert_company` | `external_id`, `name`, `domain`, `industry`, `size_range`, `country`, `website`, `logo_url`, `description`, `owner`, `tags`, `custom` |
+| Contactos | `upsert_contact` | `external_id`, `email`, `first_name`, `last_name`, `phone`, `title`, `linkedin_url`, `photo_url`, `company` (dominio o id), `owner`, `tags`, `custom` |
 | Oportunidades | `upsert_opportunity` | `external_id`, `title`, `kind` (`deal`/`project`), `company`, `primary_contact`, `contacts` (con `role`), `pipeline`, `stage`, `lost_reason`, `amount`, `currency`, `probability`, `expected_close_date`, `source_channel`, `owner`, `next_step`, `next_step_at`, `description`, `tags`, `custom`, `created_at`, `closed_at` |
 | Interacciones | `log_interaction` | `external_id`, `type`, `direction`, `occurred_at` (fecha original), `subject`, `summary`, `duration_minutes`, `channel`, `company`, `contact`, `opportunity` |
 

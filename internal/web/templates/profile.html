@@ -1,0 +1,48 @@
+{{define "content"}}
+{{$v := .View}}{{$csrf := .Data}}{{$name := or $v.Sess.Name $v.Sess.Email}}
+<div class="record-head">
+  <span class="av xl {{avClass $name}}">{{initials $v.Sess.Name $v.Sess.Email}}</span>
+  <div class="grow"><h1>{{$name}}</h1><p class="muted">{{$v.Sess.Email}}{{if $v.Sess.IsSuperadmin}} · <span class="tag indigo">{{t "Superadmin"}}</span>{{end}}</p></div>
+</div>
+<div class="grid2">
+  <div class="gcol">
+    <section class="card">
+      <div class="card-head"><h2>{{t "Tus workspaces"}}</h2><span class="count">{{len $v.Workspaces}}</span>{{if $v.Sess.IsSuperadmin}}<a class="btn ghost sm aside" href="/admin">{{t "Ver todos"}}</a>{{end}}</div>
+      {{if $v.Workspaces}}<table class="table"><tbody>{{range $v.Workspaces}}<tr>
+        <td><span class="cellflex"><span class="av md sq {{avClass .Name}}">{{initials .Name ""}}</span><b>{{.Name}}</b></span></td>
+        <td class="muted">{{roleLabel .Role}}</td>
+        <td class="num">{{if and $v.Current (eq .ID $v.Current.ID)}}<span class="muted small">{{t "actual"}}</span>{{else}}<form method="post" action="/workspaces/switch"><input type="hidden" name="csrf" value="{{$csrf}}"><input type="hidden" name="workspace" value="{{.ID}}"><button class="btn sm">{{t "Abrir"}}</button></form>{{end}}</td>
+      </tr>{{end}}</tbody></table>
+      {{else}}<p class="muted">{{t "Todavía no sos miembro de ningún workspace."}}</p>{{end}}
+      <div><a class="btn sm" href="/workspaces/new"><svg class="i sm"><use href="#i-plus"/></svg>{{t "Crear workspace"}}</a></div>
+    </section>
+    {{if $v.Current}}
+    <section class="card">
+      <div class="card-head"><h2>{{t "Agentes"}}</h2></div>
+      <p class="muted">{{$v.AgentCount}} {{if eq $v.AgentCount 1}}{{t "agente conectado"}}{{else}}{{t "agentes conectados"}}{{end}} · {{$v.TokenCount}} {{if eq $v.TokenCount 1}}{{t "token activo"}}{{else}}{{t "tokens activos"}}{{end}} · {{$v.Current.Name}}</p>
+      <div><a class="btn sm" href="/settings/agents"><svg class="i sm"><use href="#i-plug"/></svg>{{t "Administrar agentes"}}</a></div>
+    </section>
+    {{end}}
+  </div>
+  <div class="gcol">
+    <section class="card">
+      <h2>{{t "Preferencias"}}</h2>
+      <form method="get" action="/lang" class="field">{{t "Idioma"}}<input type="hidden" name="next" value="{{.Path}}">
+        <select name="l" data-autosubmit>{{range .Langs}}<option value="{{.Code}}" {{if eq .Code $.Lang}}selected{{end}}>{{.Name}}</option>{{end}}</select>
+        <noscript><button class="btn sm">{{t "Cambiar"}}</button></noscript></form>
+      <div class="field">{{t "Tema"}}
+        <div class="seg" role="group" aria-label="{{t "Tema"}}">
+          <a href="/theme?t=light&amp;next={{.Path}}" {{if eq .Theme "light"}}aria-current="true"{{end}}><svg class="i sm"><use href="#i-sun"/></svg>{{t "Claro"}}</a>
+          <a href="/theme?t=dark&amp;next={{.Path}}" {{if eq .Theme "dark"}}aria-current="true"{{end}}><svg class="i sm"><use href="#i-moon"/></svg>{{t "Oscuro"}}</a>
+          <a href="/theme?t=system&amp;next={{.Path}}" {{if eq .Theme ""}}aria-current="true"{{end}}><svg class="i sm"><use href="#i-monitor"/></svg>{{t "Sistema"}}</a>
+        </div>
+      </div>
+    </section>
+    <section class="card">
+      <h2>{{t "Sesión"}}</h2>
+      <p class="muted small">{{t "Tu nombre y tu email vienen de la cuenta con la que iniciás sesión (Google o Microsoft)."}}</p>
+      <form method="post" action="/logout"><input type="hidden" name="csrf" value="{{$csrf}}"><button class="btn danger"><svg class="i sm"><use href="#i-out"/></svg>{{t "Cerrar sesión"}}</button></form>
+    </section>
+  </div>
+</div>
+{{end}}

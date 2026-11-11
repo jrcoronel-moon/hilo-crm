@@ -34,8 +34,11 @@
   <section class="card">
     <h2>{{t "Workspaces"}}</h2>
     <table class="table">
-      <tr><th>{{t "Nombre"}}</th><th>{{t "Slug"}}</th><th class="num">{{t "Miembros"}}</th><th>{{t "Creado"}}</th></tr>
-      {{range $d.Workspaces}}<tr><td><b>{{.Name}}</b></td><td><code>{{.Slug}}</code></td><td class="num">{{.MemberCount}}</td><td>{{date .CreatedAt}}</td></tr>{{end}}
+      <thead><tr><th>{{t "Nombre"}}</th><th>{{t "Slug"}}</th><th class="num">{{t "Miembros"}}</th><th>{{t "Creado"}}</th><th></th></tr></thead>
+      <tbody>{{range $d.Workspaces}}<tr><td><span class="cellflex"><span class="av sq {{avClass .Name}}">{{initials .Name ""}}</span><b>{{.Name}}</b></span></td><td><code>{{.Slug}}</code></td><td class="num">{{.MemberCount}}</td><td class="nowrap">{{date .CreatedAt}}</td>
+        <td class="num">{{if and $.View.Current (eq .ID $.View.Current.ID)}}<span class="muted small">{{t "actual"}}</span>
+        {{else if index $d.Member .ID}}<form method="post" action="/workspaces/switch"><input type="hidden" name="csrf" value="{{$d.CSRF}}"><input type="hidden" name="workspace" value="{{.ID}}"><button class="btn sm">{{t "Abrir"}}</button></form>
+        {{else}}<form method="post" action="/admin/join" data-confirm="{{t "¿Entrar a %s?|Te sumás como admin: vas a figurar en Miembros y queda registrado en Auditoría. Los dueños pueden sacarte." .Name}}"><input type="hidden" name="csrf" value="{{$d.CSRF}}"><input type="hidden" name="workspace" value="{{.ID}}"><button class="btn sm">{{t "Entrar"}}</button></form>{{end}}</td></tr>{{end}}</tbody>
     </table>
     <p class="muted small">{{t "Los superadmins se definen con"}} <code>SUPERADMIN_EMAILS</code> {{t "o con"}} <code>hiloctl superadmin grant &lt;email&gt;</code>.</p>
   </section>

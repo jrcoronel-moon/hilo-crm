@@ -1,0 +1,16 @@
+{{define "content"}}
+{{$d := .Data}}
+{{if $d.Groups}}
+<p class="muted">{{$d.Total}} {{if eq $d.Total 1}}{{t "resultado para"}}{{else}}{{t "resultados para"}}{{end}} “{{$d.Q}}”</p>
+{{range $d.Groups}}
+<section class="card">
+  <div class="card-head"><svg class="i sm muted"><use href="#i-{{.Icon}}"/></svg><h2>{{.Label}}</h2><span class="count">{{len .Hits}}</span></div>
+  <table class="table"><tbody>{{range .Hits}}<tr data-href="{{.URL}}"><td><a class="cellflex" href="{{.URL}}"><span class="av md {{if ne .Type "contact"}}sq{{end}} {{avClass .Title}}">{{initials .Title ""}}</span><span class="who"><b>{{.Title}}</b><small>{{.Subtitle}}</small></span></a></td></tr>{{end}}</tbody></table>
+</section>
+{{end}}
+{{else}}
+<div class="empty"><span class="ic"><svg class="i"><use href="#i-search"/></svg></span>
+  <h2>{{if $d.Q}}{{t "Sin resultados para “"}}{{$d.Q}}”{{else}}{{t "Buscá en todo el CRM"}}{{end}}</h2>
+  <p>{{t "Empresas por nombre o dominio, contactos por nombre o email y oportunidades por título. Escribí al menos 2 letras."}}</p></div>
+{{end}}
+{{end}}

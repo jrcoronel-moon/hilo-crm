@@ -21,14 +21,8 @@ import (
 func (s *Service) Export(ctx context.Context, a Actor) (ImportInput, error) {
 	var x exporter
 	err := s.tx(ctx, a, PermAdmin, func(q *store.Queries) error {
-		x = exporter{ctx: ctx, q: q, ws: a.WorkspaceID, owners: map[uuid.UUID]string{}, channels: map[uuid.UUID]string{},
-			companies: map[uuid.UUID]string{}, contacts: map[uuid.UUID]string{}, opps: map[uuid.UUID]string{}}
-		for _, step := range []func() error{x.lookups, x.exportCompanies, x.exportContacts, x.exportOpportunities, x.exportInteractions} {
-			if err := step(); err != nil {
-				return err
-			}
-		}
-		return nil
+		x = newExporter(ctx, q, a.WorkspaceID)
+		return x.run(x.lookups, x.exportCompanies, x.exportContacts, x.exportOpportunities, x.exportInteractions)
 	})
 	return x.out, err
 }
@@ -41,6 +35,21 @@ type exporter struct {
 
 	owners, channels          map[uuid.UUID]string // id → member email / channel name
 	companies, contacts, opps map[uuid.UUID]string // id → external_id in the export
+}
+
+func newExporter(ctx context.Context, q *store.Queries, ws uuid.UUID) exporter {
+	return exporter{ctx: ctx, q: q, ws: ws, owners: map[uuid.UUID]string{}, channels: map[uuid.UUID]string{},
+		companies: map[uuid.UUID]string{}, contacts: map[uuid.UUID]string{}, opps: map[uuid.UUID]string{}}
+}
+
+// run takes the steps in order: later ones reference what earlier ones exported.
+func (x *exporter) run(steps ...func() error) error {
+	for _, step := range steps {
+		if err := step(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func exportID(ext *string, id uuid.UUID) string {
@@ -121,7 +130,7 @@ func (x *exporter) exportCompanies() error {
 		id := exportID(c.ExternalID, c.ID)
 		x.companies[c.ID] = id
 		x.out.Companies = append(x.out.Companies, CompanyInput{ExternalID: &id, Name: &c.Name, Domain: c.Domain,
-			Industry: opt(c.Industry), SizeRange: opt(c.SizeRange), Country: opt(c.Country), Website: opt(c.Website),
+			Industry: opt(c.Industry), SizeRange: opt(c.SizeRange), Country: opt(c.Country), Website: opt(c.Website), LogoURL: opt(c.LogoUrl),
 			Description: opt(c.Description), Owner: ref(x.owners, c.OwnerID), SourceChannel: ref(x.channels, c.SourceChannelID),
 			Tags: optTags(c.Tags), Custom: optCustom(c.Custom)})
 	}
@@ -134,7 +143,7 @@ func (x *exporter) exportContacts() error {
 		id := exportID(c.ExternalID, c.ID)
 		x.contacts[c.ID] = id
 		x.out.Contacts = append(x.out.Contacts, ContactInput{ExternalID: &id, Email: c.Email, FirstName: opt(c.FirstName),
-			LastName: opt(c.LastName), Phone: opt(c.Phone), Title: opt(c.Title), LinkedInURL: opt(c.LinkedinUrl),
+			LastName: opt(c.LastName), Phone: opt(c.Phone), Title: opt(c.Title), LinkedInURL: opt(c.LinkedinUrl), PhotoURL: opt(c.PhotoUrl),
 			Company: ref(x.companies, c.CompanyID), Owner: ref(x.owners, c.OwnerID), SourceChannel: ref(x.channels, c.SourceChannelID),
 			Tags: optTags(c.Tags), Custom: optCustom(c.Custom)})
 	}

@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"math"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -53,6 +54,16 @@ var funcs = template.FuncMap{
 	"isClosing":  func(cat string) bool { return cat == crm.CatWon || cat == crm.CatLost },
 	"initials":   initials,
 	"tagClass":   tagClass,
+	"avClass":    avClass,
+	"av":         av,
+	"th":         th,
+	"pg": func(shown int, p pager) any {
+		return struct {
+			Shown int
+			P     pager
+		}{shown, p}
+	},
+	"typeIcon":   func(t string) string { return orSelf(typeIcons, t) },
 	"stageClass": stageClass,
 	"firstTags":  firstTags,
 	"scopeClass": scopeClass,
@@ -65,6 +76,7 @@ var funcs = template.FuncMap{
 	"upper":      strings.ToUpper,
 	"trim":       strings.TrimSpace,
 	"ownerSel":   ownerSel,
+	"ownerName":  ownerName,
 	"tagField":   tagField,
 	"host":       urlHost,
 	"asset":      asset,
@@ -126,6 +138,19 @@ func tagClass(tag string) string {
 	_, _ = h.Write([]byte(strings.ToLower(tag)))
 	return palette[h.Sum32()%uint32(len(palette))] //nolint:gosec // bounded index
 }
+
+// avClass gives an avatar (a company, a person, a workspace) a stable hue
+// from its name, so the same record looks the same on every page.
+func avClass(name string) string {
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(strings.ToLower(strings.TrimSpace(name))))
+	return "h" + strconv.Itoa(int(h.Sum32()%6))
+}
+
+// typeIcons is the sprite symbol of each interaction type (and of a stage
+// change in a timeline).
+var typeIcons = map[string]string{"email": "mail", "call": "phone", "meeting": "video", "note": "note",
+	"message": "msg", "social": "hash", "form": "file", "stage_change": "flag"}
 
 // stageClass colours a stage dot: amber initial, green won, grey lost, and a
 // rotating hue for in-progress stages by position.
@@ -288,6 +313,20 @@ func roleLabel(r string) string {
 		return i18n.M("Lector")
 	}
 	return r
+}
+
+// ownerName is how a record's owner reads on its page: the member's name,
+// else their email; "" when there is no owner (or they left).
+func ownerName(members []store.ListMembersRow, cur *uuid.UUID) string {
+	for _, m := range members {
+		if cur != nil && m.ID == *cur {
+			if m.Name != "" {
+				return m.Name
+			}
+			return m.Email
+		}
+	}
+	return ""
 }
 
 // ownerSel feeds the "owner-select" partial: members plus the current owner.

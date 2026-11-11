@@ -98,6 +98,8 @@ var verbs = map[string]string{
 	"pipeline.configure": i18n.M("configuró el pipeline"), "pipeline.archive": i18n.M("archivó el pipeline"),
 	"channel.create": i18n.M("creó el canal"), "channel.update": i18n.M("actualizó el canal"), "channel.archive": i18n.M("archivó el canal"),
 	"form.create": i18n.M("creó el formulario"), "form.update": i18n.M("actualizó el formulario"),
+	"company.export": i18n.M("exportó las empresas"), "contact.export": i18n.M("exportó los contactos"),
+	"opportunity.export": i18n.M("exportó las oportunidades"),
 }
 
 // FromAudit builds the event of an audit row.

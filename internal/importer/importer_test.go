@@ -174,3 +174,26 @@ func TestSummarize(t *testing.T) {
 		t.Fatalf("%+v", s)
 	}
 }
+
+// A Hilo export reads back as it was written: the apostrophe that neutralises
+// a formula goes away, and "custom:<key>" columns are custom fields.
+func TestReadsHiloExport(t *testing.T) {
+	tb, err := Parse(strings.NewReader("email,phone,custom:segment,note\nana@x.test,'+54 11 5555,'=SUM(A1),'quoted\n"), 1<<20, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(tb.Rows[0], "|"); got != "ana@x.test|+54 11 5555|=SUM(A1)|'quoted" {
+		t.Fatalf("cells: %q", got)
+	}
+	m := Guess(KindContact, tb.Header)
+	if strings.Join(m, ",") != "email,phone,custom," {
+		t.Fatalf("mapping: %q", m)
+	}
+	if got := Guess(KindInteraction, []string{"custom:x"}); got[0] != "" {
+		t.Fatalf("interactions have no custom fields: %q", got)
+	}
+	res := Build(KindContact, tb, m, Options{})
+	if c := res.Input.Contacts[0]; c.Custom == nil || (*c.Custom)["segment"] != "=SUM(A1)" || *c.Phone != "+54 11 5555" {
+		t.Fatalf("contact: %+v", c)
+	}
+}

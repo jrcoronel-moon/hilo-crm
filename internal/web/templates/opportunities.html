@@ -8,6 +8,7 @@
   <select name="channel" data-autosubmit aria-label="{{t "Canal"}}"><option value="">{{t "Todos los canales"}}</option>{{range $d.Channels}}<option value="{{.Name}}" {{if eq .Name $f.Channel}}selected{{end}}>{{.Name}}</option>{{end}}</select>
   <select name="tag" data-autosubmit aria-label="{{t "Tag"}}"><option value="">{{t "Todos los tags"}}</option>{{range $d.Tags}}<option value="{{.Tag}}" {{if eq .Tag $f.Tag}}selected{{end}}>{{.Tag}} ({{.Count}})</option>{{end}}</select>
   <div class="search"><svg class="i sm"><use href="#i-search"/></svg><input type="search" name="q" value="{{$f.Q}}" placeholder="{{t "Buscar por título"}}" aria-label="{{t "Buscar"}}"></div>
+  {{with $f.T.Sort}}<input type="hidden" name="sort" value="{{.}}">{{if $f.T.Desc}}<input type="hidden" name="dir" value="desc">{{end}}{{end}}
 </form>
 
 {{with $d.Result}}
@@ -30,19 +31,23 @@
     <button class="btn sm danger" name="action" value="lost">{{t "Marcar perdida"}}</button>
   </div>
   {{end}}
-  <table class="table">
-    <tr>{{if $.View.CanWrite}}<th><input type="checkbox" data-select-all aria-label="{{t "Seleccionar todas"}}"></th>{{end}}<th>{{t "Oportunidad"}}</th><th>{{t "Etapa"}}</th><th>{{t "Tags"}}</th><th class="num">{{t "Monto"}}</th><th>{{t "Última actividad"}}</th><th>{{t "Cierre"}}</th></tr>
+  <div class="table-wrap">
+  <table class="table" data-resize="opportunities">
+    <thead><tr>{{if $.View.CanWrite}}<th class="sel-col"><input type="checkbox" data-select-all aria-label="{{t "Seleccionar todas"}}"></th>{{end}}{{template "th" (th $d.Sort "title" (t "Oportunidad") "")}}{{template "th" (th $d.Sort "stage" (t "Etapa") "")}}<th>{{t "Tags"}}</th>{{template "th" (th $d.Sort "amount" (t "Monto") "num")}}{{template "th" (th $d.Sort "activity" (t "Última actividad") "")}}{{template "th" (th $d.Sort "close" (t "Cierre") "")}}</tr></thead>
+    <tbody>
     {{range $d.Page.Items}}
-    <tr data-row="{{.ID}}">{{if $.View.CanWrite}}<td><input type="checkbox" name="id" value="{{.ID}}" aria-label="{{t "Seleccionar %s" .Title}}"></td>{{end}}
-      <td class="who"><a href="/opportunities/{{.ID}}"><b>{{.Title}}</b></a><small>{{if .CompanyID}}<a href="/companies/{{.CompanyID}}">{{.CompanyName}}</a>{{else}}—{{end}}</small></td>
-      <td><span class="row"><span class="dot {{stageClass .StageCategory 1}}"></span>{{.StageName}}</span></td>
+    <tr data-row="{{.ID}}" data-href="/opportunities/{{.ID}}">{{if $.View.CanWrite}}<td class="sel-col"><input type="checkbox" name="id" value="{{.ID}}" aria-label="{{t "Seleccionar %s" .Title}}"></td>{{end}}
+      <td class="who"><a href="/opportunities/{{.ID}}"><b>{{.Title}}</b></a><small>{{if .CompanyID}}<a class="sublink" href="/companies/{{.CompanyID}}">{{.CompanyName}}</a>{{else}}—{{end}}</small></td>
+      <td><span class="stage-pill"><span class="dot {{stageClass .StageCategory 1}}"></span>{{.StageName}}</span></td>
       <td>{{$t := firstTags .Tags 2}}<span class="row">{{range $t.Shown}}<span class="tag {{tagClass .}}">{{.}}</span>{{end}}{{if $t.More}}<span class="tag">+{{$t.More}}</span>{{end}}</span></td>
       <td class="num">{{money .Amount .Currency}}</td>
-      <td>{{ago .LastInteractionAt}}</td><td>{{or .ExpectedCloseDate "—"}}</td></tr>
+      <td class="muted">{{ago .LastInteractionAt}}</td><td class="nowrap">{{or .ExpectedCloseDate "—"}}</td></tr>
     {{end}}
+    </tbody>
   </table>
+  {{template "pager" (pg (len $d.Page.Items) $d.Pager)}}
+  </div>
 </form>
-<div class="pager"><span>{{len $d.Page.Items}} {{t "en esta página"}}</span>{{with $d.Page.NextCursor}}<a class="btn sm" href="/opportunities?{{$f.Encode}}&amp;cursor={{.}}">{{t "Siguiente"}}</a>{{end}}</div>
 {{else}}
 <div class="empty"><span class="ic"><svg class="i"><use href="#i-brief"/></svg></span><h2>{{t "No hay oportunidades con estos filtros"}}</h2><p>{{t "Cambiá los filtros o conectá un agente para que las cree."}}</p></div>
 {{end}}

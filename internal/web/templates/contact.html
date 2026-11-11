@@ -1,10 +1,11 @@
-{{define "actions"}}{{if .View.CanWrite}}<form method="post" action="/contacts/{{.Data.C.ID}}/archive" data-confirm="{{t "¿Archivar este contacto?|Deja de aparecer en listas y búsquedas. Su historial se conserva."}}"><input type="hidden" name="csrf" value="{{.Data.CSRF}}"><button class="btn ghost danger"><svg class="i sm"><use href="#i-trash"/></svg>{{t "Archivar"}}</button></form>{{end}}{{end}}
+{{define "actions"}}{{if .View.CanWrite}}<button class="btn" type="button" data-open="#edit"><svg class="i sm"><use href="#i-pencil"/></svg>{{t "Editar"}}</button>
+<form method="post" action="/contacts/{{.Data.C.ID}}/archive" data-confirm="{{t "¿Archivar este contacto?|Deja de aparecer en listas y búsquedas. Su historial se conserva."}}"><input type="hidden" name="csrf" value="{{.Data.CSRF}}"><button class="btn ghost danger"><svg class="i sm"><use href="#i-trash"/></svg>{{t "Archivar"}}</button></form>{{end}}{{end}}
 {{define "content"}}
-{{$d := .Data}}{{$c := $d.C}}
+{{$d := .Data}}{{$c := $d.C}}{{$name := or (printf "%s %s" $c.FirstName $c.LastName | trim) $c.Email}}
 <div class="record-head" data-live="head">
-  <span class="av lg">{{initials (printf "%s %s" $c.FirstName $c.LastName) $c.Email}}</span>
-  <div class="grow"><h1>{{or (printf "%s %s" $c.FirstName $c.LastName | trim) $c.Email}}</h1>
-    <p class="muted">{{with $c.Title}}{{.}} · {{end}}{{if $c.CompanyID}}<a href="/companies/{{$c.CompanyID}}">{{$d.Company}}</a>{{else}}{{t "sin empresa"}}{{end}}{{with $c.Email}} · <a href="mailto:{{.}}">{{.}}</a>{{end}}</p></div>
+  {{template "avatar" (av "contact" $c.ID (printf "%s %s" $c.FirstName $c.LastName | trim) $c.Email $c.PhotoURL "xl")}}
+  <div class="grow"><h1>{{$name}}</h1>
+    <p class="muted">{{with $c.Title}}{{.}}{{end}}{{if $c.CompanyID}}{{if $c.Title}} · {{end}}<a href="/companies/{{$c.CompanyID}}">{{$d.Company}}</a>{{else}}{{if $c.Title}} · {{end}}{{t "sin empresa"}}{{end}}</p></div>
   <div class="kpis mini">
     <div class="kpi"><span>{{t "Oportunidades"}}</span><strong>{{len $d.Opportunities}}</strong></div>
     <div class="kpi"><span>{{t "Interacciones"}}</span><strong>{{$c.Interactions}}</strong></div>
@@ -12,29 +13,40 @@
 </div>
 <div class="grid2">
   <div class="gcol">
-    <section class="card" data-live="opps"><div class="card-head"><h2>{{t "Oportunidades"}}</h2></div>{{template "opp-table" $d.Opportunities}}</section>
-    <section class="card" data-live="activity"><div class="card-head"><h2>{{t "Actividad"}}</h2></div>{{template "timeline" $d.Timeline}}</section>
+    <section class="card" data-live="opps"><div class="card-head"><h2>{{t "Oportunidades"}}</h2><span class="count">{{len $d.Opportunities}}</span></div>{{template "opp-table" $d.Opportunities}}</section>
+    <section class="card" data-live="activity"><div class="card-head"><h2>{{t "Actividad"}}</h2><span class="count">{{len $d.Timeline}}</span></div>{{template "timeline" $d.Timeline}}</section>
   </div>
   <div class="gcol">
-    <section class="card">
-      <h2>{{t "Datos"}}</h2>
-      {{if $.View.CanWrite}}
-      <form method="post" action="/contacts/{{$c.ID}}" class="stack">
-        <input type="hidden" name="csrf" value="{{$d.CSRF}}">
-        <div class="row"><label class="field grow">{{t "Nombre"}}<input name="first_name" value="{{$c.FirstName}}" maxlength="100"></label><label class="field grow">{{t "Apellido"}}<input name="last_name" value="{{$c.LastName}}" maxlength="100"></label></div>
-        <label class="field">{{t "Email"}}<input name="email" type="email" value="{{$c.Email}}"></label>
-        <div class="row"><label class="field grow">{{t "Teléfono"}}<input name="phone" value="{{$c.Phone}}" maxlength="40"></label><label class="field grow">{{t "Cargo"}}<input name="title" value="{{$c.Title}}" maxlength="150"></label></div>
-        <label class="field">{{t "Empresa (nombre o dominio)"}}<input name="company" value="{{$d.Company}}"></label>
-        <label class="field">{{t "LinkedIn"}}<input name="linkedin_url" value="{{$c.LinkedInURL}}" placeholder="{{t "https://www.linkedin.com/in/…"}}"></label>
-        {{template "owner-select" (ownerSel $d.Members $c.OwnerID)}}
-        {{template "tag-field" (tagField $c.Tags $d.Suggest)}}
-        <div><button class="btn primary">{{t "Guardar"}}</button></div>
-      </form>
-      {{else}}
-      <dl class="facts">{{with $c.Phone}}<dt>{{t "Teléfono"}}</dt><dd>{{.}}</dd>{{end}}{{with $c.LinkedInURL}}<dt>{{t "LinkedIn"}}</dt><dd>{{.}}</dd>{{end}}<dt>{{t "Tags"}}</dt><dd>{{range $c.Tags}}<span class="tag {{tagClass .}}">{{.}}</span> {{else}}—{{end}}</dd></dl>
-      {{end}}
+    <section class="card" data-live="facts">
+      <div class="card-head"><h2>{{t "Datos"}}</h2>{{if $.View.CanWrite}}<button class="btn ghost sm aside" type="button" data-open="#edit"><svg class="i sm"><use href="#i-pencil"/></svg>{{t "Editar"}}</button>{{end}}</div>
+      <dl class="props">
+        <dt>{{t "Email"}}</dt><dd>{{with $c.Email}}<a href="mailto:{{.}}">{{.}}</a>{{else}}—{{end}}</dd>
+        <dt>{{t "Teléfono"}}</dt><dd>{{or $c.Phone "—"}}</dd>
+        <dt>{{t "Cargo"}}</dt><dd>{{or $c.Title "—"}}</dd>
+        <dt>{{t "Empresa"}}</dt><dd>{{if $c.CompanyID}}<a href="/companies/{{$c.CompanyID}}">{{$d.Company}}</a>{{else}}—{{end}}</dd>
+        <dt>{{t "LinkedIn"}}</dt><dd>{{with $c.LinkedInURL}}<a class="extlink" href="{{.}}" rel="noopener noreferrer" target="_blank">{{t "Ver perfil"}}<svg class="i sm"><use href="#i-ext"/></svg></a>{{else}}—{{end}}</dd>
+        <dt>{{t "Dueño"}}</dt><dd>{{or (ownerName $d.Members $c.OwnerID) "—"}}</dd>
+        <dt>{{t "Tags"}}</dt><dd><span class="row">{{range $c.Tags}}<a class="tag {{tagClass .}}" href="/contacts?tag={{.}}">{{.}}</a>{{else}}—{{end}}</span></dd>
+      </dl>
       <p class="muted small">{{t "Creado"}} {{date $c.CreatedAt}} {{t "· actualizado"}} {{date $c.UpdatedAt}}</p>
     </section>
   </div>
 </div>
+{{if $.View.CanWrite}}
+<dialog id="edit" class="drawer"><form method="post" action="/contacts/{{$c.ID}}" class="drawer-form">
+  {{template "drawer-head" (t "Editar contacto")}}
+  <div class="drawer-body stack">
+    <input type="hidden" name="csrf" value="{{$d.CSRF}}">
+    <div class="row"><label class="field grow">{{t "Nombre"}}<input name="first_name" value="{{$c.FirstName}}" maxlength="100"></label><label class="field grow">{{t "Apellido"}}<input name="last_name" value="{{$c.LastName}}" maxlength="100"></label></div>
+    <label class="field">{{t "Email"}}<input name="email" type="email" value="{{$c.Email}}"></label>
+    <div class="row"><label class="field grow">{{t "Teléfono"}}<input name="phone" value="{{$c.Phone}}" maxlength="40"></label><label class="field grow">{{t "Cargo"}}<input name="title" value="{{$c.Title}}" maxlength="150"></label></div>
+    <label class="field">{{t "Empresa (nombre o dominio)"}}<input name="company" value="{{$d.Company}}"></label>
+    <label class="field">{{t "LinkedIn"}}<input name="linkedin_url" value="{{$c.LinkedInURL}}" placeholder="{{t "https://www.linkedin.com/in/…"}}"></label>
+    <label class="field">{{t "Foto (URL)"}}<input name="photo_url" value="{{$c.PhotoURL}}" placeholder="{{t "https://…/foto.jpg"}}" maxlength="1000"><small class="muted">{{t "PNG, JPEG, WebP o GIF. Tus agentes también pueden cargarla con photo_url."}}</small></label>
+    {{template "owner-select" (ownerSel $d.Members $c.OwnerID)}}
+    {{template "tag-field" (tagField $c.Tags $d.Suggest)}}
+  </div>
+  <footer class="drawer-foot"><button class="btn" type="button" data-close>{{t "Cancelar"}}</button><button class="btn primary">{{t "Guardar"}}</button></footer>
+</form></dialog>
+{{end}}
 {{end}}

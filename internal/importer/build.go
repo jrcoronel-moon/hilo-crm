@@ -61,7 +61,7 @@ func Build(kind string, t Table, m Mapping, o Options) Result {
 				if r.custom == nil {
 					r.custom = map[string]any{}
 				}
-				r.custom[t.Header[j]] = cells[j]
+				r.custom[strings.TrimPrefix(t.Header[j], customPrefix)] = cells[j]
 			default:
 				r.vals[target] = cells[j]
 			}
@@ -245,7 +245,7 @@ var (
 
 func (r *record) company() crm.CompanyInput {
 	return crm.CompanyInput{ExternalID: r.externalID(), Name: r.str("name"), Domain: r.str("domain"), Industry: r.str("industry"),
-		SizeRange: r.str("size_range"), Country: r.str("country"), Website: r.str("website"), Description: r.str("description"),
+		SizeRange: r.str("size_range"), Country: r.str("country"), Website: r.str("website"), LogoURL: r.str("logo_url"), Description: r.str("description"),
 		Owner: r.str("owner"), SourceChannel: r.str("source_channel"), Tags: r.tags(), Custom: r.customFields()}
 }
 
@@ -259,7 +259,7 @@ func (r *record) contact() crm.ContactInput {
 		}
 	}
 	return crm.ContactInput{ExternalID: r.externalID(), Company: r.ref("company"), FirstName: first, LastName: last, Email: r.str("email"),
-		Phone: r.str("phone"), Title: r.str("title"), LinkedInURL: r.str("linkedin_url"), Owner: r.str("owner"),
+		Phone: r.str("phone"), Title: r.str("title"), LinkedInURL: r.str("linkedin_url"), PhotoURL: r.str("photo_url"), Owner: r.str("owner"),
 		SourceChannel: r.str("source_channel"), Tags: r.tags(), Custom: r.customFields()}
 }
 

@@ -184,24 +184,51 @@ func (q *Queries) BoardOpportunities(ctx context.Context, arg BoardOpportunities
 }
 
 const companiesWithStats = `-- name: CompaniesWithStats :many
-SELECT c.id, c.name, c.domain, c.industry, c.country, c.tags, c.created_at,
-       (SELECT count(*) FROM contacts ct WHERE ct.workspace_id = c.workspace_id AND ct.company_id = c.id AND ct.archived_at IS NULL)::int AS contacts,
-       (SELECT count(*) FROM opportunities o WHERE o.workspace_id = c.workspace_id AND o.company_id = c.id AND o.archived_at IS NULL AND o.status = 'open')::int AS open_opps,
-       COALESCE((SELECT max(i.occurred_at) FROM interactions i WHERE i.workspace_id = c.workspace_id AND i.company_id = c.id), 'epoch')::timestamptz AS last_activity
+SELECT c.id, c.name, c.domain, c.industry, c.country, c.tags, c.created_at, c.logo_url,
+       ct.n AS contacts, op.n AS open_opps, la.at AS last_activity
 FROM companies c
+CROSS JOIN LATERAL (SELECT count(*)::int AS n FROM contacts x
+                    WHERE x.workspace_id = c.workspace_id AND x.company_id = c.id AND x.archived_at IS NULL) ct
+CROSS JOIN LATERAL (SELECT count(*)::int AS n FROM opportunities o
+                    WHERE o.workspace_id = c.workspace_id AND o.company_id = c.id AND o.archived_at IS NULL AND o.status = 'open') op
+CROSS JOIN LATERAL (SELECT COALESCE(max(i.occurred_at), 'epoch')::timestamptz AS at FROM interactions i
+                    WHERE i.workspace_id = c.workspace_id AND i.company_id = c.id) la
 WHERE c.workspace_id = $1 AND c.archived_at IS NULL
   AND ($2::text IS NULL OR c.name ILIKE '%' || $2 || '%' OR c.domain ILIKE '%' || $2 || '%')
   AND ($3::text IS NULL OR $3 = ANY (c.tags))
-  AND ($4::uuid IS NULL OR c.id < $4)
-ORDER BY c.id DESC
-LIMIT $5
+  AND ($4::text IS NULL OR c.industry = $4)
+  AND ($5::text IS NULL OR c.country = $5)
+  AND ($6::uuid IS NULL OR c.owner_id = $6)
+  AND ($7::uuid IS NULL OR c.id < $7)
+ORDER BY
+  CASE WHEN $8::text = 'name' AND NOT $9::bool THEN lower(c.name) END,
+  CASE WHEN $8 = 'name' AND $9 THEN lower(c.name) END DESC,
+  CASE WHEN $8 = 'industry' AND NOT $9 THEN lower(c.industry) END,
+  CASE WHEN $8 = 'industry' AND $9 THEN lower(c.industry) END DESC,
+  CASE WHEN $8 = 'country' AND NOT $9 THEN c.country END,
+  CASE WHEN $8 = 'country' AND $9 THEN c.country END DESC,
+  CASE WHEN $8 = 'contacts' AND NOT $9 THEN ct.n END,
+  CASE WHEN $8 = 'contacts' AND $9 THEN ct.n END DESC,
+  CASE WHEN $8 = 'open' AND NOT $9 THEN op.n END,
+  CASE WHEN $8 = 'open' AND $9 THEN op.n END DESC,
+  CASE WHEN $8 = 'activity' AND NOT $9 THEN la.at END,
+  CASE WHEN $8 = 'activity' AND $9 THEN la.at END DESC,
+  c.id DESC
+OFFSET $10
+LIMIT $11
 `
 
 type CompaniesWithStatsParams struct {
 	WorkspaceID uuid.UUID  `json:"workspace_id"`
 	Query       *string    `json:"query"`
 	Tag         *string    `json:"tag"`
+	Industry    *string    `json:"industry"`
+	Country     *string    `json:"country"`
+	OwnerID     *uuid.UUID `json:"owner_id"`
 	Cursor      *uuid.UUID `json:"cursor"`
+	SortBy      string     `json:"sort_by"`
+	Descending  bool       `json:"descending"`
+	Off         int32      `json:"off"`
 	Lim         int32      `json:"lim"`
 }
 
@@ -213,18 +240,26 @@ type CompaniesWithStatsRow struct {
 	Country      string    `json:"country"`
 	Tags         []string  `json:"tags"`
 	CreatedAt    time.Time `json:"created_at"`
+	LogoUrl      string    `json:"logo_url"`
 	Contacts     int32     `json:"contacts"`
 	OpenOpps     int32     `json:"open_opps"`
 	LastActivity time.Time `json:"last_activity"`
 }
 
-// Web list with what the table shows.
+// Web list with what the table shows, filtered by its toolbar and sorted by
+// the clicked column (sort_by; ” = newest first). Sorted pages go by offset.
 func (q *Queries) CompaniesWithStats(ctx context.Context, arg CompaniesWithStatsParams) ([]CompaniesWithStatsRow, error) {
 	rows, err := q.db.Query(ctx, companiesWithStats,
 		arg.WorkspaceID,
 		arg.Query,
 		arg.Tag,
+		arg.Industry,
+		arg.Country,
+		arg.OwnerID,
 		arg.Cursor,
+		arg.SortBy,
+		arg.Descending,
+		arg.Off,
 		arg.Lim,
 	)
 	if err != nil {
@@ -242,6 +277,7 @@ func (q *Queries) CompaniesWithStats(ctx context.Context, arg CompaniesWithStats
 			&i.Country,
 			&i.Tags,
 			&i.CreatedAt,
+			&i.LogoUrl,
 			&i.Contacts,
 			&i.OpenOpps,
 			&i.LastActivity,
@@ -256,20 +292,81 @@ func (q *Queries) CompaniesWithStats(ctx context.Context, arg CompaniesWithStats
 	return items, nil
 }
 
+const companyCountries = `-- name: CompanyCountries :many
+SELECT DISTINCT country FROM companies WHERE workspace_id = $1 AND archived_at IS NULL AND country <> '' ORDER BY country LIMIT 300
+`
+
+func (q *Queries) CompanyCountries(ctx context.Context, workspaceID uuid.UUID) ([]string, error) {
+	rows, err := q.db.Query(ctx, companyCountries, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var country string
+		if err := rows.Scan(&country); err != nil {
+			return nil, err
+		}
+		items = append(items, country)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const companyIndustries = `-- name: CompanyIndustries :many
+SELECT DISTINCT industry FROM companies WHERE workspace_id = $1 AND archived_at IS NULL AND industry <> '' ORDER BY industry LIMIT 300
+`
+
+// Values the companies toolbar offers as filters.
+func (q *Queries) CompanyIndustries(ctx context.Context, workspaceID uuid.UUID) ([]string, error) {
+	rows, err := q.db.Query(ctx, companyIndustries, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var industry string
+		if err := rows.Scan(&industry); err != nil {
+			return nil, err
+		}
+		items = append(items, industry)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const contactsWithStats = `-- name: ContactsWithStats :many
-SELECT ct.id, ct.first_name, ct.last_name, ct.email, ct.title, ct.phone, ct.tags, ct.company_id,
-       co.name AS company_name,
-       COALESCE((SELECT max(i.occurred_at) FROM interactions i WHERE i.workspace_id = ct.workspace_id AND i.contact_id = ct.id), 'epoch')::timestamptz AS last_activity
+SELECT ct.id, ct.first_name, ct.last_name, ct.email, ct.title, ct.phone, ct.tags, ct.company_id, ct.photo_url,
+       co.name AS company_name, COALESCE(co.logo_url, '') AS company_logo_url, la.at AS last_activity
 FROM contacts ct
 LEFT JOIN companies co ON co.id = ct.company_id
+CROSS JOIN LATERAL (SELECT COALESCE(max(i.occurred_at), 'epoch')::timestamptz AS at FROM interactions i
+                    WHERE i.workspace_id = ct.workspace_id AND i.contact_id = ct.id) la
 WHERE ct.workspace_id = $1 AND ct.archived_at IS NULL
   AND ($2::text IS NULL OR ct.email ILIKE '%' || $2 || '%'
        OR (ct.first_name || ' ' || ct.last_name) ILIKE '%' || $2 || '%' OR co.name ILIKE '%' || $2 || '%')
   AND ($3::uuid IS NULL OR ct.company_id = $3)
   AND ($4::text IS NULL OR $4 = ANY (ct.tags))
-  AND ($5::uuid IS NULL OR ct.id < $5)
-ORDER BY ct.id DESC
-LIMIT $6
+  AND ($5::uuid IS NULL OR ct.owner_id = $5)
+  AND ($6::uuid IS NULL OR ct.id < $6)
+ORDER BY
+  CASE WHEN $7::text = 'name' AND NOT $8::bool THEN lower(ct.first_name || ' ' || ct.last_name) END,
+  CASE WHEN $7 = 'name' AND $8 THEN lower(ct.first_name || ' ' || ct.last_name) END DESC,
+  CASE WHEN $7 = 'title' AND NOT $8 THEN lower(ct.title) END,
+  CASE WHEN $7 = 'title' AND $8 THEN lower(ct.title) END DESC,
+  CASE WHEN $7 = 'company' AND NOT $8 THEN lower(co.name) END,
+  CASE WHEN $7 = 'company' AND $8 THEN lower(co.name) END DESC,
+  CASE WHEN $7 = 'activity' AND NOT $8 THEN la.at END,
+  CASE WHEN $7 = 'activity' AND $8 THEN la.at END DESC,
+  ct.id DESC
+OFFSET $9
+LIMIT $10
 `
 
 type ContactsWithStatsParams struct {
@@ -277,21 +374,27 @@ type ContactsWithStatsParams struct {
 	Query       *string    `json:"query"`
 	CompanyID   *uuid.UUID `json:"company_id"`
 	Tag         *string    `json:"tag"`
+	OwnerID     *uuid.UUID `json:"owner_id"`
 	Cursor      *uuid.UUID `json:"cursor"`
+	SortBy      string     `json:"sort_by"`
+	Descending  bool       `json:"descending"`
+	Off         int32      `json:"off"`
 	Lim         int32      `json:"lim"`
 }
 
 type ContactsWithStatsRow struct {
-	ID           uuid.UUID  `json:"id"`
-	FirstName    string     `json:"first_name"`
-	LastName     string     `json:"last_name"`
-	Email        *string    `json:"email"`
-	Title        string     `json:"title"`
-	Phone        string     `json:"phone"`
-	Tags         []string   `json:"tags"`
-	CompanyID    *uuid.UUID `json:"company_id"`
-	CompanyName  *string    `json:"company_name"`
-	LastActivity time.Time  `json:"last_activity"`
+	ID             uuid.UUID  `json:"id"`
+	FirstName      string     `json:"first_name"`
+	LastName       string     `json:"last_name"`
+	Email          *string    `json:"email"`
+	Title          string     `json:"title"`
+	Phone          string     `json:"phone"`
+	Tags           []string   `json:"tags"`
+	CompanyID      *uuid.UUID `json:"company_id"`
+	PhotoUrl       string     `json:"photo_url"`
+	CompanyName    *string    `json:"company_name"`
+	CompanyLogoUrl string     `json:"company_logo_url"`
+	LastActivity   time.Time  `json:"last_activity"`
 }
 
 func (q *Queries) ContactsWithStats(ctx context.Context, arg ContactsWithStatsParams) ([]ContactsWithStatsRow, error) {
@@ -300,7 +403,11 @@ func (q *Queries) ContactsWithStats(ctx context.Context, arg ContactsWithStatsPa
 		arg.Query,
 		arg.CompanyID,
 		arg.Tag,
+		arg.OwnerID,
 		arg.Cursor,
+		arg.SortBy,
+		arg.Descending,
+		arg.Off,
 		arg.Lim,
 	)
 	if err != nil {
@@ -319,7 +426,9 @@ func (q *Queries) ContactsWithStats(ctx context.Context, arg ContactsWithStatsPa
 			&i.Phone,
 			&i.Tags,
 			&i.CompanyID,
+			&i.PhotoUrl,
 			&i.CompanyName,
+			&i.CompanyLogoUrl,
 			&i.LastActivity,
 		); err != nil {
 			return nil, err
@@ -390,7 +499,7 @@ func (q *Queries) ExportChannelNames(ctx context.Context, workspaceID uuid.UUID)
 
 const exportCompanies = `-- name: ExportCompanies :many
 
-SELECT id, workspace_id, name, domain, industry, size_range, country, website, description, owner_id, source_channel_id, tags, custom, external_id, created_at, updated_at, archived_at FROM companies WHERE workspace_id = $1 AND archived_at IS NULL ORDER BY created_at, id
+SELECT id, workspace_id, name, domain, industry, size_range, country, website, description, owner_id, source_channel_id, tags, custom, external_id, created_at, updated_at, archived_at, logo_url FROM companies WHERE workspace_id = $1 AND archived_at IS NULL ORDER BY created_at, id
 `
 
 // ───────────── export (the whole workspace, for hiloctl export) ─────────────
@@ -421,6 +530,7 @@ func (q *Queries) ExportCompanies(ctx context.Context, workspaceID uuid.UUID) ([
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ArchivedAt,
+			&i.LogoUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -433,7 +543,7 @@ func (q *Queries) ExportCompanies(ctx context.Context, workspaceID uuid.UUID) ([
 }
 
 const exportContacts = `-- name: ExportContacts :many
-SELECT id, workspace_id, company_id, first_name, last_name, email, phone, title, linkedin_url, owner_id, source_channel_id, tags, custom, external_id, created_at, updated_at, archived_at FROM contacts WHERE workspace_id = $1 AND archived_at IS NULL ORDER BY created_at, id
+SELECT id, workspace_id, company_id, first_name, last_name, email, phone, title, linkedin_url, owner_id, source_channel_id, tags, custom, external_id, created_at, updated_at, archived_at, photo_url FROM contacts WHERE workspace_id = $1 AND archived_at IS NULL ORDER BY created_at, id
 `
 
 func (q *Queries) ExportContacts(ctx context.Context, workspaceID uuid.UUID) ([]Contact, error) {
@@ -463,6 +573,7 @@ func (q *Queries) ExportContacts(ctx context.Context, workspaceID uuid.UUID) ([]
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ArchivedAt,
+			&i.PhotoUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -639,10 +750,34 @@ func (q *Queries) ExportOpportunityContacts(ctx context.Context, workspaceID uui
 	return items, nil
 }
 
+const getAvatar = `-- name: GetAvatar :one
+
+SELECT content_type, data, fetched_at FROM avatar_cache WHERE workspace_id = $1 AND url = $2
+`
+
+type GetAvatarParams struct {
+	WorkspaceID uuid.UUID `json:"workspace_id"`
+	Url         string    `json:"url"`
+}
+
+type GetAvatarRow struct {
+	ContentType string    `json:"content_type"`
+	Data        []byte    `json:"data"`
+	FetchedAt   time.Time `json:"fetched_at"`
+}
+
+// ───────────── pictures (avatar_cache) ─────────────
+func (q *Queries) GetAvatar(ctx context.Context, arg GetAvatarParams) (GetAvatarRow, error) {
+	row := q.db.QueryRow(ctx, getAvatar, arg.WorkspaceID, arg.Url)
+	var i GetAvatarRow
+	err := row.Scan(&i.ContentType, &i.Data, &i.FetchedAt)
+	return i, err
+}
+
 const getCompany = `-- name: GetCompany :one
 
 
-SELECT id, workspace_id, name, domain, industry, size_range, country, website, description, owner_id, source_channel_id, tags, custom, external_id, created_at, updated_at, archived_at FROM companies WHERE workspace_id = $1 AND id = $2 AND archived_at IS NULL
+SELECT id, workspace_id, name, domain, industry, size_range, country, website, description, owner_id, source_channel_id, tags, custom, external_id, created_at, updated_at, archived_at, logo_url FROM companies WHERE workspace_id = $1 AND id = $2 AND archived_at IS NULL
 `
 
 type GetCompanyParams struct {
@@ -675,12 +810,13 @@ func (q *Queries) GetCompany(ctx context.Context, arg GetCompanyParams) (Company
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ArchivedAt,
+		&i.LogoUrl,
 	)
 	return i, err
 }
 
 const getCompanyByDomain = `-- name: GetCompanyByDomain :one
-SELECT id, workspace_id, name, domain, industry, size_range, country, website, description, owner_id, source_channel_id, tags, custom, external_id, created_at, updated_at, archived_at FROM companies WHERE workspace_id = $1 AND domain = $2 AND archived_at IS NULL
+SELECT id, workspace_id, name, domain, industry, size_range, country, website, description, owner_id, source_channel_id, tags, custom, external_id, created_at, updated_at, archived_at, logo_url FROM companies WHERE workspace_id = $1 AND domain = $2 AND archived_at IS NULL
 `
 
 type GetCompanyByDomainParams struct {
@@ -709,12 +845,13 @@ func (q *Queries) GetCompanyByDomain(ctx context.Context, arg GetCompanyByDomain
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ArchivedAt,
+		&i.LogoUrl,
 	)
 	return i, err
 }
 
 const getCompanyByExternalID = `-- name: GetCompanyByExternalID :one
-SELECT id, workspace_id, name, domain, industry, size_range, country, website, description, owner_id, source_channel_id, tags, custom, external_id, created_at, updated_at, archived_at FROM companies WHERE workspace_id = $1 AND external_id = $2 AND archived_at IS NULL
+SELECT id, workspace_id, name, domain, industry, size_range, country, website, description, owner_id, source_channel_id, tags, custom, external_id, created_at, updated_at, archived_at, logo_url FROM companies WHERE workspace_id = $1 AND external_id = $2 AND archived_at IS NULL
 `
 
 type GetCompanyByExternalIDParams struct {
@@ -743,12 +880,13 @@ func (q *Queries) GetCompanyByExternalID(ctx context.Context, arg GetCompanyByEx
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ArchivedAt,
+		&i.LogoUrl,
 	)
 	return i, err
 }
 
 const getCompanyByName = `-- name: GetCompanyByName :one
-SELECT id, workspace_id, name, domain, industry, size_range, country, website, description, owner_id, source_channel_id, tags, custom, external_id, created_at, updated_at, archived_at FROM companies WHERE workspace_id = $1 AND lower(name) = lower($2) AND archived_at IS NULL
+SELECT id, workspace_id, name, domain, industry, size_range, country, website, description, owner_id, source_channel_id, tags, custom, external_id, created_at, updated_at, archived_at, logo_url FROM companies WHERE workspace_id = $1 AND lower(name) = lower($2) AND archived_at IS NULL
 ORDER BY created_at LIMIT 1
 `
 
@@ -778,13 +916,14 @@ func (q *Queries) GetCompanyByName(ctx context.Context, arg GetCompanyByNamePara
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ArchivedAt,
+		&i.LogoUrl,
 	)
 	return i, err
 }
 
 const getContact = `-- name: GetContact :one
 
-SELECT id, workspace_id, company_id, first_name, last_name, email, phone, title, linkedin_url, owner_id, source_channel_id, tags, custom, external_id, created_at, updated_at, archived_at FROM contacts WHERE workspace_id = $1 AND id = $2 AND archived_at IS NULL
+SELECT id, workspace_id, company_id, first_name, last_name, email, phone, title, linkedin_url, owner_id, source_channel_id, tags, custom, external_id, created_at, updated_at, archived_at, photo_url FROM contacts WHERE workspace_id = $1 AND id = $2 AND archived_at IS NULL
 `
 
 type GetContactParams struct {
@@ -814,12 +953,13 @@ func (q *Queries) GetContact(ctx context.Context, arg GetContactParams) (Contact
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ArchivedAt,
+		&i.PhotoUrl,
 	)
 	return i, err
 }
 
 const getContactByEmail = `-- name: GetContactByEmail :one
-SELECT id, workspace_id, company_id, first_name, last_name, email, phone, title, linkedin_url, owner_id, source_channel_id, tags, custom, external_id, created_at, updated_at, archived_at FROM contacts WHERE workspace_id = $1 AND email = $2 AND archived_at IS NULL
+SELECT id, workspace_id, company_id, first_name, last_name, email, phone, title, linkedin_url, owner_id, source_channel_id, tags, custom, external_id, created_at, updated_at, archived_at, photo_url FROM contacts WHERE workspace_id = $1 AND email = $2 AND archived_at IS NULL
 `
 
 type GetContactByEmailParams struct {
@@ -848,12 +988,13 @@ func (q *Queries) GetContactByEmail(ctx context.Context, arg GetContactByEmailPa
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ArchivedAt,
+		&i.PhotoUrl,
 	)
 	return i, err
 }
 
 const getContactByExternalID = `-- name: GetContactByExternalID :one
-SELECT id, workspace_id, company_id, first_name, last_name, email, phone, title, linkedin_url, owner_id, source_channel_id, tags, custom, external_id, created_at, updated_at, archived_at FROM contacts WHERE workspace_id = $1 AND external_id = $2 AND archived_at IS NULL
+SELECT id, workspace_id, company_id, first_name, last_name, email, phone, title, linkedin_url, owner_id, source_channel_id, tags, custom, external_id, created_at, updated_at, archived_at, photo_url FROM contacts WHERE workspace_id = $1 AND external_id = $2 AND archived_at IS NULL
 `
 
 type GetContactByExternalIDParams struct {
@@ -882,6 +1023,7 @@ func (q *Queries) GetContactByExternalID(ctx context.Context, arg GetContactByEx
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ArchivedAt,
+		&i.PhotoUrl,
 	)
 	return i, err
 }
@@ -1176,7 +1318,7 @@ func (q *Queries) ListAllTags(ctx context.Context, workspaceID uuid.UUID) ([]Lis
 }
 
 const listCompanies = `-- name: ListCompanies :many
-SELECT id, workspace_id, name, domain, industry, size_range, country, website, description, owner_id, source_channel_id, tags, custom, external_id, created_at, updated_at, archived_at FROM companies
+SELECT id, workspace_id, name, domain, industry, size_range, country, website, description, owner_id, source_channel_id, tags, custom, external_id, created_at, updated_at, archived_at, logo_url FROM companies
 WHERE workspace_id = $1 AND archived_at IS NULL
   AND ($2::text IS NULL OR name ILIKE '%' || $2 || '%' OR domain ILIKE '%' || $2 || '%')
   AND ($3::uuid IS NULL OR owner_id = $3)
@@ -1229,6 +1371,7 @@ func (q *Queries) ListCompanies(ctx context.Context, arg ListCompaniesParams) ([
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ArchivedAt,
+			&i.LogoUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -1241,7 +1384,7 @@ func (q *Queries) ListCompanies(ctx context.Context, arg ListCompaniesParams) ([
 }
 
 const listContacts = `-- name: ListContacts :many
-SELECT id, workspace_id, company_id, first_name, last_name, email, phone, title, linkedin_url, owner_id, source_channel_id, tags, custom, external_id, created_at, updated_at, archived_at FROM contacts
+SELECT id, workspace_id, company_id, first_name, last_name, email, phone, title, linkedin_url, owner_id, source_channel_id, tags, custom, external_id, created_at, updated_at, archived_at, photo_url FROM contacts
 WHERE workspace_id = $1 AND archived_at IS NULL
   AND ($2::text IS NULL OR email ILIKE '%' || $2 || '%'
        OR (first_name || ' ' || last_name) ILIKE '%' || $2 || '%')
@@ -1298,6 +1441,7 @@ func (q *Queries) ListContacts(ctx context.Context, arg ListContactsParams) ([]C
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ArchivedAt,
+			&i.PhotoUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -1423,8 +1567,20 @@ WHERE o.workspace_id = $1 AND o.archived_at IS NULL
   AND ($13::timestamptz IS NULL
        OR (o.status = 'open' AND COALESCE(o.last_interaction_at, o.stage_entered_at) < $13))
   AND ($14::uuid IS NULL OR o.id < $14)
-ORDER BY o.id DESC
-LIMIT $15
+ORDER BY
+  CASE WHEN $15::text = 'title' AND NOT $16::bool THEN lower(o.title) END,
+  CASE WHEN $15 = 'title' AND $16 THEN lower(o.title) END DESC,
+  CASE WHEN $15 = 'stage' AND NOT $16 THEN s.position END,
+  CASE WHEN $15 = 'stage' AND $16 THEN s.position END DESC,
+  CASE WHEN $15 = 'amount' AND NOT $16 THEN o.amount_minor END,
+  CASE WHEN $15 = 'amount' AND $16 THEN o.amount_minor END DESC,
+  CASE WHEN $15 = 'activity' AND NOT $16 THEN o.last_interaction_at END,
+  CASE WHEN $15 = 'activity' AND $16 THEN o.last_interaction_at END DESC NULLS LAST,
+  CASE WHEN $15 = 'close' AND NOT $16 THEN o.expected_close_date END,
+  CASE WHEN $15 = 'close' AND $16 THEN o.expected_close_date END DESC NULLS LAST,
+  o.id DESC
+OFFSET $17
+LIMIT $18
 `
 
 type ListOpportunitiesParams struct {
@@ -1442,6 +1598,9 @@ type ListOpportunitiesParams struct {
 	CloseBefore *time.Time `json:"close_before"`
 	StaleBefore *time.Time `json:"stale_before"`
 	Cursor      *uuid.UUID `json:"cursor"`
+	SortBy      string     `json:"sort_by"`
+	Descending  bool       `json:"descending"`
+	Off         int32      `json:"off"`
 	Lim         int32      `json:"lim"`
 }
 
@@ -1497,6 +1656,9 @@ func (q *Queries) ListOpportunities(ctx context.Context, arg ListOpportunitiesPa
 		arg.CloseBefore,
 		arg.StaleBefore,
 		arg.Cursor,
+		arg.SortBy,
+		arg.Descending,
+		arg.Off,
 		arg.Lim,
 	)
 	if err != nil {
@@ -1683,16 +1845,38 @@ func (q *Queries) ResolveContactRef(ctx context.Context, arg ResolveContactRefPa
 	return id, err
 }
 
+const saveAvatar = `-- name: SaveAvatar :exec
+INSERT INTO avatar_cache (workspace_id, url, content_type, data, fetched_at) VALUES ($1, $2, $3, $4, now())
+ON CONFLICT (workspace_id, url) DO UPDATE SET content_type = EXCLUDED.content_type, data = EXCLUDED.data, fetched_at = now()
+`
+
+type SaveAvatarParams struct {
+	WorkspaceID uuid.UUID `json:"workspace_id"`
+	Url         string    `json:"url"`
+	ContentType string    `json:"content_type"`
+	Data        []byte    `json:"data"`
+}
+
+func (q *Queries) SaveAvatar(ctx context.Context, arg SaveAvatarParams) error {
+	_, err := q.db.Exec(ctx, saveAvatar,
+		arg.WorkspaceID,
+		arg.Url,
+		arg.ContentType,
+		arg.Data,
+	)
+	return err
+}
+
 const saveCompany = `-- name: SaveCompany :one
 INSERT INTO companies (id, workspace_id, name, domain, industry, size_range, country, website, description,
-                       owner_id, source_channel_id, tags, custom, external_id)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                       owner_id, source_channel_id, tags, custom, external_id, logo_url)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, domain = EXCLUDED.domain, industry = EXCLUDED.industry,
-    size_range = EXCLUDED.size_range, country = EXCLUDED.country, website = EXCLUDED.website,
+    size_range = EXCLUDED.size_range, country = EXCLUDED.country, website = EXCLUDED.website, logo_url = EXCLUDED.logo_url,
     description = EXCLUDED.description, owner_id = EXCLUDED.owner_id, source_channel_id = EXCLUDED.source_channel_id,
     tags = EXCLUDED.tags, custom = EXCLUDED.custom, external_id = EXCLUDED.external_id, updated_at = now()
 WHERE companies.workspace_id = EXCLUDED.workspace_id AND companies.archived_at IS NULL
-RETURNING id, workspace_id, name, domain, industry, size_range, country, website, description, owner_id, source_channel_id, tags, custom, external_id, created_at, updated_at, archived_at
+RETURNING id, workspace_id, name, domain, industry, size_range, country, website, description, owner_id, source_channel_id, tags, custom, external_id, created_at, updated_at, archived_at, logo_url
 `
 
 type SaveCompanyParams struct {
@@ -1710,6 +1894,7 @@ type SaveCompanyParams struct {
 	Tags            []string        `json:"tags"`
 	Custom          json.RawMessage `json:"custom"`
 	ExternalID      *string         `json:"external_id"`
+	LogoUrl         string          `json:"logo_url"`
 }
 
 // SaveCompany inserts or fully rewrites a company (the id is generated by the
@@ -1731,6 +1916,7 @@ func (q *Queries) SaveCompany(ctx context.Context, arg SaveCompanyParams) (Compa
 		arg.Tags,
 		arg.Custom,
 		arg.ExternalID,
+		arg.LogoUrl,
 	)
 	var i Company
 	err := row.Scan(
@@ -1751,20 +1937,21 @@ func (q *Queries) SaveCompany(ctx context.Context, arg SaveCompanyParams) (Compa
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ArchivedAt,
+		&i.LogoUrl,
 	)
 	return i, err
 }
 
 const saveContact = `-- name: SaveContact :one
 INSERT INTO contacts (id, workspace_id, company_id, first_name, last_name, email, phone, title, linkedin_url,
-                      owner_id, source_channel_id, tags, custom, external_id)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                      owner_id, source_channel_id, tags, custom, external_id, photo_url)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 ON CONFLICT (id) DO UPDATE SET company_id = EXCLUDED.company_id, first_name = EXCLUDED.first_name,
     last_name = EXCLUDED.last_name, email = EXCLUDED.email, phone = EXCLUDED.phone, title = EXCLUDED.title,
-    linkedin_url = EXCLUDED.linkedin_url, owner_id = EXCLUDED.owner_id, source_channel_id = EXCLUDED.source_channel_id,
+    linkedin_url = EXCLUDED.linkedin_url, photo_url = EXCLUDED.photo_url, owner_id = EXCLUDED.owner_id, source_channel_id = EXCLUDED.source_channel_id,
     tags = EXCLUDED.tags, custom = EXCLUDED.custom, external_id = EXCLUDED.external_id, updated_at = now()
 WHERE contacts.workspace_id = EXCLUDED.workspace_id AND contacts.archived_at IS NULL
-RETURNING id, workspace_id, company_id, first_name, last_name, email, phone, title, linkedin_url, owner_id, source_channel_id, tags, custom, external_id, created_at, updated_at, archived_at
+RETURNING id, workspace_id, company_id, first_name, last_name, email, phone, title, linkedin_url, owner_id, source_channel_id, tags, custom, external_id, created_at, updated_at, archived_at, photo_url
 `
 
 type SaveContactParams struct {
@@ -1782,6 +1969,7 @@ type SaveContactParams struct {
 	Tags            []string        `json:"tags"`
 	Custom          json.RawMessage `json:"custom"`
 	ExternalID      *string         `json:"external_id"`
+	PhotoUrl        string          `json:"photo_url"`
 }
 
 func (q *Queries) SaveContact(ctx context.Context, arg SaveContactParams) (Contact, error) {
@@ -1800,6 +1988,7 @@ func (q *Queries) SaveContact(ctx context.Context, arg SaveContactParams) (Conta
 		arg.Tags,
 		arg.Custom,
 		arg.ExternalID,
+		arg.PhotoUrl,
 	)
 	var i Contact
 	err := row.Scan(
@@ -1820,6 +2009,7 @@ func (q *Queries) SaveContact(ctx context.Context, arg SaveContactParams) (Conta
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ArchivedAt,
+		&i.PhotoUrl,
 	)
 	return i, err
 }

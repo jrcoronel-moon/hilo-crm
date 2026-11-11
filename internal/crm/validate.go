@@ -110,6 +110,21 @@ func cleanURL(field, s string) (string, error) {
 	return u.String(), nil
 }
 
+// cleanImageURL accepts an https URL for a record's picture. The web app
+// fetches it server-side (see Avatar), so plain http and anything but a
+// public host are refused there too; here only the shape is checked.
+func cleanImageURL(field, s string) (string, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return "", nil
+	}
+	u, err := url.Parse(s)
+	if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || len(s) > 1000 {
+		return "", invalid(field, "must be an absolute https URL of an image")
+	}
+	return u.String(), nil
+}
+
 var tagRe = regexp.MustCompile(`^[\p{L}\p{N}][\p{L}\p{N} _.:/-]{0,39}$`)
 
 // cleanTags lower-cases, dedupes and validates tags (max 30, 40 chars each).

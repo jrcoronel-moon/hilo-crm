@@ -305,6 +305,33 @@ func (s *Service) AllWorkspaces(ctx context.Context, superadmin bool) ([]store.L
 	return s.db.Platform().ListAllWorkspaces(ctx)
 }
 
+// SuperadminJoin lets a superadmin into a workspace the open way: they become
+// an admin member, so the owners see them in Miembros (and can remove them),
+// and the audit log records it. Already a member: nothing changes.
+func (s *Service) SuperadminJoin(ctx context.Context, userID uuid.UUID, superadmin bool, workspaceID uuid.UUID) error {
+	if !superadmin {
+		return ErrForbidden
+	}
+	return s.db.InWorkspace(ctx, workspaceID, func(q *store.Queries) error {
+		if _, err := q.GetWorkspace(ctx, workspaceID); errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotFound
+		} else if err != nil {
+			return err
+		}
+		if _, err := q.GetMembership(ctx, store.GetMembershipParams{WorkspaceID: workspaceID, UserID: userID}); err == nil {
+			return nil
+		} else if !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+		if err := q.AddMember(ctx, store.AddMemberParams{WorkspaceID: workspaceID, UserID: userID, Role: "admin"}); err != nil {
+			return err
+		}
+		return q.InsertAudit(ctx, store.InsertAuditParams{WorkspaceID: &workspaceID, ActorUserID: &userID, ActorKind: "session",
+			ActorClient: "web", Action: "member.superadmin_join", EntityType: "workspace", EntityID: &workspaceID,
+			Details: []byte(`{"role":"admin"}`)})
+	})
+}
+
 // ───────────── personal access tokens ─────────────
 
 // PATPrefix marks Hilo personal access tokens (recognisable by secret scanners).

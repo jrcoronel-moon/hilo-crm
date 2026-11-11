@@ -15,6 +15,7 @@ var jsMessages = []string{
 	i18n.M("Escribí el motivo de pérdida antes de marcar."), i18n.M("Escribí el motivo de pérdida."),
 	i18n.M("Abrir el menú"), i18n.M("Cerrar el menú"), i18n.M("Quitar %s"),
 	i18n.M("%s hizo %d cambios"), i18n.M("%d cambios de %d personas o agentes"),
+	i18n.M("Sin resultados para “%s”"), i18n.M("Ver todos los resultados"),
 }
 
 var jsCache = func() map[string]template.JS {

@@ -22,6 +22,7 @@ type CompanyInput struct {
 	SizeRange     *string         `json:"size_range,omitempty" jsonschema:"one of 1-10, 11-50, 51-200, 201-1000, 1001-5000, 5000+"`
 	Country       *string         `json:"country,omitempty" jsonschema:"ISO 3166-1 alpha-2, e.g. AR"`
 	Website       *string         `json:"website,omitempty"`
+	LogoURL       *string         `json:"logo_url,omitempty" jsonschema:"https URL of the company logo (PNG, JPEG, WebP or GIF, square works best); shown on its avatar; empty string clears"`
 	Description   *string         `json:"description,omitempty"`
 	Owner         *string         `json:"owner,omitempty" jsonschema:"member id or email; empty string clears"`
 	SourceChannel *string         `json:"source_channel,omitempty" jsonschema:"channel id or name; empty string clears"`
@@ -38,6 +39,7 @@ type CompanyView struct {
 	SizeRange       string          `json:"size_range,omitempty"`
 	Country         string          `json:"country,omitempty"`
 	Website         string          `json:"website,omitempty"`
+	LogoURL         string          `json:"logo_url,omitempty"`
 	Description     string          `json:"description,omitempty"`
 	OwnerID         *uuid.UUID      `json:"owner_id,omitempty"`
 	SourceChannelID *uuid.UUID      `json:"source_channel_id,omitempty"`
@@ -51,7 +53,7 @@ type CompanyView struct {
 func companyView(c store.Company) CompanyView {
 	return CompanyView{
 		ID: c.ID, Name: c.Name, Domain: deref(c.Domain), Industry: c.Industry, SizeRange: c.SizeRange,
-		Country: c.Country, Website: c.Website, Description: c.Description, OwnerID: c.OwnerID,
+		Country: c.Country, Website: c.Website, LogoURL: c.LogoUrl, Description: c.Description, OwnerID: c.OwnerID,
 		SourceChannelID: c.SourceChannelID, Tags: c.Tags, Custom: emptyObjNil(c.Custom),
 		ExternalID: deref(c.ExternalID), CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
 	}
@@ -134,6 +136,7 @@ func upsertCompany(ctx context.Context, q *store.Queries, ws uuid.UUID, in Compa
 	})
 	p.with(&c.Country, in.Country, func(v string) (string, error) { return cleanCountry("country", v) })
 	p.with(&c.Website, in.Website, func(v string) (string, error) { return cleanURL("website", v) })
+	p.with(&c.LogoUrl, in.LogoURL, func(v string) (string, error) { return cleanImageURL("logo_url", v) })
 	p.text(&c.Description, "description", in.Description, 5000)
 	p.ref(&c.OwnerID, in.Owner, r.owner)
 	p.ref(&c.SourceChannelID, in.SourceChannel, r.channel)
@@ -149,7 +152,7 @@ func upsertCompany(ctx context.Context, q *store.Queries, ws uuid.UUID, in Compa
 	c, err = q.SaveCompany(ctx, store.SaveCompanyParams{
 		ID: c.ID, WorkspaceID: ws, Name: c.Name, Domain: c.Domain, Industry: c.Industry, SizeRange: c.SizeRange,
 		Country: c.Country, Website: c.Website, Description: c.Description, OwnerID: c.OwnerID,
-		SourceChannelID: c.SourceChannelID, Tags: c.Tags, Custom: c.Custom, ExternalID: c.ExternalID,
+		SourceChannelID: c.SourceChannelID, Tags: c.Tags, Custom: c.Custom, ExternalID: c.ExternalID, LogoUrl: c.LogoUrl,
 	})
 	return c, created, err
 }
@@ -194,12 +197,36 @@ type ListFilter struct {
 	Company string `json:"company,omitempty" jsonschema:"company id, domain or external_id (contacts only)"`
 	Cursor  string `json:"cursor,omitempty" jsonschema:"next_cursor from a previous page"`
 	Limit   int    `json:"limit,omitempty" jsonschema:"page size, default 25, max 100"`
+
+	TableOptions
 }
+
+// TableOptions are the web tables' extras, kept out of the agents' tool
+// schemas: exact-value filters, a sort column and offset paging (a sorted
+// page cannot continue from an id cursor).
+type TableOptions struct {
+	Industry string `json:"-"` // companies
+	Country  string `json:"-"` // companies
+	Sort     string `json:"-"` // a column the query knows; "" = newest first
+	Desc     bool   `json:"-"`
+	Offset   int    `json:"-"`
+}
+
+func (t TableOptions) offset() int32 { return int32(min(max(t.Offset, 0), 1_000_000)) }
 
 // Page is a page of results with an opaque cursor for the next one.
 type Page[T any] struct {
 	Items      []T    `json:"items"`
 	NextCursor string `json:"next_cursor,omitempty"`
+	NextOffset int    `json:"-"` // web tables: where the next page starts, 0 when this is the last
+}
+
+// nextOffset is where the page after a full one starts.
+func nextOffset(n int, limit int32, t TableOptions) int {
+	if n < int(limit) || n == 0 {
+		return 0
+	}
+	return int(t.offset()) + n
 }
 
 type listArgs struct {

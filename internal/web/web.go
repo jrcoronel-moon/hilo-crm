@@ -110,6 +110,7 @@ func (h *Handler) Routes(mux *http.ServeMux) {
 	mux.Handle("GET /static/", http.StripPrefix("/static/", cacheStatic(http.FileServerFS(static))))
 	mux.HandleFunc("GET /branding/logo", h.logo)
 	mux.HandleFunc("GET /lang", h.setLang)
+	mux.HandleFunc("GET /theme", h.setTheme)
 	mux.HandleFunc("POST /f/{key}", h.submitForm)
 	mux.HandleFunc("OPTIONS /f/{key}", h.formPreflight)
 	if h.cfg.UIMode() != config.UIFull {
@@ -160,11 +161,15 @@ func (h *Handler) Routes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /contacts/{id}", h.member(h.saveContact))
 	mux.HandleFunc("POST /contacts/{id}/archive", h.member(h.archiveRecord("contact")))
 	mux.HandleFunc("GET /dashboard", h.member(h.dashboard))
+	mux.HandleFunc("GET /search", h.member(h.search))
+	mux.HandleFunc("GET /avatars/{kind}/{id}", h.member(h.avatar))
+	mux.HandleFunc("GET /profile", h.session(h.profile))
 	mux.HandleFunc("GET /settings", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/settings/agents", http.StatusSeeOther)
 	})
 	mux.HandleFunc("GET /settings/import", h.member(h.importForm))
 	mux.HandleFunc("POST /settings/import", h.member(h.importCSV))
+	mux.HandleFunc("POST /settings/export", h.member(h.exportRecords))
 	mux.HandleFunc("GET /settings/{section}", h.member(h.settings))
 	mux.HandleFunc("POST /settings/{action}", h.member(h.settingsAction))
 	mux.HandleFunc("GET /admin", h.session(h.adminPage))
@@ -237,6 +242,15 @@ type workspaceItem struct {
 	ID   uuid.UUID
 	Name string
 	Role string
+}
+
+// memberOf is the set of workspaces the user belongs to.
+func (v view) memberOf() map[uuid.UUID]bool {
+	m := make(map[uuid.UUID]bool, len(v.Workspaces))
+	for _, w := range v.Workspaces {
+		m[w.ID] = true
+	}
+	return m
 }
 
 // IsAdmin reports whether the user administers the current workspace.
@@ -343,7 +357,8 @@ func (h *Handler) loadView(ctx context.Context, sess identity.Session) (view, er
 
 type page struct {
 	Title   string
-	Crumb   string // secondary title ("Funnel · Ventas")
+	Crumb   string // secondary title ("Funnel › Ventas")
+	Parent  string // where Title links in the breadcrumb, on a record page ("/companies")
 	CrumbUI bool   // Crumb is interface text (a settings section), not data: translate it
 	Bare    bool   // full-page screens without the sidebar (consent)
 	View    *view
@@ -353,6 +368,7 @@ type page struct {
 	Data    any
 	Cfg     *config.Config
 	Brand   branding.Brand
+	Theme   string       // "light", "dark", or "" to follow the system
 	Lang    string       // interface language
 	Langs   []langOption // for the language selector
 	Path    string       // current URL, so the selector comes back here
@@ -393,6 +409,31 @@ func (h *Handler) setLang(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, next, http.StatusSeeOther) //nolint:gosec // G710: localPath keeps only a same-origin path
 }
 
+// themeCookie holds the theme picked in the sidebar or the profile.
+const themeCookie = "hilo_theme"
+
+// theme is the request's chosen theme; "" follows the system.
+func theme(r *http.Request) string {
+	if c, err := r.Cookie(themeCookie); err == nil && (c.Value == "light" || c.Value == "dark") {
+		return c.Value
+	}
+	return ""
+}
+
+// setTheme stores light, dark or system (clears the cookie) and goes back.
+func (h *Handler) setTheme(w http.ResponseWriter, r *http.Request) {
+	switch t := r.URL.Query().Get("t"); t {
+	case "light", "dark":
+		http.SetCookie(w, &http.Cookie{Name: themeCookie, Value: t, Path: "/", MaxAge: 365 * 24 * 3600, //nolint:gosec // G124: Secure follows APP_BASE_URL, like every cookie here
+			HttpOnly: true, Secure: h.cfg.SecureCookies(), SameSite: http.SameSiteLaxMode})
+	case "system":
+		http.SetCookie(w, &http.Cookie{Name: themeCookie, Value: "", Path: "/", MaxAge: -1, //nolint:gosec // G124: see above
+			HttpOnly: true, Secure: h.cfg.SecureCookies(), SameSite: http.SameSiteLaxMode})
+	}
+	next := localPath(r.URL.Query().Get("next"))
+	http.Redirect(w, r, next, http.StatusSeeOther) //nolint:gosec // G710: localPath keeps only a same-origin path
+}
+
 // localPath returns p when it is a path on this site, "/" otherwise: no
 // scheme, no host, no protocol-relative or backslash tricks.
 func localPath(p string) string {
@@ -414,7 +455,7 @@ func (h *Handler) render(w http.ResponseWriter, r *http.Request, status int, nam
 	}
 	p.Cfg = h.cfg
 	p.Brand = h.brand.Get(context.Background())
-	p.Lang, p.Langs, p.Path = lang, langOptions, r.URL.RequestURI()
+	p.Lang, p.Langs, p.Path, p.Theme = lang, langOptions, r.URL.RequestURI(), theme(r)
 	p.Title, p.Flash, p.Error = i18n.T(lang, p.Title), i18n.T(lang, p.Flash), i18n.T(lang, p.Error)
 	if p.CrumbUI {
 		p.Crumb = i18n.T(lang, p.Crumb)
