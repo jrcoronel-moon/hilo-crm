@@ -101,19 +101,28 @@ type oppListData struct {
 	Channels  []crm.ChannelView
 	Tags      []crm.TagCount
 	Result    *crm.BulkResult
+	Sort      map[string]sortCol
+	Pager     pager
 }
+
+var oppCols = []string{"title", "stage", "amount", "activity", "close"}
 
 type oppQuery struct {
 	Pipeline, Q, Stage, Status, Channel, Tag, Cursor string
+	T                                                crm.TableOptions // sort and offset
 }
 
-// Encode keeps the filters (pagination, export).
+// Encode keeps the filters and the sort (bulk actions come back to them,
+// export applies the filters).
 func (q oppQuery) Encode() string {
 	v := url.Values{}
-	for k, val := range map[string]string{"pipeline": q.Pipeline, "q": q.Q, "stage": q.Stage, "status": q.Status, "channel": q.Channel, "tag": q.Tag} {
+	for k, val := range map[string]string{"pipeline": q.Pipeline, "q": q.Q, "stage": q.Stage, "status": q.Status, "channel": q.Channel, "tag": q.Tag, "sort": q.T.Sort} {
 		if val != "" {
 			v.Set(k, val)
 		}
+	}
+	if q.T.Desc {
+		v.Set("dir", "desc")
 	}
 	return v.Encode()
 }
@@ -121,11 +130,12 @@ func (q oppQuery) Encode() string {
 func readOppQuery(r *http.Request) oppQuery {
 	g := r.URL.Query().Get
 	return oppQuery{Pipeline: g("pipeline"), Q: strings.TrimSpace(g("q")), Stage: g("stage"), Status: g("status"),
-		Channel: g("channel"), Tag: g("tag"), Cursor: g("cursor")}
+		Channel: g("channel"), Tag: g("tag"), Cursor: g("cursor"), T: tableOptions(r, oppCols...)}
 }
 
 func (q oppQuery) filter(limit int) crm.OpportunityFilter {
-	return crm.OpportunityFilter{Pipeline: q.Pipeline, Stage: q.Stage, Status: q.Status, Channel: q.Channel, Tag: q.Tag, Query: q.Q, Cursor: q.Cursor, Limit: limit}
+	return crm.OpportunityFilter{Pipeline: q.Pipeline, Stage: q.Stage, Status: q.Status, Channel: q.Channel, Tag: q.Tag, Query: q.Q, Cursor: q.Cursor, Limit: limit,
+		TableOptions: q.T}
 }
 
 func (h *Handler) opportunities(w http.ResponseWriter, r *http.Request, v view) {
@@ -150,6 +160,7 @@ func (h *Handler) renderOpportunities(w http.ResponseWriter, r *http.Request, v 
 		h.fail(w, r, err)
 		return
 	}
+	d.Sort, d.Pager = sortLinks(r, fq.T, oppCols...), pagerFor(r, fq.T, len(d.Page.Items), d.Page.NextOffset)
 	if d.Channels, err = h.crm.ListChannels(ctx, a); err != nil {
 		h.fail(w, r, err)
 		return
@@ -184,7 +195,7 @@ const exportMax = 10000
 // would evaluate as a formula are neutralised (CSV injection).
 func (h *Handler) exportCSV(w http.ResponseWriter, r *http.Request, v view) {
 	fq := readOppQuery(r)
-	fq.Cursor = ""
+	fq.Cursor, fq.T = "", crm.TableOptions{} // the whole filtered set, by id cursor
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
 	w.Header().Set("Content-Disposition", `attachment; filename="hilo-oportunidades-`+time.Now().Format("2006-01-02")+`.csv"`)
 	cw := csv.NewWriter(w)

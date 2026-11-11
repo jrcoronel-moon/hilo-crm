@@ -381,6 +381,15 @@ func (h *Handler) createWorkspace(w http.ResponseWriter, r *http.Request, v view
 }
 
 func (h *Handler) switchWorkspace(w http.ResponseWriter, r *http.Request, v view) {
+	// The selector's last options are links, so they work without JS too.
+	switch r.PostFormValue("workspace") {
+	case "new":
+		http.Redirect(w, r, "/workspaces/new", http.StatusSeeOther)
+		return
+	case "all":
+		http.Redirect(w, r, "/admin", http.StatusSeeOther)
+		return
+	}
 	id, err := uuid.Parse(r.PostFormValue("workspace"))
 	if err == nil {
 		err = h.id.SwitchWorkspace(r.Context(), v.Sess, id)

@@ -70,21 +70,21 @@ func (s *Service) ExportTable(ctx context.Context, a Actor, kind string) (Table,
 
 func companyTable(x *exporter) Table {
 	ids := invert(x.companies)
-	return table(KindCompany, []string{"external_id", "name", "domain", "industry", "size_range", "country", "website", "description",
+	return table(KindCompany, []string{"external_id", "name", "domain", "industry", "size_range", "country", "website", "logo_url", "description",
 		"owner", "source_channel", "tags", "hilo_id"}, len(x.out.Companies), func(i int) ([]string, *map[string]any) {
 		c := x.out.Companies[i]
-		return []string{val(c.ExternalID), val(c.Name), val(c.Domain), val(c.Industry), val(c.SizeRange), val(c.Country), val(c.Website),
+		return []string{val(c.ExternalID), val(c.Name), val(c.Domain), val(c.Industry), val(c.SizeRange), val(c.Country), val(c.Website), val(c.LogoURL),
 			val(c.Description), val(c.Owner), val(c.SourceChannel), tagList(c.Tags), ids[val(c.ExternalID)]}, c.Custom
 	})
 }
 
 func contactTable(x *exporter) Table {
 	ids, companies := invert(x.contacts), companyRefs(x)
-	return table(KindContact, []string{"external_id", "first_name", "last_name", "email", "phone", "title", "linkedin_url",
+	return table(KindContact, []string{"external_id", "first_name", "last_name", "email", "phone", "title", "linkedin_url", "photo_url",
 		"company", "company_name", "owner", "source_channel", "tags", "hilo_id"}, len(x.out.Contacts), func(i int) ([]string, *map[string]any) {
 		c := x.out.Contacts[i]
 		co := companies[val(c.Company)]
-		return []string{val(c.ExternalID), val(c.FirstName), val(c.LastName), val(c.Email), val(c.Phone), val(c.Title), val(c.LinkedInURL),
+		return []string{val(c.ExternalID), val(c.FirstName), val(c.LastName), val(c.Email), val(c.Phone), val(c.Title), val(c.LinkedInURL), val(c.PhotoURL),
 			co.ref, co.name, val(c.Owner), val(c.SourceChannel), tagList(c.Tags), ids[val(c.ExternalID)]}, c.Custom
 	})
 }

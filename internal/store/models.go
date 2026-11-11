@@ -24,6 +24,14 @@ type AuditLog struct {
 	CreatedAt   time.Time       `json:"created_at"`
 }
 
+type AvatarCache struct {
+	WorkspaceID uuid.UUID `json:"workspace_id"`
+	Url         string    `json:"url"`
+	ContentType string    `json:"content_type"`
+	Data        []byte    `json:"data"`
+	FetchedAt   time.Time `json:"fetched_at"`
+}
+
 type Channel struct {
 	ID          uuid.UUID  `json:"id"`
 	WorkspaceID uuid.UUID  `json:"workspace_id"`
@@ -51,6 +59,7 @@ type Company struct {
 	CreatedAt       time.Time       `json:"created_at"`
 	UpdatedAt       time.Time       `json:"updated_at"`
 	ArchivedAt      *time.Time      `json:"archived_at"`
+	LogoUrl         string          `json:"logo_url"`
 }
 
 type Contact struct {
@@ -71,6 +80,7 @@ type Contact struct {
 	CreatedAt       time.Time       `json:"created_at"`
 	UpdatedAt       time.Time       `json:"updated_at"`
 	ArchivedAt      *time.Time      `json:"archived_at"`
+	PhotoUrl        string          `json:"photo_url"`
 }
 
 type Interaction struct {

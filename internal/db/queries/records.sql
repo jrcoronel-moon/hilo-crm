@@ -18,10 +18,10 @@ SELECT * FROM companies WHERE workspace_id = $1 AND external_id = $2 AND archive
 -- workspace's row (RLS would also refuse it).
 -- name: SaveCompany :one
 INSERT INTO companies (id, workspace_id, name, domain, industry, size_range, country, website, description,
-                       owner_id, source_channel_id, tags, custom, external_id)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                       owner_id, source_channel_id, tags, custom, external_id, logo_url)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, domain = EXCLUDED.domain, industry = EXCLUDED.industry,
-    size_range = EXCLUDED.size_range, country = EXCLUDED.country, website = EXCLUDED.website,
+    size_range = EXCLUDED.size_range, country = EXCLUDED.country, website = EXCLUDED.website, logo_url = EXCLUDED.logo_url,
     description = EXCLUDED.description, owner_id = EXCLUDED.owner_id, source_channel_id = EXCLUDED.source_channel_id,
     tags = EXCLUDED.tags, custom = EXCLUDED.custom, external_id = EXCLUDED.external_id, updated_at = now()
 WHERE companies.workspace_id = EXCLUDED.workspace_id AND companies.archived_at IS NULL
@@ -40,19 +40,48 @@ WHERE workspace_id = $1 AND archived_at IS NULL
 ORDER BY id DESC
 LIMIT sqlc.arg(lim);
 
--- Web list with what the table shows.
+-- Web list with what the table shows, filtered by its toolbar and sorted by
+-- the clicked column (sort_by; '' = newest first). Sorted pages go by offset.
 -- name: CompaniesWithStats :many
-SELECT c.id, c.name, c.domain, c.industry, c.country, c.tags, c.created_at,
-       (SELECT count(*) FROM contacts ct WHERE ct.workspace_id = c.workspace_id AND ct.company_id = c.id AND ct.archived_at IS NULL)::int AS contacts,
-       (SELECT count(*) FROM opportunities o WHERE o.workspace_id = c.workspace_id AND o.company_id = c.id AND o.archived_at IS NULL AND o.status = 'open')::int AS open_opps,
-       COALESCE((SELECT max(i.occurred_at) FROM interactions i WHERE i.workspace_id = c.workspace_id AND i.company_id = c.id), 'epoch')::timestamptz AS last_activity
+SELECT c.id, c.name, c.domain, c.industry, c.country, c.tags, c.created_at, c.logo_url,
+       ct.n AS contacts, op.n AS open_opps, la.at AS last_activity
 FROM companies c
+CROSS JOIN LATERAL (SELECT count(*)::int AS n FROM contacts x
+                    WHERE x.workspace_id = c.workspace_id AND x.company_id = c.id AND x.archived_at IS NULL) ct
+CROSS JOIN LATERAL (SELECT count(*)::int AS n FROM opportunities o
+                    WHERE o.workspace_id = c.workspace_id AND o.company_id = c.id AND o.archived_at IS NULL AND o.status = 'open') op
+CROSS JOIN LATERAL (SELECT COALESCE(max(i.occurred_at), 'epoch')::timestamptz AS at FROM interactions i
+                    WHERE i.workspace_id = c.workspace_id AND i.company_id = c.id) la
 WHERE c.workspace_id = $1 AND c.archived_at IS NULL
   AND (sqlc.narg(query)::text IS NULL OR c.name ILIKE '%' || sqlc.narg(query) || '%' OR c.domain ILIKE '%' || sqlc.narg(query) || '%')
   AND (sqlc.narg(tag)::text IS NULL OR sqlc.narg(tag) = ANY (c.tags))
+  AND (sqlc.narg(industry)::text IS NULL OR c.industry = sqlc.narg(industry))
+  AND (sqlc.narg(country)::text IS NULL OR c.country = sqlc.narg(country))
+  AND (sqlc.narg(owner_id)::uuid IS NULL OR c.owner_id = sqlc.narg(owner_id))
   AND (sqlc.narg(cursor)::uuid IS NULL OR c.id < sqlc.narg(cursor))
-ORDER BY c.id DESC
+ORDER BY
+  CASE WHEN sqlc.arg(sort_by)::text = 'name' AND NOT sqlc.arg(descending)::bool THEN lower(c.name) END,
+  CASE WHEN sqlc.arg(sort_by) = 'name' AND sqlc.arg(descending) THEN lower(c.name) END DESC,
+  CASE WHEN sqlc.arg(sort_by) = 'industry' AND NOT sqlc.arg(descending) THEN lower(c.industry) END,
+  CASE WHEN sqlc.arg(sort_by) = 'industry' AND sqlc.arg(descending) THEN lower(c.industry) END DESC,
+  CASE WHEN sqlc.arg(sort_by) = 'country' AND NOT sqlc.arg(descending) THEN c.country END,
+  CASE WHEN sqlc.arg(sort_by) = 'country' AND sqlc.arg(descending) THEN c.country END DESC,
+  CASE WHEN sqlc.arg(sort_by) = 'contacts' AND NOT sqlc.arg(descending) THEN ct.n END,
+  CASE WHEN sqlc.arg(sort_by) = 'contacts' AND sqlc.arg(descending) THEN ct.n END DESC,
+  CASE WHEN sqlc.arg(sort_by) = 'open' AND NOT sqlc.arg(descending) THEN op.n END,
+  CASE WHEN sqlc.arg(sort_by) = 'open' AND sqlc.arg(descending) THEN op.n END DESC,
+  CASE WHEN sqlc.arg(sort_by) = 'activity' AND NOT sqlc.arg(descending) THEN la.at END,
+  CASE WHEN sqlc.arg(sort_by) = 'activity' AND sqlc.arg(descending) THEN la.at END DESC,
+  c.id DESC
+OFFSET sqlc.arg(off)
 LIMIT sqlc.arg(lim);
+
+-- Values the companies toolbar offers as filters.
+-- name: CompanyIndustries :many
+SELECT DISTINCT industry FROM companies WHERE workspace_id = $1 AND archived_at IS NULL AND industry <> '' ORDER BY industry LIMIT 300;
+
+-- name: CompanyCountries :many
+SELECT DISTINCT country FROM companies WHERE workspace_id = $1 AND archived_at IS NULL AND country <> '' ORDER BY country LIMIT 300;
 
 -- ───────────── contacts ─────────────
 
@@ -67,11 +96,11 @@ SELECT * FROM contacts WHERE workspace_id = $1 AND external_id = $2 AND archived
 
 -- name: SaveContact :one
 INSERT INTO contacts (id, workspace_id, company_id, first_name, last_name, email, phone, title, linkedin_url,
-                      owner_id, source_channel_id, tags, custom, external_id)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                      owner_id, source_channel_id, tags, custom, external_id, photo_url)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 ON CONFLICT (id) DO UPDATE SET company_id = EXCLUDED.company_id, first_name = EXCLUDED.first_name,
     last_name = EXCLUDED.last_name, email = EXCLUDED.email, phone = EXCLUDED.phone, title = EXCLUDED.title,
-    linkedin_url = EXCLUDED.linkedin_url, owner_id = EXCLUDED.owner_id, source_channel_id = EXCLUDED.source_channel_id,
+    linkedin_url = EXCLUDED.linkedin_url, photo_url = EXCLUDED.photo_url, owner_id = EXCLUDED.owner_id, source_channel_id = EXCLUDED.source_channel_id,
     tags = EXCLUDED.tags, custom = EXCLUDED.custom, external_id = EXCLUDED.external_id, updated_at = now()
 WHERE contacts.workspace_id = EXCLUDED.workspace_id AND contacts.archived_at IS NULL
 RETURNING *;
@@ -92,18 +121,30 @@ ORDER BY id DESC
 LIMIT sqlc.arg(lim);
 
 -- name: ContactsWithStats :many
-SELECT ct.id, ct.first_name, ct.last_name, ct.email, ct.title, ct.phone, ct.tags, ct.company_id,
-       co.name AS company_name,
-       COALESCE((SELECT max(i.occurred_at) FROM interactions i WHERE i.workspace_id = ct.workspace_id AND i.contact_id = ct.id), 'epoch')::timestamptz AS last_activity
+SELECT ct.id, ct.first_name, ct.last_name, ct.email, ct.title, ct.phone, ct.tags, ct.company_id, ct.photo_url,
+       co.name AS company_name, COALESCE(co.logo_url, '') AS company_logo_url, la.at AS last_activity
 FROM contacts ct
 LEFT JOIN companies co ON co.id = ct.company_id
+CROSS JOIN LATERAL (SELECT COALESCE(max(i.occurred_at), 'epoch')::timestamptz AS at FROM interactions i
+                    WHERE i.workspace_id = ct.workspace_id AND i.contact_id = ct.id) la
 WHERE ct.workspace_id = $1 AND ct.archived_at IS NULL
   AND (sqlc.narg(query)::text IS NULL OR ct.email ILIKE '%' || sqlc.narg(query) || '%'
        OR (ct.first_name || ' ' || ct.last_name) ILIKE '%' || sqlc.narg(query) || '%' OR co.name ILIKE '%' || sqlc.narg(query) || '%')
   AND (sqlc.narg(company_id)::uuid IS NULL OR ct.company_id = sqlc.narg(company_id))
   AND (sqlc.narg(tag)::text IS NULL OR sqlc.narg(tag) = ANY (ct.tags))
+  AND (sqlc.narg(owner_id)::uuid IS NULL OR ct.owner_id = sqlc.narg(owner_id))
   AND (sqlc.narg(cursor)::uuid IS NULL OR ct.id < sqlc.narg(cursor))
-ORDER BY ct.id DESC
+ORDER BY
+  CASE WHEN sqlc.arg(sort_by)::text = 'name' AND NOT sqlc.arg(descending)::bool THEN lower(ct.first_name || ' ' || ct.last_name) END,
+  CASE WHEN sqlc.arg(sort_by) = 'name' AND sqlc.arg(descending) THEN lower(ct.first_name || ' ' || ct.last_name) END DESC,
+  CASE WHEN sqlc.arg(sort_by) = 'title' AND NOT sqlc.arg(descending) THEN lower(ct.title) END,
+  CASE WHEN sqlc.arg(sort_by) = 'title' AND sqlc.arg(descending) THEN lower(ct.title) END DESC,
+  CASE WHEN sqlc.arg(sort_by) = 'company' AND NOT sqlc.arg(descending) THEN lower(co.name) END,
+  CASE WHEN sqlc.arg(sort_by) = 'company' AND sqlc.arg(descending) THEN lower(co.name) END DESC,
+  CASE WHEN sqlc.arg(sort_by) = 'activity' AND NOT sqlc.arg(descending) THEN la.at END,
+  CASE WHEN sqlc.arg(sort_by) = 'activity' AND sqlc.arg(descending) THEN la.at END DESC,
+  ct.id DESC
+OFFSET sqlc.arg(off)
 LIMIT sqlc.arg(lim);
 
 -- ───────────── opportunities ─────────────
@@ -159,7 +200,19 @@ WHERE o.workspace_id = $1 AND o.archived_at IS NULL
   AND (sqlc.narg(stale_before)::timestamptz IS NULL
        OR (o.status = 'open' AND COALESCE(o.last_interaction_at, o.stage_entered_at) < sqlc.narg(stale_before)))
   AND (sqlc.narg(cursor)::uuid IS NULL OR o.id < sqlc.narg(cursor))
-ORDER BY o.id DESC
+ORDER BY
+  CASE WHEN sqlc.arg(sort_by)::text = 'title' AND NOT sqlc.arg(descending)::bool THEN lower(o.title) END,
+  CASE WHEN sqlc.arg(sort_by) = 'title' AND sqlc.arg(descending) THEN lower(o.title) END DESC,
+  CASE WHEN sqlc.arg(sort_by) = 'stage' AND NOT sqlc.arg(descending) THEN s.position END,
+  CASE WHEN sqlc.arg(sort_by) = 'stage' AND sqlc.arg(descending) THEN s.position END DESC,
+  CASE WHEN sqlc.arg(sort_by) = 'amount' AND NOT sqlc.arg(descending) THEN o.amount_minor END,
+  CASE WHEN sqlc.arg(sort_by) = 'amount' AND sqlc.arg(descending) THEN o.amount_minor END DESC,
+  CASE WHEN sqlc.arg(sort_by) = 'activity' AND NOT sqlc.arg(descending) THEN o.last_interaction_at END,
+  CASE WHEN sqlc.arg(sort_by) = 'activity' AND sqlc.arg(descending) THEN o.last_interaction_at END DESC NULLS LAST,
+  CASE WHEN sqlc.arg(sort_by) = 'close' AND NOT sqlc.arg(descending) THEN o.expected_close_date END,
+  CASE WHEN sqlc.arg(sort_by) = 'close' AND sqlc.arg(descending) THEN o.expected_close_date END DESC NULLS LAST,
+  o.id DESC
+OFFSET sqlc.arg(off)
 LIMIT sqlc.arg(lim);
 
 -- Board: open opportunities plus those closed in the last closed_days, with
@@ -333,3 +386,12 @@ SELECT * FROM interactions WHERE workspace_id = $1 ORDER BY occurred_at, id;
 
 -- name: ExportChannelNames :many
 SELECT id, name FROM channels WHERE workspace_id = $1;
+
+-- ───────────── pictures (avatar_cache) ─────────────
+
+-- name: GetAvatar :one
+SELECT content_type, data, fetched_at FROM avatar_cache WHERE workspace_id = $1 AND url = $2;
+
+-- name: SaveAvatar :exec
+INSERT INTO avatar_cache (workspace_id, url, content_type, data, fetched_at) VALUES ($1, $2, $3, $4, now())
+ON CONFLICT (workspace_id, url) DO UPDATE SET content_type = EXCLUDED.content_type, data = EXCLUDED.data, fetched_at = now();

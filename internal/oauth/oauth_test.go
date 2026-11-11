@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"net/netip"
 	"strings"
 	"testing"
 )
@@ -52,28 +51,6 @@ func TestRedirectAllowed(t *testing.T) {
 		if got := redirectAllowed(reg, u); got != want {
 			t.Errorf("%s: got %v", u, got)
 		}
-	}
-}
-
-func TestPublicAddr(t *testing.T) {
-	for addr, want := range map[string]bool{
-		"8.8.8.8": true, "2606:4700:4700::1111": true,
-		"127.0.0.1": false, "10.1.2.3": false, "172.20.0.5": false, "192.168.1.1": false,
-		"169.254.169.254": false, "100.64.0.1": false, "0.0.0.0": false, "::1": false, "fd00::1": false,
-		"fe80::1": false, "::ffff:10.0.0.1": false, "64:ff9b::a00:1": false, "224.0.0.1": false, "198.18.0.1": false,
-	} {
-		if got := PublicAddr(netip.MustParseAddr(addr)); got != want {
-			t.Errorf("%s: got %v", addr, got)
-		}
-	}
-	if dialControl("tcp", "8.8.8.8:80", nil) == nil {
-		t.Error("non-443 port allowed")
-	}
-	if dialControl("tcp", "169.254.169.254:443", nil) == nil {
-		t.Error("metadata service allowed")
-	}
-	if dialControl("tcp", "8.8.8.8:443", nil) != nil {
-		t.Error("public address refused")
 	}
 }
 

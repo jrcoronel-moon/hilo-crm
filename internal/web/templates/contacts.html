@@ -2,35 +2,53 @@
 {{define "content"}}
 {{$d := .Data}}
 <form method="get" action="/contacts" class="toolbar">
-  <div class="search"><svg class="i sm"><use href="#i-search"/></svg><input type="search" name="q" value="{{$d.Q}}" placeholder="{{t "Buscar por nombre, email o empresa"}}" aria-label="{{t "Buscar"}}" data-hotkey="k"><kbd>⌘K</kbd></div>
-  {{with $d.Tag}}<span class="chip">{{t "Tag:"}} {{.}} <a href="/contacts" aria-label="{{t "Quitar filtro"}}">×</a></span>{{end}}
+  <details class="pop">
+    <summary class="btn"><svg class="i sm"><use href="#i-filter"/></svg>{{t "Filtros"}}{{with $d.Active}}<span class="count">{{.}}</span>{{end}}</summary>
+    <div class="pop-body">
+      <label class="field">{{t "Dueño"}}<select name="owner"><option value="">{{t "Todos"}}</option>{{range $d.Members}}<option value="{{.Email}}" {{if eq .Email $d.F.Owner}}selected{{end}}>{{or .Name .Email}}</option>{{end}}</select></label>
+      <label class="field">{{t "Tag"}}<select name="tag"><option value="">{{t "Todos"}}</option>{{range $d.Tags}}<option value="{{.Tag}}" {{if eq .Tag $d.F.Tag}}selected{{end}}>{{.Tag}} ({{.Count}})</option>{{end}}</select></label>
+      <div class="row"><button class="btn primary sm">{{t "Aplicar"}}</button>{{if $d.Active}}<a class="btn ghost sm" href="/contacts">{{t "Limpiar"}}</a>{{end}}</div>
+    </div>
+  </details>
+  <div class="search"><svg class="i sm"><use href="#i-search"/></svg><input type="search" name="q" value="{{$d.F.Query}}" placeholder="{{t "Buscar por nombre, email o empresa"}}" aria-label="{{t "Buscar"}}"></div>
+  {{with $d.F.Sort}}<input type="hidden" name="sort" value="{{.}}">{{if $d.F.Desc}}<input type="hidden" name="dir" value="desc">{{end}}{{end}}
+  {{with $d.F.Company}}<input type="hidden" name="company" value="{{.}}"><span class="chip">{{t "Empresa:"}} {{or $d.CompanyName .}} <a href="{{index $d.Without "company"}}" aria-label="{{t "Quitar filtro"}}">×</a></span>{{end}}
+  {{with $d.F.Owner}}<span class="chip">{{t "Dueño:"}} {{.}} <a href="{{index $d.Without "owner"}}" aria-label="{{t "Quitar filtro"}}">×</a></span>{{end}}
+  {{with $d.F.Tag}}<span class="chip">{{t "Tag:"}} {{.}} <a href="{{index $d.Without "tag"}}" aria-label="{{t "Quitar filtro"}}">×</a></span>{{end}}
 </form>
 <div class="live-region" data-live="list">
 {{if $d.Page.Items}}
-<table class="table">
-  <tr><th>{{t "Contacto"}}</th><th>{{t "Cargo"}}</th><th>{{t "Empresa"}}</th><th>{{t "Teléfono"}}</th><th>{{t "Tags"}}</th><th>{{t "Última actividad"}}</th></tr>
+<div class="table-wrap">
+<table class="table" data-resize="contacts">
+  <thead><tr>{{template "th" (th $d.Sort "name" (t "Contacto") "")}}{{template "th" (th $d.Sort "title" (t "Cargo") "")}}{{template "th" (th $d.Sort "company" (t "Empresa") "")}}<th>{{t "Teléfono"}}</th><th>{{t "Tags"}}</th>{{template "th" (th $d.Sort "activity" (t "Última actividad") "")}}</tr></thead>
+  <tbody>
   {{range $d.Page.Items}}
-  <tr data-row="{{.ID}}"><td><a class="cellflex" href="/contacts/{{.ID}}"><span class="av md">{{initials .Name .Email}}</span><span class="who"><b>{{or .Name .Email}}</b><small>{{.Email}}</small></span></a></td>
+  <tr data-row="{{.ID}}" data-href="/contacts/{{.ID}}"><td><a class="cellflex" href="/contacts/{{.ID}}">{{template "avatar" (av "contact" .ID .Name .Email .PhotoURL "md")}}<span class="who"><b>{{or .Name .Email}}</b><small>{{.Email}}</small></span></a></td>
     <td>{{or .Title "—"}}</td>
-    <td>{{if .CompanyID}}<a href="/companies/{{.CompanyID}}">{{.Company}}</a>{{else}}—{{end}}</td>
-    <td>{{or .Phone "—"}}</td>
+    <td>{{if .CompanyID}}<a class="sublink" href="/companies/{{.CompanyID}}">{{.Company}}</a>{{else}}—{{end}}</td>
+    <td class="nowrap">{{or .Phone "—"}}</td>
     <td>{{$t := firstTags .Tags 2}}<span class="row">{{range $t.Shown}}<a class="tag {{tagClass .}}" href="/contacts?tag={{.}}">{{.}}</a>{{end}}{{if $t.More}}<span class="tag">+{{$t.More}}</span>{{end}}</span></td>
-    <td>{{ago .LastActivity}}</td></tr>
+    <td class="muted">{{ago .LastActivity}}</td></tr>
   {{end}}
+  </tbody>
 </table>
-<div class="pager"><span>{{len $d.Page.Items}} {{t "en esta página"}}</span>{{with $d.Next}}<a class="btn sm" href="{{.}}">{{t "Siguiente"}}</a>{{end}}</div>
+{{template "pager" (pg (len $d.Page.Items) $d.Pager)}}
+</div>
 {{else}}
-<div class="empty"><span class="ic"><svg class="i"><use href="#i-users"/></svg></span><h2>{{if $d.Q}}{{t "Sin resultados para “"}}{{$d.Q}}”{{else}}{{t "Todavía no hay contactos"}}{{end}}</h2><p>{{t "Tus agentes los crean con"}} <code>upsert_contact</code>{{t ", llegan por formularios, o creá uno desde acá."}}</p></div>
+<div class="empty"><span class="ic"><svg class="i"><use href="#i-users"/></svg></span><h2>{{if $d.F.Query}}{{t "Sin resultados para “"}}{{$d.F.Query}}”{{else if $d.Active}}{{t "Ningún contacto con estos filtros"}}{{else}}{{t "Todavía no hay contactos"}}{{end}}</h2><p>{{t "Tus agentes los crean con"}} <code>upsert_contact</code>{{t ", llegan por formularios, o creá uno desde acá."}}</p></div>
 {{end}}
 </div>
 {{if .View.CanWrite}}
-<dialog id="new-contact" class="wide"><form method="post" action="/contacts" class="stack">
-  <input type="hidden" name="csrf" value="{{$d.CSRF}}">
-  <h2>{{t "Nuevo contacto"}}</h2>
-  <div class="row"><label class="field grow">{{t "Nombre"}}<input name="first_name" maxlength="100"></label><label class="field grow">{{t "Apellido"}}<input name="last_name" maxlength="100"></label></div>
-  <div class="row"><label class="field grow">{{t "Email"}}<input name="email" type="email" placeholder="{{t "ana@globex.com"}}"></label><label class="field grow">{{t "Empresa (nombre o dominio)"}}<input name="company" placeholder="{{t "globex.com"}}"></label></div>
-  <p class="muted small">{{t "Si el email ya existe, se actualiza ese contacto en vez de duplicarlo. La empresa se busca y, si no existe, se crea."}}</p>
-  <div class="acts"><button class="btn" type="button" data-close>{{t "Cancelar"}}</button><button class="btn primary">{{t "Crear contacto"}}</button></div>
+<dialog id="new-contact" class="drawer"><form method="post" action="/contacts" class="drawer-form">
+  {{template "drawer-head" (t "Nuevo contacto")}}
+  <div class="drawer-body stack">
+    <input type="hidden" name="csrf" value="{{$d.CSRF}}">
+    <div class="row"><label class="field grow">{{t "Nombre"}}<input name="first_name" maxlength="100"></label><label class="field grow">{{t "Apellido"}}<input name="last_name" maxlength="100"></label></div>
+    <label class="field">{{t "Email"}}<input name="email" type="email" placeholder="{{t "ana@globex.com"}}"></label>
+    <label class="field">{{t "Empresa (nombre o dominio)"}}<input name="company" placeholder="{{t "globex.com"}}"></label>
+    <p class="muted small">{{t "Si el email ya existe, se actualiza ese contacto en vez de duplicarlo. La empresa se busca y, si no existe, se crea."}}</p>
+  </div>
+  <footer class="drawer-foot"><button class="btn" type="button" data-close>{{t "Cancelar"}}</button><button class="btn primary">{{t "Crear contacto"}}</button></footer>
 </form></dialog>
 {{end}}
 {{end}}

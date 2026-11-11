@@ -542,6 +542,8 @@ type OpportunityFilter struct {
 	StaleDays   int    `json:"stale_days,omitempty" jsonschema:"open opportunities with no interaction or stage change in this many days"`
 	Cursor      string `json:"cursor,omitempty"`
 	Limit       int    `json:"limit,omitempty" jsonschema:"page size, default 25, max 100"`
+
+	TableOptions // web table sort and offset (Industry and Country do not apply)
 }
 
 // ListOpportunities returns a filtered page, newest first.
@@ -550,7 +552,7 @@ func (s *Service) ListOpportunities(ctx context.Context, a Actor, f OpportunityF
 	err := s.tx(ctx, a, PermRead, func(q *store.Queries) error {
 		ws := a.WorkspaceID
 		r := resolvers{ctx, q, ws}
-		p := store.ListOpportunitiesParams{WorkspaceID: ws, Lim: clampLimit(f.Limit, 25, 100)}
+		p := store.ListOpportunitiesParams{WorkspaceID: ws, Lim: clampLimit(f.Limit, 25, 100), SortBy: f.Sort, Descending: f.Desc, Off: f.offset()}
 		var pt patcher
 		if f.Pipeline != "" || (f.Stage != "" && uuid.Validate(f.Stage) != nil) {
 			pipe, err := resolvePipeline(ctx, q, ws, f.Pipeline)
@@ -615,6 +617,7 @@ func (s *Service) ListOpportunities(ctx context.Context, a Actor, f OpportunityF
 			out.Items = append(out.Items, opportunityView(listRowOpportunity(row), st, deref(row.CompanyName)))
 		}
 		out.NextCursor = nextCursor(rows, p.Lim, func(r store.ListOpportunitiesRow) uuid.UUID { return r.ID })
+		out.NextOffset = nextOffset(len(rows), p.Lim, f.TableOptions)
 		return nil
 	})
 	return out, err

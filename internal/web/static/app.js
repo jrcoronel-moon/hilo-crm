@@ -227,6 +227,24 @@ document.addEventListener("click", (e) => {
   }
   const closer = e.target instanceof Element ? e.target.closest("[data-close]") : null;
   if (closer) closer.closest("dialog")?.close();
+  // A click on a drawer's backdrop (the dialog itself, outside its form) closes it.
+  if (e.target instanceof HTMLDialogElement && e.target.classList.contains("drawer")) e.target.close();
+});
+
+// A picture that does not load leaves the avatar's initials (no inline
+// onerror: the CSP forbids it, so one listener catches them all).
+document.addEventListener("error", (e) => {
+  if (e.target instanceof HTMLImageElement && e.target.parentElement?.classList.contains("pic")) e.target.remove();
+}, true);
+
+// ───── table rows with data-href open their record (links, buttons and
+// checkboxes inside keep their own behaviour; ⌘/Ctrl-click opens a tab) ─────
+document.addEventListener("click", (e) => {
+  const t = e.target instanceof Element ? e.target : null;
+  const row = t?.closest("tr[data-href]");
+  if (!row || t.closest("a, button, input, select, label, textarea") || getSelection()?.toString()) return;
+  if (e.metaKey || e.ctrlKey) window.open(row.dataset.href, "_blank", "noopener");
+  else location.assign(row.dataset.href);
 });
 
 // ───── bulk selection (opportunities list) ─────
@@ -254,6 +272,85 @@ function setupBulk(form) {
 }
 
 
+// Same FNV-1a 32 over the trimmed, lower-cased name as the server's avClass.
+function avHue(name) {
+  let h = 0x811c9dc5;
+  for (const b of new TextEncoder().encode(name.trim().toLowerCase())) { h ^= b; h = Math.imul(h, 0x01000193) >>> 0; }
+  return "h" + (h % 6);
+}
+
+// ───── header search: results while typing (GET /search, JSON); Enter
+// without a highlighted result opens the full results page ─────
+$$("form[data-gsearch]").forEach((form) => {
+  const input = $("input[name=q]", form);
+  const pop = $("[data-gs-results]", form);
+  let items = [], sel = -1, timer = null, seq = 0;
+  const close = () => { pop.hidden = true; input.setAttribute("aria-expanded", "false"); sel = -1; };
+  const highlight = (i) => {
+    sel = i;
+    items.forEach((a, k) => a.setAttribute("aria-selected", String(k === i)));
+    items[i]?.scrollIntoView({ block: "nearest" });
+  };
+  const initialsOf = (t) => t.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join("");
+  const render = (results, q) => {
+    pop.replaceChildren();
+    for (const r of results) { // textContent everywhere: titles are user data
+      const a = document.createElement("a");
+      a.href = r.url;
+      a.setAttribute("role", "option");
+      const av = document.createElement("span");
+      av.className = "av md " + avHue(r.title) + (r.type === "contact" ? "" : " sq");
+      av.textContent = initialsOf(r.title);
+      const txt = document.createElement("span");
+      const b = document.createElement("b");
+      b.textContent = r.title;
+      txt.append(b);
+      if (r.subtitle) {
+        const sm = document.createElement("small");
+        sm.textContent = r.subtitle;
+        txt.append(sm);
+      }
+      const em = document.createElement("em");
+      em.textContent = r.label;
+      a.append(av, txt, em);
+      pop.append(a);
+    }
+    if (!results.length) {
+      const p = document.createElement("div");
+      p.className = "gs-empty";
+      p.textContent = tr("Sin resultados para “%s”", q);
+      pop.append(p);
+    }
+    const all = document.createElement("a");
+    all.className = "gs-all";
+    all.href = "/search?q=" + encodeURIComponent(q);
+    all.textContent = tr("Ver todos los resultados");
+    pop.append(all);
+    items = $$("a", pop);
+    sel = -1;
+    pop.hidden = false;
+    input.setAttribute("aria-expanded", "true");
+  };
+  const lookup = async () => {
+    const q = input.value.trim();
+    if (q.length < 2) { close(); return; }
+    const mine = ++seq;
+    const res = await fetch("/search?q=" + encodeURIComponent(q), { headers: { Accept: "application/json" }, credentials: "same-origin" }).catch(() => null);
+    if (!res || !res.ok || mine !== seq) return;
+    render((await res.json()).results || [], q);
+  };
+  input.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(lookup, 160); });
+  input.addEventListener("focus", () => { if (input.value.trim().length >= 2) lookup(); });
+  input.addEventListener("keydown", (e) => {
+    if (pop.hidden) return;
+    if (e.key === "ArrowDown") { e.preventDefault(); highlight(Math.min(items.length - 1, sel + 1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); highlight(Math.max(0, sel - 1)); }
+    else if (e.key === "Enter" && sel >= 0) { e.preventDefault(); location.assign(items[sel].href); }
+    else if (e.key === "Escape") { close(); }
+  });
+  document.addEventListener("pointerdown", (e) => { if (!(e.target instanceof Node) || !form.contains(e.target)) close(); });
+});
+
 // ───── ⌘K / Ctrl+K focuses the search box ─────
 document.addEventListener("keydown", (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -272,8 +369,11 @@ if (shell) {
     document.cookie = `hilo_side=${v}; Path=/; Max-Age=31536000; SameSite=Lax${secure}`;
   };
   const widthClass = () => [...shell.classList].find((c) => c.startsWith("sw-"));
-  $("[data-collapse]")?.addEventListener("click", () => {
+  const collapser = $("[data-collapse]");
+  collapser?.setAttribute("aria-expanded", String(!shell.classList.contains("collapsed")));
+  collapser?.addEventListener("click", () => {
     const collapsed = shell.classList.toggle("collapsed");
+    collapser.setAttribute("aria-expanded", String(!collapsed));
     save(collapsed ? "c" : (widthClass() || "sw-232").slice(3));
   });
   phoneMenu();
@@ -434,12 +534,61 @@ $$("form[data-move]").forEach((form) => form.addEventListener("submit", (e) => {
   }
 }));
 
+// ───── column widths: drag a header's right edge (double click resets).
+// Widths are a per-browser convenience (localStorage), applied through the
+// CSSOM, which the CSP allows. ─────
+const COLS = "hilo-cols:";
+function loadWidths(key) {
+  try { return JSON.parse(localStorage.getItem(COLS + key) || "null"); } catch { return null; }
+}
+function saveWidths(key, widths) {
+  try {
+    if (widths) localStorage.setItem(COLS + key, JSON.stringify(widths));
+    else localStorage.removeItem(COLS + key);
+  } catch { /* storage unavailable: widths last until reload */ }
+}
+function setupResize(table) {
+  const key = table.dataset.resize;
+  const ths = $$("thead th", table);
+  const apply = (widths) => {
+    table.classList.toggle("resized", !!widths);
+    ths.forEach((th, i) => { th.style.width = widths ? widths[i] + "px" : ""; });
+  };
+  const saved = loadWidths(key);
+  if (Array.isArray(saved) && saved.length === ths.length) apply(saved);
+  ths.forEach((th, i) => {
+    if (i === ths.length - 1) return; // the last column takes what is left
+    const grip = document.createElement("span");
+    grip.className = "col-grip";
+    grip.setAttribute("aria-hidden", "true");
+    th.append(grip);
+    grip.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); });
+    grip.addEventListener("dblclick", (e) => { e.preventDefault(); saveWidths(key, null); apply(null); });
+    grip.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      grip.setPointerCapture(e.pointerId);
+      const widths = ths.map((h) => Math.round(h.getBoundingClientRect().width));
+      const start = e.clientX, from = widths[i];
+      apply(widths);
+      table.classList.add("resizing-col");
+      const move = (ev) => { widths[i] = Math.max(56, Math.round(from + ev.clientX - start)); th.style.width = widths[i] + "px"; };
+      grip.addEventListener("pointermove", move);
+      grip.addEventListener("pointerup", () => {
+        grip.removeEventListener("pointermove", move);
+        table.classList.remove("resizing-col");
+        saveWidths(key, widths);
+      }, { once: true });
+    });
+  });
+}
+
 // ───── live updates: the server streams every change in this workspace
 // (GET /events); the page refetches itself and swaps its [data-live] regions,
 // so what agents do shows up without reloading ─────
 function hydrate(root) {
   $$("[data-board]", root).forEach(setupBoard);
   $$("form[data-bulk]", root).forEach(setupBulk);
+  $$("table[data-resize]", root).forEach(setupResize);
 }
 hydrate(document);
 

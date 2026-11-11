@@ -114,7 +114,7 @@ func TestExportCSVRoundTrip(t *testing.T) {
 	}
 	for kind, want := range map[string][]string{
 		crm.KindCompany:     {"custom:segment", "'=SUM(A1)", "hs:42", `"vip, saas"`},
-		crm.KindContact:     {"'+54 11 5555-0000,,,globex.test,Globex,", "hs:42,Taller sin dominio", `"Dueño, socio"`, "custom:score"},
+		crm.KindContact:     {"'+54 11 5555-0000,,,,globex.test,Globex,", "hs:42,Taller sin dominio", `"Dueño, socio"`, "custom:score"},
 		crm.KindOpportunity: {"1234.5,USD,40,2027-01-31,hs:42,Taller sin dominio", "ana@globex.test,Ana López", "\"Dos líneas,\ncon \"\"comillas\"\"\"", "custom:origen"},
 	} {
 		for _, w := range want {

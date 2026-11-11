@@ -14,45 +14,89 @@ import (
 // Companies and contacts: lists, record pages, create/edit and archive. All
 // writes go through the crm service, exactly like the MCP tools.
 
+// peopleList is a companies or contacts table: the page, its filters (F,
+// with the values they offer) and its sort links.
 type peopleList[T any] struct {
-	CSRF string
-	Page crm.Page[T]
-	Q    string
-	Tag  string
-	Next string
+	CSRF  string
+	Page  crm.Page[T]
+	F     crm.ListFilter
+	Sort  map[string]sortCol
+	Pager pager
+	// Active counts the filters in use besides the search box.
+	Active                int
+	Industries, Countries []string
+	Tags                  []crm.TagCount
+	Members               []store.ListMembersRow
+	Without               map[string]string // a filter chip's × link, by filter
+	CompanyName           string            // contacts filtered by company
 }
 
-func listNext(r *http.Request, cursor string) string {
-	if cursor == "" {
-		return ""
+var (
+	companyCols = []string{"name", "industry", "country", "contacts", "open", "activity"}
+	contactCols = []string{"name", "title", "company", "activity"}
+)
+
+// readListFilter takes the table query: search, filters, sort and offset.
+func readListFilter(r *http.Request, cols []string) crm.ListFilter {
+	g := r.URL.Query().Get
+	f := crm.ListFilter{Query: strings.TrimSpace(g("q")), Tag: g("tag"), Owner: g("owner"), Company: g("company"), Limit: 50,
+		TableOptions: tableOptions(r, cols...)}
+	f.Industry, f.Country = g("industry"), g("country")
+	return f
+}
+
+// fillPeopleList adds what every people table shows around its rows.
+func fillPeopleList[T any](h *Handler, r *http.Request, v view, d *peopleList[T], cols []string, filters ...string) error {
+	d.CSRF, d.Sort = v.Sess.CSRFToken, sortLinks(r, d.F.TableOptions, cols...)
+	d.Pager = pagerFor(r, d.F.TableOptions, len(d.Page.Items), d.Page.NextOffset)
+	d.Without = map[string]string{}
+	for _, k := range filters {
+		if r.URL.Query().Get(k) != "" {
+			d.Active++
+			d.Without[k] = without(r, k)
+		}
 	}
-	q := r.URL.Query()
-	q.Set("cursor", cursor)
-	return "?" + q.Encode()
+	var err error
+	if d.Members, err = h.id.Members(r.Context(), v.caller()); err == nil {
+		d.Tags, err = h.crm.ListAllTags(r.Context(), v.Actor)
+	}
+	return err
 }
 
 func (h *Handler) companies(w http.ResponseWriter, r *http.Request, v view) {
-	g := r.URL.Query().Get
-	f := crm.ListFilter{Query: strings.TrimSpace(g("q")), Tag: g("tag"), Cursor: g("cursor"), Limit: 50}
-	p, err := h.crm.CompanyRows(r.Context(), v.Actor, f)
+	d := peopleList[crm.CompanyRow]{F: readListFilter(r, companyCols)}
+	d.F.Company = ""
+	var err error
+	if d.Page, err = h.crm.CompanyRows(r.Context(), v.Actor, d.F); err == nil {
+		if err = fillPeopleList(h, r, v, &d, companyCols, "industry", "country", "owner", "tag"); err == nil {
+			d.Industries, d.Countries, err = h.crm.CompanyFacets(r.Context(), v.Actor)
+		}
+	}
 	if err != nil {
 		h.fail(w, r, err)
 		return
 	}
-	h.render(w, r, http.StatusOK, "companies", page{Title: i18n.M("Empresas"), View: &v, Nav: "companies", Flash: flashes[g("ok")],
-		Data: peopleList[crm.CompanyRow]{CSRF: v.Sess.CSRFToken, Page: p, Q: f.Query, Tag: f.Tag, Next: listNext(r, p.NextCursor)}})
+	h.render(w, r, http.StatusOK, "companies", page{Title: i18n.M("Empresas"), View: &v, Nav: "companies", Flash: flashes[r.URL.Query().Get("ok")], Data: d})
 }
 
 func (h *Handler) contacts(w http.ResponseWriter, r *http.Request, v view) {
-	g := r.URL.Query().Get
-	f := crm.ListFilter{Query: strings.TrimSpace(g("q")), Tag: g("tag"), Company: g("company"), Cursor: g("cursor"), Limit: 50}
-	p, err := h.crm.ContactRows(r.Context(), v.Actor, f)
+	d := peopleList[crm.ContactRow]{F: readListFilter(r, contactCols)}
+	d.F.Industry, d.F.Country = "", ""
+	var err error
+	if d.Page, err = h.crm.ContactRows(r.Context(), v.Actor, d.F); err == nil {
+		err = fillPeopleList(h, r, v, &d, contactCols, "company", "owner", "tag")
+	}
+	if err == nil && d.F.Company != "" {
+		var c crm.CompanyDetail
+		if c, err = h.crm.GetCompany(r.Context(), v.Actor, d.F.Company); err == nil {
+			d.CompanyName = c.Name
+		}
+	}
 	if err != nil {
 		h.fail(w, r, err)
 		return
 	}
-	h.render(w, r, http.StatusOK, "contacts", page{Title: i18n.M("Contactos"), View: &v, Nav: "contacts", Flash: flashes[g("ok")],
-		Data: peopleList[crm.ContactRow]{CSRF: v.Sess.CSRFToken, Page: p, Q: f.Query, Tag: f.Tag, Next: listNext(r, p.NextCursor)}})
+	h.render(w, r, http.StatusOK, "contacts", page{Title: i18n.M("Contactos"), View: &v, Nav: "contacts", Flash: flashes[r.URL.Query().Get("ok")], Data: d})
 }
 
 type companyPage struct {
@@ -94,7 +138,7 @@ func (h *Handler) company(w http.ResponseWriter, r *http.Request, v view) {
 		h.fail(w, r, err)
 		return
 	}
-	h.render(w, r, http.StatusOK, "company", page{Title: i18n.M("Empresas"), Crumb: c.Name, View: &v, Nav: "companies", Flash: flashes[r.URL.Query().Get("ok")], Data: d})
+	h.render(w, r, http.StatusOK, "company", page{Title: i18n.M("Empresas"), Crumb: c.Name, Parent: "/companies", View: &v, Nav: "companies", Flash: flashes[r.URL.Query().Get("ok")], Data: d})
 }
 
 type contactPage struct {
@@ -138,7 +182,7 @@ func (h *Handler) contact(w http.ResponseWriter, r *http.Request, v view) {
 	if name == "" {
 		name = c.Email
 	}
-	h.render(w, r, http.StatusOK, "contact", page{Title: i18n.M("Contactos"), Crumb: name, View: &v, Nav: "contacts", Flash: flashes[r.URL.Query().Get("ok")], Data: d})
+	h.render(w, r, http.StatusOK, "contact", page{Title: i18n.M("Contactos"), Crumb: name, Parent: "/contacts", View: &v, Nav: "contacts", Flash: flashes[r.URL.Query().Get("ok")], Data: d})
 }
 
 // formStr returns a pointer to a trimmed form value, so an empty field
@@ -164,6 +208,7 @@ func (h *Handler) saveCompany(w http.ResponseWriter, r *http.Request, v view) {
 		in.ID = &id
 		in.Industry, in.SizeRange, in.Country = formStr(r, "industry"), formStr(r, "size_range"), formStr(r, "country")
 		in.Website, in.Description, in.Owner = formStr(r, "website"), formStr(r, "description"), formStr(r, "owner")
+		in.LogoURL = formStr(r, "logo_url")
 		in.Tags = formTags(r)
 	} else if strings.TrimSpace(*in.Domain) == "" {
 		in.Domain = nil // creating without a domain: never match an existing one by it
@@ -188,6 +233,7 @@ func (h *Handler) saveContact(w http.ResponseWriter, r *http.Request, v view) {
 	if id := r.PathValue("id"); id != "" {
 		in.ID = &id
 		in.Phone, in.Title, in.LinkedInURL, in.Owner = formStr(r, "phone"), formStr(r, "title"), formStr(r, "linkedin_url"), formStr(r, "owner")
+		in.PhotoURL = formStr(r, "photo_url")
 		in.Tags = formTags(r)
 	} else if *in.Email == "" {
 		in.Email = nil

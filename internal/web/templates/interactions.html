@@ -4,21 +4,25 @@
   <select name="type" data-autosubmit aria-label="{{t "Tipo"}}"><option value="">{{t "Todos los tipos"}}</option>{{range $d.Types}}<option value="{{.}}" {{if eq . $f.Type}}selected{{end}}>{{typeLabel .}}</option>{{end}}</select>
   <select name="direction" data-autosubmit aria-label="{{t "Dirección"}}"><option value="">{{t "Todas las direcciones"}}</option><option value="inbound" {{if eq $f.Direction "inbound"}}selected{{end}}>{{t "Entrantes"}}</option><option value="outbound" {{if eq $f.Direction "outbound"}}selected{{end}}>{{t "Salientes"}}</option><option value="internal" {{if eq $f.Direction "internal"}}selected{{end}}>{{t "Notas internas"}}</option></select>
   <select name="channel" data-autosubmit aria-label="{{t "Canal"}}"><option value="">{{t "Todos los canales"}}</option>{{range $d.Channels}}<option value="{{.Name}}" {{if eq .Name $f.Channel}}selected{{end}}>{{.Name}}</option>{{end}}</select>
-  <div class="search"><svg class="i sm"><use href="#i-search"/></svg><input type="search" name="q" value="{{$f.Query}}" placeholder="{{t "Buscar en asunto, resumen, empresa u oportunidad"}}" aria-label="{{t "Buscar"}}"></div>
+  <div class="search"><svg class="i sm"><use href="#i-filter"/></svg><input type="search" name="q" value="{{$f.Query}}" placeholder="{{t "Buscar en asunto, resumen, empresa u oportunidad"}}" aria-label="{{t "Buscar"}}"></div>
 </form>
 <div class="live-region" data-live="list">
 {{if $d.Page.Items}}
-<table class="table">
-  <tr><th>{{t "Cuándo"}}</th><th>{{t "Tipo"}}</th><th>{{t "Con"}}</th><th>{{t "Asunto / resumen"}}</th><th>{{t "Oportunidad"}}</th></tr>
+<div class="table-wrap">
+<table class="table" data-resize="interactions">
+  <thead><tr><th>{{t "Cuándo"}}</th><th>{{t "Tipo"}}</th><th>{{t "Con"}}</th><th>{{t "Asunto / resumen"}}</th><th>{{t "Oportunidad"}}</th></tr></thead>
+  <tbody>
   {{range $d.Page.Items}}
-  <tr data-row="{{.ID}}"><td class="small">{{date .OccurredAt}} <span class="muted">{{.OccurredAt.Format "15:04"}}</span></td>
-    <td><span class="row"><span class="tag outline">{{typeLabel .Type}}</span><span class="badge plain {{if eq .Direction "inbound"}}ok{{end}}">{{if eq .Direction "inbound"}}{{t "↓ entrante"}}{{else if eq .Direction "outbound"}}{{t "↑ saliente"}}{{else}}{{t "interna"}}{{end}}</span></span></td>
+  <tr data-row="{{.ID}}"><td class="small nowrap">{{date .OccurredAt}} <span class="muted">{{.OccurredAt.Format "15:04"}}</span></td>
+    <td><span class="cellflex"><span class="tl-ic sm t-{{.Type}}"><svg class="i sm"><use href="#i-{{typeIcon .Type}}"/></svg></span><span class="who"><b>{{typeLabel .Type}}</b><small>{{if eq .Direction "inbound"}}{{t "↓ entrante"}}{{else if eq .Direction "outbound"}}{{t "↑ saliente"}}{{else}}{{t "interna"}}{{end}}</small></span></span></td>
     <td class="who"><b>{{or .Contact .Company "—"}}</b>{{if and .Contact .Company}}<small>{{.Company}}</small>{{end}}</td>
     <td class="who"><b>{{or .Subject "—"}}</b><small>{{.Summary}}</small></td>
     <td>{{or .Opportunity "—"}}{{with .Channel}} <span class="muted small">· {{.}}</span>{{end}}</td></tr>
   {{end}}
+  </tbody>
 </table>
-<div class="pager"><span>{{len $d.Page.Items}} {{t "en esta página"}}</span>{{with $d.Next}}<a class="btn sm" href="{{.}}">{{t "Siguiente"}}</a>{{end}}</div>
+<div class="pager"><span>{{len $d.Page.Items}} {{t "en esta página"}}</span>{{with $d.Next}}<a class="btn sm" href="{{.}}">{{t "Siguiente"}}<svg class="i sm"><use href="#i-chevr"/></svg></a>{{end}}</div>
+</div>
 {{else}}
 <div class="empty"><span class="ic"><svg class="i"><use href="#i-msg"/></svg></span><h2>{{t "Sin interacciones"}}</h2><p>{{t "Tus agentes registran emails, llamadas, reuniones y mensajes con"}} <code>log_interaction</code>.</p></div>
 {{end}}

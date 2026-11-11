@@ -130,7 +130,7 @@ func (x *exporter) exportCompanies() error {
 		id := exportID(c.ExternalID, c.ID)
 		x.companies[c.ID] = id
 		x.out.Companies = append(x.out.Companies, CompanyInput{ExternalID: &id, Name: &c.Name, Domain: c.Domain,
-			Industry: opt(c.Industry), SizeRange: opt(c.SizeRange), Country: opt(c.Country), Website: opt(c.Website),
+			Industry: opt(c.Industry), SizeRange: opt(c.SizeRange), Country: opt(c.Country), Website: opt(c.Website), LogoURL: opt(c.LogoUrl),
 			Description: opt(c.Description), Owner: ref(x.owners, c.OwnerID), SourceChannel: ref(x.channels, c.SourceChannelID),
 			Tags: optTags(c.Tags), Custom: optCustom(c.Custom)})
 	}
@@ -143,7 +143,7 @@ func (x *exporter) exportContacts() error {
 		id := exportID(c.ExternalID, c.ID)
 		x.contacts[c.ID] = id
 		x.out.Contacts = append(x.out.Contacts, ContactInput{ExternalID: &id, Email: c.Email, FirstName: opt(c.FirstName),
-			LastName: opt(c.LastName), Phone: opt(c.Phone), Title: opt(c.Title), LinkedInURL: opt(c.LinkedinUrl),
+			LastName: opt(c.LastName), Phone: opt(c.Phone), Title: opt(c.Title), LinkedInURL: opt(c.LinkedinUrl), PhotoURL: opt(c.PhotoUrl),
 			Company: ref(x.companies, c.CompanyID), Owner: ref(x.owners, c.OwnerID), SourceChannel: ref(x.channels, c.SourceChannelID),
 			Tags: optTags(c.Tags), Custom: optCustom(c.Custom)})
 	}

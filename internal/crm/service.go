@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"net/http"
 	"time"
 
 	"github.com/google/uuid"
@@ -12,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/jrcoronel-moon/hilo-crm/internal/db"
+	"github.com/jrcoronel-moon/hilo-crm/internal/safehttp"
 	"github.com/jrcoronel-moon/hilo-crm/internal/store"
 )
 
@@ -22,12 +24,13 @@ type Service struct {
 	log *slog.Logger
 	now func() time.Time
 
-	master []byte // SESSION_SECRET, for secrets sealed in the database
+	master []byte       // SESSION_SECRET, for secrets sealed in the database
+	img    *http.Client // fetches record pictures (safehttp: public https only)
 }
 
 // New builds the service.
 func New(d *db.DB, log *slog.Logger) *Service {
-	return &Service{db: d, log: log, now: time.Now}
+	return &Service{db: d, log: log, now: time.Now, img: safehttp.Client(avatarTimeout, 3)}
 }
 
 // tx runs fn in the actor's workspace after checking permission p.
